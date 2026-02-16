@@ -2,7 +2,6 @@
 #define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
-
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
@@ -12,6 +11,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <cmath>
 
 #ifdef _WIN32
   #define NOMINMAX
@@ -52,21 +52,75 @@ static void infoBox(const string& title, const string& msg) {
 }
 
 // =========================
-// Logger
+// Logger (Central)
 // =========================
 struct Logger {
     ofstream out;
     uint64_t cycle = 0;
+
+    // in-memory lines for Show Logs
+    vector<string> mem;
+    int maxMem = 3000;
+    bool toConsole = true;
 
     explicit Logger(const string& path) {
         out.open(path.c_str(), ios::app);
         if (!out) cerr << "Failed to open log file: " << path << "\n";
     }
 
+    void clear() { mem.clear(); }
+    const vector<string>& lines() const { return mem; }
+
+    string formatLine(const string& level, int blockIndex, const string& cmd,
+                      const string& operation, const string& data) const {
+        // Minimum required fields:
+        // Cycle, Line/BlockIndex, CMD, Operation, Data, Level
+        ostringstream ss;
+        ss << "[Cycle:" << cycle << "] "
+           << "[Line:" << blockIndex << "] "
+           << "[CMD:" << cmd << "] "
+           << "[Level:" << level << "] "
+           << "[Op:" << operation << "] "
+           << "[Data:" << data << "]";
+        return ss.str();
+    }
+
+    void logLine(const string& level, int blockIndex, const string& cmd,
+                 const string& operation, const string& data) {
+        string line = formatLine(level, blockIndex, cmd, operation, data);
+
+        // memory
+        mem.push_back(line);
+        if ((int)mem.size() > maxMem) {
+            mem.erase(mem.begin(), mem.begin() + ((int)mem.size() - maxMem));
+        }
+
+        // console
+        if (toConsole) {
+            if (level == "ERROR") cerr << line << "\n";
+            else                 cout << line << "\n";
+        }
+
+        // file
+        if (out) {
+            out << line << "\n";
+            out.flush();
+        }
+    }
+
+    // Backward compatible
     void log(const string& tag, const string& msg) {
-        if (!out) return;
-        out << "[Cycle:" << cycle << "] [" << tag << "] " << msg << "\n";
-        out.flush();
+        logLine("INFO", -1, tag, msg, "");
+    }
+
+    void info(int idx, const string& cmd, const string& op, const string& data) {
+        logLine("INFO", idx, cmd, op, data);
+    }
+    void warn(int idx, const string& cmd, const string& op, const string& data) {
+        logLine("WARNING", idx, cmd, op, data);
+    }
+    void error(int idx, const string& cmd, const string& op, const string& data) {
+        logLine("ERROR", idx, cmd, op, data);
     }
 };
 
@@ -197,6 +251,11 @@ struct Block {
 
     bool dragging = false;
     int offX = 0, offY = 0;
+
+    // --- Script/Interpreter minimal fields (for Help tools)
+    string cmd = "MOVE";   // "MOVE", "DIV", "SQRT", "LOOP"
+    double a = 40.0;       // MOVE: dx, DIV: a, SQRT: a
+    double b = 0.0;        // DIV: b
 };
 
 struct Workspace {
@@ -252,9 +311,19 @@ struct Workspace {
             for (size_t i = 0; i < blocks.size(); i++) {
                 Block& b = blocks[i];
                 if (!b.dragging) continue;
+                int beforeX = b.rect.x;
+                int beforeY = b.rect.y;
+
                 b.rect.x = in.mx - b.offX;
                 b.rect.y = in.my - b.offY;
                 clampIntoBounds(b);
+
+                if (b.rect.x != beforeX || b.rect.y != beforeY) {
+                    log.warn((int)i, "DRAG", "Block clamped to bounds",
+                             "id=" + to_string(b.id) +
+                             " (" + to_string(beforeX) + "," + to_string(beforeY) + ")->(" +
+                             to_string(b.rect.x) + "," + to_string(b.rect.y) + ")");
+                }
             }
         }
 
@@ -351,7 +420,7 @@ static vector<string> listSaveStems() {
     if (h == INVALID_HANDLE_VALUE) return out;
 
     do {
-        string name = fd.cFileName; // e.g. abc.txttttttttttt
+        string name = fd.cFileName;
         if (name.size() >= 4) {
             string tail = name.substr(name.size() - 4);
             for (size_t i = 0; i < tail.size(); i++) tail[i] = (char)tolower(tail[i]);
@@ -387,7 +456,6 @@ static bool saveProjectNamed(const string& saveStem, const Workspace& ws, Logger
         return false;
     }
 
-    // Human-readable format
     f << "# YKP_SAVE_V1\n";
     f << "BLOCKS " << ws.blocks.size() << "\n";
     for (size_t i = 0; i < ws.blocks.size(); i++) {
@@ -463,6 +531,23 @@ struct AppState {
     vector<string> saveList;
     int loadHoverIndex = -1;
     int loadScroll = 0;
+
+    // --- Help Menu / Logs Panel
+    bool helpMenuOpen = false;
+    SDL_Rect helpButtonRect{0,0,0,0};
+    bool showLogsPanel = false;
+    int logsScroll = 0;
+
+    // --- Step-by-Step Mode
+    bool debugStepMode = false;
+
+    // --- Minimal Script Runner State
+    bool scriptRunning = false;
+    int scriptPC = 0;
+    bool stepRequested = false;
+    double actorX = 0.0;
+    double actorY = 0.0;
+    double lastValue = 0.0;
 };
 
 // =========================
@@ -552,10 +637,10 @@ static bool handleDialogsEvent(AppState& st, const SDL_Event& e, int winW, int w
                 SDL_StopTextInput();
                 return true;
             }
-            return true; // consume clicks while modal is open
+            return true;
         }
 
-        return true; // consume everything while modal is open
+        return true;
     }
 
     // --- Load Dialog
@@ -568,7 +653,6 @@ static bool handleDialogsEvent(AppState& st, const SDL_Event& e, int winW, int w
         }
 
         if (e.type == SDL_MOUSEWHEEL) {
-            // scroll list
             const int rowStep = (e.wheel.y > 0) ? -1 : (e.wheel.y < 0 ? +1 : 0);
             if (rowStep != 0) {
                 SDL_Rect modal{}, listArea{};
@@ -589,7 +673,6 @@ static bool handleDialogsEvent(AppState& st, const SDL_Event& e, int winW, int w
             SDL_Rect modal{}, listArea{};
             modalRects(winW, winH, modal, listArea);
 
-            // click outside closes? (like many apps)
             if (!pointInRect(mx, my, modal)) {
                 st.loadDialogOpen = false;
                 return true;
@@ -611,7 +694,7 @@ static bool handleDialogsEvent(AppState& st, const SDL_Event& e, int winW, int w
             return true;
         }
 
-        return true; // consume everything while modal is open
+        return true;
     }
 
     return false;
@@ -620,7 +703,6 @@ static bool handleDialogsEvent(AppState& st, const SDL_Event& e, int winW, int w
 static void renderDialogs(const AppState& st, SDL_Renderer* r, int winW, int winH) {
     if (!st.saveDialogOpen && !st.loadDialogOpen) return;
 
-    // overlay dim
     SDL_SetRenderDrawColor(r, 0, 0, 0, 160);
     SDL_Rect full = {0, 0, winW, winH};
     SDL_RenderFillRect(r, &full);
@@ -636,7 +718,6 @@ static void renderDialogs(const AppState& st, SDL_Renderer* r, int winW, int win
 
         renderText(r, st.uiFont, "Save Project", modal.x + 20, modal.y + 14, white);
 
-        // input field
         SDL_Rect field = {modal.x + 20, modal.y + 55, modal.w - 40, 40};
         SDL_SetRenderDrawColor(r, 25, 25, 28, 255);
         SDL_RenderFillRect(r, &field);
@@ -646,7 +727,6 @@ static void renderDialogs(const AppState& st, SDL_Renderer* r, int winW, int win
         string shown = st.saveNameInput.empty() ? "type a name..." : st.saveNameInput;
         renderText(r, st.uiFont, shown, field.x + 10, field.y + 8, white);
 
-        // buttons
         SDL_Rect okBtn  = {modal.x + 260, modal.y + 120, 140, 40};
         SDL_Rect canBtn = {modal.x +  40, modal.y + 120, 140, 40};
 
@@ -709,6 +789,324 @@ static void renderDialogs(const AppState& st, SDL_Renderer* r, int winW, int win
 }
 
 // =========================
+// Help Menu + Logs Panel + Minimal Runner (Functions only)
+// =========================
+static void setBlockVisual(Block& b) {
+    if (b.cmd == "MOVE") b.color = SDL_Color{60, 150, 220, 255};
+    else if (b.cmd == "DIV") b.color = SDL_Color{200, 80, 80, 255};
+    else if (b.cmd == "SQRT") b.color = SDL_Color{150, 90, 200, 255};
+    else if (b.cmd == "LOOP") b.color = SDL_Color{220, 160, 60, 255};
+}
+
+static void addTypedBlock(AppState& st, const string& cmd, double a, double bb) {
+    st.ws.addBlock(st.ws.bounds.x + 60, st.ws.bounds.y + 60);
+    if (!st.ws.blocks.empty()) {
+        Block& b = st.ws.blocks.back();
+        b.cmd = cmd;
+        b.a = a;
+        b.b = bb;
+        setBlockVisual(b);
+        st.log.info((int)st.ws.blocks.size() - 1, cmd, "Add block", "a=" + to_string(a) + " b=" + to_string(bb));
+    }
+}
+
+static SDL_Rect helpMenuRect(const AppState& st) {
+    SDL_Rect r;
+    r.x = st.helpButtonRect.x;
+    r.y = TOP_BAR_H - 2;
+    r.w = 260;
+    r.h = 32 * 3 + 10;
+    return r;
+}
+
+static SDL_Rect helpMenuItemRect(const SDL_Rect& menu, int i) {
+    SDL_Rect r = {menu.x + 5, menu.y + 5 + i * 32, menu.w - 10, 28};
+    return r;
+}
+
+static bool updateHelpMenu(AppState& st) {
+    if (!st.helpMenuOpen) return false;
+
+    SDL_Rect menu = helpMenuRect(st);
+
+    if (st.in.mousePressed) {
+        // click outside => close
+        if (!pointInRect(st.in.mx, st.in.my, menu)) {
+            st.helpMenuOpen = false;
+            st.log.info(-1, "HELP", "Close menu", "");
+            return true; // consume
+        }
+
+        SDL_Rect i0 = helpMenuItemRect(menu, 0);
+        SDL_Rect i1 = helpMenuItemRect(menu, 1);
+        SDL_Rect i2 = helpMenuItemRect(menu, 2);
+
+        if (pointInRect(st.in.mx, st.in.my, i0)) {
+            st.showLogsPanel = !st.showLogsPanel;
+            st.logsScroll = 0;
+            st.helpMenuOpen = false;
+            st.log.info(-1, "HELP", "Show Logs", st.showLogsPanel ? "ON" : "OFF");
+            return true;
+        }
+        if (pointInRect(st.in.mx, st.in.my, i1)) {
+            st.log.clear();
+            st.helpMenuOpen = false;
+            st.log.info(-1, "HELP", "Clear Logs", "done");
+            return true;
+        }
+        if (pointInRect(st.in.mx, st.in.my, i2)) {
+            st.debugStepMode = !st.debugStepMode;
+            st.helpMenuOpen = false;
+            st.log.info(-1, "HELP", "Toggle Step-by-Step", st.debugStepMode ? "ON" : "OFF");
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static void renderHelpMenu(const AppState& st, SDL_Renderer* r) {
+    if (!st.helpMenuOpen) return;
+
+    SDL_Rect menu = helpMenuRect(st);
+
+    SDL_SetRenderDrawColor(r, 44, 44, 50, 255);
+    SDL_RenderFillRect(r, &menu);
+    SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
+    SDL_RenderDrawRect(r, &menu);
+
+    SDL_Color white = {240, 240, 240, 255};
+
+    SDL_Rect i0 = helpMenuItemRect(menu, 0);
+    SDL_Rect i1 = helpMenuItemRect(menu, 1);
+    SDL_Rect i2 = helpMenuItemRect(menu, 2);
+
+    SDL_SetRenderDrawColor(r, 35, 35, 40, 255);
+    SDL_RenderFillRect(r, &i0);
+    SDL_RenderFillRect(r, &i1);
+    SDL_RenderFillRect(r, &i2);
+
+    SDL_SetRenderDrawColor(r, 15, 15, 15, 255);
+    SDL_RenderDrawRect(r, &i0);
+    SDL_RenderDrawRect(r, &i1);
+    SDL_RenderDrawRect(r, &i2);
+
+    string s0 = string("Show Logs  ") + (st.showLogsPanel ? "[ON]" : "[OFF]");
+    string s1 = "Clear Logs";
+    string s2 = string("Toggle Step-by-Step  ") + (st.debugStepMode ? "[ON]" : "[OFF]");
+
+    renderText(r, st.uiFont, s0, i0.x + 10, i0.y + 5, white);
+    renderText(r, st.uiFont, s1, i1.x + 10, i1.y + 5, white);
+    renderText(r, st.uiFont, s2, i2.x + 10, i2.y + 5, white);
+}
+
+static void updateLogsPanel(AppState& st) {
+    if (!st.showLogsPanel) return;
+    // Esc handled in shortcuts (so app doesn't quit)
+}
+
+static void renderLogsPanel(const AppState& st, SDL_Renderer* r, int winW, int winH) {
+    if (!st.showLogsPanel) return;
+
+    SDL_SetRenderDrawColor(r, 0, 0, 0, 160);
+    SDL_Rect full = {0, 0, winW, winH};
+    SDL_RenderFillRect(r, &full);
+
+    SDL_Rect box = {winW/2 - 420, winH/2 - 240, 840, 480};
+    SDL_SetRenderDrawColor(r, 40, 40, 46, 255);
+    SDL_RenderFillRect(r, &box);
+    SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
+    SDL_RenderDrawRect(r, &box);
+
+    SDL_Color white = {240, 240, 240, 255};
+    renderText(r, st.uiFont, "Logs (Esc to close)", box.x + 16, box.y + 12, white);
+
+    SDL_Rect area = {box.x + 16, box.y + 44, box.w - 32, box.h - 60};
+    SDL_SetRenderDrawColor(r, 25, 25, 28, 255);
+    SDL_RenderFillRect(r, &area);
+    SDL_SetRenderDrawColor(r, 120, 120, 120, 255);
+    SDL_RenderDrawRect(r, &area);
+
+    const vector<string>& lines = st.log.lines();
+    const int lineH = 18;
+    int visible = area.h / lineH;
+
+    int end = (int)lines.size();
+    int start = max(0, end - visible);
+
+    int y = area.y + 6;
+    for (int i = start; i < end; i++) {
+        renderText(r, st.uiFont, lines[i], area.x + 8, y, white);
+        y += lineH;
+        if (y > area.y + area.h - lineH) break;
+    }
+}
+
+// -------------------------
+// Minimal Script Runner (safety + step mode + watchdog)
+// -------------------------
+static void startScript(AppState& st) {
+    st.scriptRunning = true;
+    st.scriptPC = 0;
+    st.stepRequested = false;
+
+    st.actorX = st.ws.bounds.x + st.ws.bounds.w * 0.5;
+    st.actorY = st.ws.bounds.y + st.ws.bounds.h * 0.5;
+    st.lastValue = 0.0;
+
+    st.log.info(0, "RUN", "Start script", "blocks=" + to_string((int)st.ws.blocks.size()));
+    if (st.debugStepMode) {
+        st.log.info(0, "DEBUG", "Step-by-step ON", "Press Space to run next block");
+    }
+}
+
+static void stopScript(AppState& st, const string& reason, const string& level = "WARNING") {
+    if (!st.scriptRunning) return;
+    st.scriptRunning = false;
+    if (level == "ERROR") st.log.error(st.scriptPC, "RUN", "Stop script", reason);
+    else                 st.log.warn(st.scriptPC, "RUN", "Stop script", reason);
+}
+
+static bool clampActor(AppState& st, int blockIndex, const string& cmd, double beforeX, double beforeY) {
+    double minX = st.ws.bounds.x;
+    double maxX = st.ws.bounds.x + st.ws.bounds.w;
+    double minY = st.ws.bounds.y;
+    double maxY = st.ws.bounds.y + st.ws.bounds.h;
+
+    double ox = st.actorX, oy = st.actorY;
+
+    if (st.actorX < minX) st.actorX = minX;
+    if (st.actorX > maxX) st.actorX = maxX;
+    if (st.actorY < minY) st.actorY = minY;
+    if (st.actorY > maxY) st.actorY = maxY;
+
+    bool clamped = (st.actorX != ox) || (st.actorY != oy);
+    if (clamped) {
+        st.log.warn(blockIndex, cmd, "Boundary clamp",
+                    "pos(" + to_string(beforeX) + "," + to_string(beforeY) + ")->(" +
+                    to_string(st.actorX) + "," + to_string(st.actorY) + ")");
+    }
+    return clamped;
+}
+
+static bool safeDiv(AppState& st, int blockIndex, double a, double b, double& out) {
+    if (b == 0.0) {
+        st.log.error(blockIndex, "DIV", "Divide by zero prevented",
+                     "a=" + to_string(a) + " b=" + to_string(b));
+        fatalBox("Math Error", "Division by zero prevented.");
+        return false;
+    }
+    out = a / b;
+    return true;
+}
+
+static bool safeSqrt(AppState& st, int blockIndex, double v, double& out) {
+    if (v < 0.0) {
+        st.log.error(blockIndex, "SQRT", "sqrt(negative) prevented",
+                     "v=" + to_string(v));
+        fatalBox("Math Error", "sqrt of negative prevented.");
+        return false;
+    }
+    out = std::sqrt(v);
+    return true;
+}
+
+static void executeOneBlock(AppState& st) {
+    if (!st.scriptRunning) return;
+    if (st.scriptPC < 0 || st.scriptPC >= (int)st.ws.blocks.size()) {
+        stopScript(st, "Reached end", "WARNING");
+        return;
+    }
+
+    Block& b = st.ws.blocks[st.scriptPC];
+    int idx = st.scriptPC;
+    string cmd = b.cmd;
+
+    if (cmd == "MOVE") {
+        double bx = st.actorX, by = st.actorY;
+        st.actorX += b.a;
+
+        bool clamped = clampActor(st, idx, cmd, bx, by);
+        st.log.info(idx, cmd, "Move actor",
+                    "x:" + to_string(bx) + "->" + to_string(st.actorX) +
+                    (clamped ? " (clamped)" : ""));
+        st.scriptPC++;
+        return;
+    }
+
+    if (cmd == "DIV") {
+        double out = 0.0;
+        double before = st.lastValue;
+        if (safeDiv(st, idx, b.a, b.b, out)) {
+            st.lastValue = out;
+            st.log.info(idx, cmd, "Divide",
+                        "val:" + to_string(before) + "->" + to_string(st.lastValue) +
+                        " (" + to_string(b.a) + "/" + to_string(b.b) + ")");
+        }
+        st.scriptPC++;
+        return;
+    }
+
+    if (cmd == "SQRT") {
+        double out = 0.0;
+        double before = st.lastValue;
+        if (safeSqrt(st, idx, b.a, out)) {
+            st.lastValue = out;
+            st.log.info(idx, cmd, "Sqrt",
+                        "val:" + to_string(before) + "->" + to_string(st.lastValue) +
+                        " (sqrt " + to_string(b.a) + ")");
+        }
+        st.scriptPC++;
+        return;
+    }
+
+    if (cmd == "LOOP") {
+        // do NOT advance PC => watchdog catches in non-step mode
+        st.log.warn(idx, cmd, "Infinite loop block", "pc stays same");
+        return;
+    }
+
+    st.log.warn(idx, cmd, "Unknown cmd skipped", "");
+    st.scriptPC++;
+}
+
+static void runScriptTick(AppState& st) {
+    if (!st.scriptRunning) return;
+
+    // Step-by-step: run exactly one block per SPACE
+    if (st.debugStepMode) {
+        if (!st.stepRequested) return;
+        st.stepRequested = false;
+
+        executeOneBlock(st);
+
+        if (st.scriptPC >= (int)st.ws.blocks.size()) stopScript(st, "Reached end");
+        return;
+    }
+
+    // Normal: run until end or watchdog
+    const int WATCHDOG_LIMIT = 1000;
+    int ops = 0;
+
+    while (st.scriptRunning) {
+        if (ops++ > WATCHDOG_LIMIT) {
+            st.log.error(st.scriptPC, "WATCHDOG", "Too many block executions in one cycle",
+                         "limit=" + to_string(WATCHDOG_LIMIT));
+            stopScript(st, "Watchdog stop (possible infinite loop)", "ERROR");
+            fatalBox("Watchdog", "Infinite loop detected (watchdog stop).");
+            return;
+        }
+
+        executeOneBlock(st);
+
+        if (st.scriptPC >= (int)st.ws.blocks.size()) {
+            stopScript(st, "Reached end");
+            return;
+        }
+    }
+}
+
+// =========================
 // UI setup
 // =========================
 static void setupUI(AppState& st) {
@@ -728,6 +1126,11 @@ static void setupUI(AppState& st) {
     st.buttons.push_back(mkBtn(x, 90, "New", "Ctrl+N", [&] {
         st.ws.reset();
         st.ws.addBlock(st.ws.bounds.x + 40, st.ws.bounds.y + 40);
+        if (!st.ws.blocks.empty()) {
+            Block& b = st.ws.blocks.back();
+            b.cmd = "MOVE"; b.a = 40.0; b.b = 0.0;
+            setBlockVisual(b);
+        }
         st.log.log("NEW", "Reset workspace");
     }));
     x += 100;
@@ -746,9 +1149,21 @@ static void setupUI(AppState& st) {
 
     st.buttons.push_back(mkBtn(x, 110, "Add Block", "B", [&] {
         st.ws.addBlock(st.ws.bounds.x + 60, st.ws.bounds.y + 60);
+        if (!st.ws.blocks.empty()) {
+            Block& b = st.ws.blocks.back();
+            b.cmd = "MOVE"; b.a = 40.0; b.b = 0.0;
+            setBlockVisual(b);
+        }
         st.log.log("ADD", "Added block");
     }));
     x += 120;
+
+    st.buttons.push_back(mkBtn(x, 90, "Help", "H", [&] {
+        st.helpMenuOpen = !st.helpMenuOpen;
+        st.log.info(-1, "HELP", st.helpMenuOpen ? "Open menu" : "Close menu", "");
+    }));
+    st.helpButtonRect = st.buttons.back().rect;
+    x += 100;
 
     st.buttons.push_back(mkBtn(x, 90, "Quit", "Esc", [&] {
         st.quit = true;
@@ -819,11 +1234,63 @@ static void processEvents(AppState& st, SDL_Window* window) {
 // Shortcuts
 // =========================
 static void handleShortcuts(AppState& st) {
+    // If logs panel open: Esc closes panel (do not quit app)
+    if (st.showLogsPanel) {
+        if (st.in.keyPressed[SDL_SCANCODE_ESCAPE]) {
+            st.showLogsPanel = false;
+            st.logsScroll = 0;
+            st.log.info(-1, "HELP", "Close Logs panel", "");
+        }
+        return;
+    }
+
+    // If help menu open: Esc closes menu
+    if (st.helpMenuOpen && st.in.keyPressed[SDL_SCANCODE_ESCAPE]) {
+        st.helpMenuOpen = false;
+        st.log.info(-1, "HELP", "Close menu (Esc)", "");
+        return;
+    }
+
     bool ctrl = st.in.keyDown[SDL_SCANCODE_LCTRL] || st.in.keyDown[SDL_SCANCODE_RCTRL];
+
+    // Help shortcut
+    if (st.in.keyPressed[SDL_SCANCODE_H]) {
+        st.helpMenuOpen = !st.helpMenuOpen;
+        st.log.info(-1, "HELP", st.helpMenuOpen ? "Open menu (H)" : "Close menu (H)", "");
+    }
+
+    // Start/Stop script (for testing)
+    if (st.in.keyPressed[SDL_SCANCODE_F5]) {
+        startScript(st);
+    }
+    if (st.in.keyPressed[SDL_SCANCODE_F6]) {
+        stopScript(st, "User stop (F6)");
+    }
+
+    // Step-by-step: Space executes one block when running
+    if (st.debugStepMode && st.scriptRunning && st.in.keyPressed[SDL_SCANCODE_SPACE]) {
+        st.stepRequested = true;
+        st.log.info(st.scriptPC, "DEBUG", "Step", "Space pressed");
+    }
+
+    // Test blocks shortcuts:
+    // 1: MOVE big (forces clamp)
+    if (st.in.keyPressed[SDL_SCANCODE_1]) addTypedBlock(st, "MOVE", 9999.0, 0.0);
+    // 2: DIV by zero
+    if (st.in.keyPressed[SDL_SCANCODE_2]) addTypedBlock(st, "DIV", 10.0, 0.0);
+    // 3: SQRT negative
+    if (st.in.keyPressed[SDL_SCANCODE_3]) addTypedBlock(st, "SQRT", -4.0, 0.0);
+    // 4: LOOP (watchdog)
+    if (st.in.keyPressed[SDL_SCANCODE_4]) addTypedBlock(st, "LOOP", 0.0, 0.0);
 
     if (ctrl && st.in.keyPressed[SDL_SCANCODE_N]) {
         st.ws.reset();
         st.ws.addBlock(st.ws.bounds.x + 40, st.ws.bounds.y + 40);
+        if (!st.ws.blocks.empty()) {
+            Block& b = st.ws.blocks.back();
+            b.cmd = "MOVE"; b.a = 40.0; b.b = 0.0;
+            setBlockVisual(b);
+        }
         st.log.log("NEW", "Reset (shortcut)");
     }
 
@@ -839,6 +1306,11 @@ static void handleShortcuts(AppState& st) {
 
     if (st.in.keyPressed[SDL_SCANCODE_B]) {
         st.ws.addBlock(st.ws.bounds.x + 60, st.ws.bounds.y + 60);
+        if (!st.ws.blocks.empty()) {
+            Block& b = st.ws.blocks.back();
+            b.cmd = "MOVE"; b.a = 40.0; b.b = 0.0;
+            setBlockVisual(b);
+        }
         st.log.log("ADD", "Added block (shortcut)");
     }
 
@@ -860,12 +1332,25 @@ static void update(AppState& st, SDL_Window* window) {
     if (st.loadDialogOpen) updateLoadHover(st, w, h);
     if (st.saveDialogOpen || st.loadDialogOpen) return;
 
+    // Help menu click handling (consume click if used)
+    if (updateHelpMenu(st)) return;
+
+    // Logs panel behaves like a modal overlay
+    if (st.showLogsPanel) {
+        updateLogsPanel(st);
+        handleShortcuts(st);
+        return;
+    }
+
     for (size_t i = 0; i < st.buttons.size(); i++) st.buttons[i].update(st.in);
 
     handleShortcuts(st);
 
     st.log.cycle++;
     st.ws.update(st.in, st.log);
+
+    // Run script tick (logic only; rendering continues)
+    runScriptTick(st);
 }
 
 static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
@@ -891,6 +1376,28 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
     SDL_RenderDrawRect(r, &st.ws.bounds);
 
     st.ws.draw(r);
+
+    // highlight current script block
+    if (st.scriptRunning && st.scriptPC >= 0 && st.scriptPC < (int)st.ws.blocks.size()) {
+        SDL_Rect hi = st.ws.blocks[st.scriptPC].rect;
+        SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+        SDL_RenderDrawRect(r, &hi);
+    }
+
+    // draw actor (stage object)
+    if (st.scriptRunning) {
+        SDL_Rect a = {(int)st.actorX - 6, (int)st.actorY - 6, 12, 12};
+        SDL_SetRenderDrawColor(r, 240, 240, 240, 255);
+        SDL_RenderFillRect(r, &a);
+        SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
+        SDL_RenderDrawRect(r, &a);
+    }
+
+    // Help dropdown
+    renderHelpMenu(st, r);
+
+    // Logs panel overlay
+    renderLogsPanel(st, r, w, h);
 
     // dialogs (overlay)
     renderDialogs(st, r, w, h);
@@ -951,7 +1458,17 @@ static int RunApp() {
 
     st.ws.bounds = SDL_Rect{LEFT_PANEL_W, TOP_BAR_H, WINDOW_W - LEFT_PANEL_W, WINDOW_H - TOP_BAR_H};
     st.ws.addBlock(st.ws.bounds.x + 40, st.ws.bounds.y + 40);
+    if (!st.ws.blocks.empty()) {
+        Block& b = st.ws.blocks.back();
+        b.cmd = "MOVE"; b.a = 40.0; b.b = 0.0;
+        setBlockVisual(b);
+    }
     st.ws.addBlock(st.ws.bounds.x + 40, st.ws.bounds.y + 120);
+    if (st.ws.blocks.size() >= 2) {
+        Block& b2 = st.ws.blocks.back();
+        b2.cmd = "MOVE"; b2.a = 40.0; b2.b = 0.0;
+        setBlockVisual(b2);
+    }
 
     setupUI(st);
 

@@ -9,3 +9,195 @@
 [Cycle:378] [SAVE] Saved: SMemory\yasna.txt
 [Cycle:1235] [UI] Open Load dialog
 [Cycle:1236] [LOAD] Loaded: SMemory\yasna.txt
+[Cycle:782] [UI] Open Help menu
+[Cycle:952] [HELP] Tab selected: Logger System
+[Cycle:1011] [HELP] Tab selected: Step-by-Step Mode
+[Cycle:1063] [HELP] Tab selected: Nets Safety
+[Cycle:1141] [HELP] Tab selected: Logger System
+[Cycle:1974] [HELP] Tab selected: Step-by-Step Mode
+[Cycle:2146] [HELP] Tab selected: Debug Overview
+[Cycle:3445] [UI] Open Load dialog
+[Cycle:3818] [NEW] Reset workspace
+[Cycle:3908] [NEW] Reset workspace
+[Cycle:4087] [UI] Open Save dialog
+[Cycle:5506] [UI] Open Help menu
+[Cycle:5650] [HELP] Tab selected: Logger System
+[Cycle:116] [DRAG] Pick block id=1
+[Cycle:190] [DRAG] Drop block id=1
+[Cycle:380] [UI] Open Help menu
+[Cycle:1968] [HELP] Tab selected: Logger System
+[Cycle:2181] [HELP] Tab selected: Step-by-Step Mode
+[Cycle:2327] [HELP] Tab selected: Nets Safety
+[Cycle:1774] [UI] Open Load dialog
+[Cycle:1775] [LOAD] Loaded: SMemory\yasna.txt
+[Cycle:251] [DRAG] Pick block id=1
+[Cycle:988] [DRAG] Drop block id=1
+[Cycle:1053] [DRAG] Pick block id=2
+[Cycle:1126] [DRAG] Drop block id=2
+[Cycle:1430] [DRAG] Pick block id=1
+[Cycle:1760] [DRAG] Drop block id=1
+[Cycle:3652] [UI] Open Save dialog
+[Cycle:3653] [SAVE] Saved: SMemory\yasna.txt
+[Cycle:3822] [UI] Open Load dialog
+[Cycle:3823] [LOAD] Loaded: SMemory\yasna.txt
+[Cycle:4293] [DRAG] Pick block id=1
+[Cycle:4330] [DRAG] Drop block id=1
+[Cycle:4412] [DRAG] Pick block id=2
+[Cycle:4456] [DRAG] Drop block id=2
+[Cycle:4525] [UI] Open Save dialog
+[Cycle:4526] [SAVE] Saved: SMemory\yasna.txt
+[Cycle:4692] [UI] Open Load dialog
+[Cycle:4693] [LOAD] Loaded: SMemory\yasna.txt
+[Cycle:315] [Line:-1] [CMD:HELP] [Level:INFO] [Op:Open menu] [Data:]
+[Cycle:533] [Line:-1] [CMD:HELP] [Level:INFO] [Op:Show Logs] [Data:ON]
+[Cycle:533] [Line:-1] [CMD:HELP] [Level:INFO] [Op:Close Logs panel] [Data:]
+[Cycle:614] [Line:-1] [CMD:DRAG] [Level:INFO] [Op:Pick block id=1] [Data:]
+[Cycle:617] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (220,92)->(221,92)]
+[Cycle:618] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (221,92)->(222,92)]
+[Cycle:619] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (222,92)->(223,93)]
+[Cycle:620] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (223,93)->(224,94)]
+[Cycle:621] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (224,94)->(226,94)]
+[Cycle:622] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (226,94)->(228,95)]
+[Cycle:623] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (228,95)->(230,96)]
+[Cycle:624] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (230,96)->(234,97)]
+[Cycle:625] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (234,97)->(240,99)]
+[Cycle:626] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (240,99)->(256,103)]
+[Cycle:628] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (256,103)->(281,109)]
+[Cycle:630] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (281,109)->(294,113)]
+[Cycle:631] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (294,113)->(308,116)]
+[Cycle:632] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (308,116)->(321,120)]
+[Cycle:633] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (321,120)->(335,122)]
+[Cycle:634] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (335,122)->(365,128)]
+[Cycle:636] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (365,128)->(410,135)]
+[Cycle:638] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (410,135)->(452,143)]
+[Cycle:639] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (452,143)->(470,146)]
+[Cycle:640] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (470,146)->(485,148)]
+[Cycle:641] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (485,148)->(497,150)]
+[Cycle:642] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (497,150)->(509,153)]
+[Cycle:643] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (509,153)->(520,155)]
+[Cycle:644] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (520,155)->(528,156)]
+[Cycle:645] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (528,156)->(534,158)]
+[Cycle:646] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (534,158)->(540,159)]
+[Cycle:647] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (540,159)->(543,159)]
+[Cycle:648] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (543,159)->(545,160)]
+[Cycle:649] [Line:1] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (545,160)->(547,161)]
+[Cycle:670] [Line:-1] [CMD:DRAG] [Level:INFO] [Op:Drop block id=1] [Data:]
+[Cycle:742] [Line:-1] [CMD:ADD] [Level:INFO] [Op:Added block] [Data:]
+[Cycle:796] [Line:-1] [CMD:DRAG] [Level:INFO] [Op:Pick block id=3] [Data:]
+[Cycle:798] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (240,112)->(243,113)]
+[Cycle:800] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (243,113)->(254,117)]
+[Cycle:802] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (254,117)->(271,126)]
+[Cycle:804] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (271,126)->(288,138)]
+[Cycle:806] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (288,138)->(305,150)]
+[Cycle:807] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (305,150)->(314,156)]
+[Cycle:808] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (314,156)->(322,163)]
+[Cycle:809] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (322,163)->(331,170)]
+[Cycle:810] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (331,170)->(341,178)]
+[Cycle:811] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (341,178)->(352,186)]
+[Cycle:812] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (352,186)->(362,194)]
+[Cycle:813] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (362,194)->(374,203)]
+[Cycle:814] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (374,203)->(388,213)]
+[Cycle:815] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (388,213)->(400,223)]
+[Cycle:816] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (400,223)->(411,230)]
+[Cycle:817] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (411,230)->(420,237)]
+[Cycle:818] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (420,237)->(428,243)]
+[Cycle:819] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (428,243)->(434,247)]
+[Cycle:820] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (434,247)->(441,252)]
+[Cycle:822] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (441,252)->(443,252)]
+[Cycle:839] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (443,252)->(442,252)]
+[Cycle:848] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (442,252)->(441,252)]
+[Cycle:850] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (441,252)->(440,255)]
+[Cycle:852] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (440,255)->(438,263)]
+[Cycle:854] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (438,263)->(436,273)]
+[Cycle:855] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (436,273)->(436,276)]
+[Cycle:856] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (436,276)->(436,279)]
+[Cycle:857] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (436,279)->(435,282)]
+[Cycle:858] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (435,282)->(434,286)]
+[Cycle:859] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (434,286)->(433,288)]
+[Cycle:860] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (433,288)->(433,289)]
+[Cycle:861] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=3 (433,289)->(433,290)]
+[Cycle:878] [Line:-1] [CMD:DRAG] [Level:INFO] [Op:Drop block id=3] [Data:]
+[Cycle:4196] [Line:-1] [CMD:HELP] [Level:INFO] [Op:Open menu] [Data:]
+[Cycle:4306] [Line:-1] [CMD:HELP] [Level:INFO] [Op:Show Logs] [Data:ON]
+[Cycle:4306] [Line:-1] [CMD:HELP] [Level:INFO] [Op:Close Logs panel] [Data:]
+[Cycle:4948] [Line:-1] [CMD:HELP] [Level:INFO] [Op:Open menu] [Data:]
+[Cycle:5128] [Line:-1] [CMD:HELP] [Level:INFO] [Op:Clear Logs] [Data:done]
+[Cycle:5192] [Line:-1] [CMD:HELP] [Level:INFO] [Op:Open menu] [Data:]
+[Cycle:5260] [Line:-1] [CMD:HELP] [Level:INFO] [Op:Show Logs] [Data:ON]
+[Cycle:5260] [Line:-1] [CMD:HELP] [Level:INFO] [Op:Close Logs panel] [Data:]
+[Cycle:5351] [Line:-1] [CMD:HELP] [Level:INFO] [Op:Open menu] [Data:]
+[Cycle:5561] [Line:-1] [CMD:HELP] [Level:INFO] [Op:Toggle Step-by-Step] [Data:ON]
+[Cycle:5740] [Line:-1] [CMD:DRAG] [Level:INFO] [Op:Pick block id=1] [Data:]
+[Cycle:5743] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (547,161)->(550,159)]
+[Cycle:5745] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (550,159)->(557,162)]
+[Cycle:5747] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (557,162)->(575,176)]
+[Cycle:5749] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (575,176)->(594,194)]
+[Cycle:5751] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (594,194)->(614,214)]
+[Cycle:5753] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (614,214)->(634,232)]
+[Cycle:5754] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (634,232)->(646,244)]
+[Cycle:5755] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (646,244)->(659,257)]
+[Cycle:5756] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (659,257)->(673,269)]
+[Cycle:5757] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (673,269)->(685,278)]
+[Cycle:5758] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (685,278)->(695,286)]
+[Cycle:5759] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (695,286)->(703,292)]
+[Cycle:5760] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (703,292)->(709,296)]
+[Cycle:5761] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (709,296)->(712,299)]
+[Cycle:5762] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (712,299)->(714,300)]
+[Cycle:5767] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (714,300)->(716,301)]
+[Cycle:5769] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (716,301)->(718,302)]
+[Cycle:5771] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (718,302)->(720,304)]
+[Cycle:5773] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (720,304)->(725,309)]
+[Cycle:5775] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (725,309)->(732,316)]
+[Cycle:5777] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (732,316)->(744,329)]
+[Cycle:5778] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (744,329)->(748,334)]
+[Cycle:5779] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (748,334)->(752,338)]
+[Cycle:5780] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (752,338)->(756,343)]
+[Cycle:5781] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (756,343)->(760,348)]
+[Cycle:5782] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (760,348)->(763,351)]
+[Cycle:5783] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (763,351)->(765,356)]
+[Cycle:5784] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (765,356)->(767,359)]
+[Cycle:5785] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (767,359)->(769,363)]
+[Cycle:5786] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (769,363)->(770,366)]
+[Cycle:5787] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (770,366)->(771,368)]
+[Cycle:5788] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (771,368)->(772,370)]
+[Cycle:5793] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (772,370)->(773,371)]
+[Cycle:5795] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (773,371)->(774,373)]
+[Cycle:5796] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (774,373)->(775,375)]
+[Cycle:5797] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (775,375)->(778,385)]
+[Cycle:5799] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (778,385)->(783,398)]
+[Cycle:5801] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (783,398)->(787,408)]
+[Cycle:5802] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (787,408)->(789,412)]
+[Cycle:5803] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (789,412)->(790,414)]
+[Cycle:5804] [Line:2] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=1 (790,414)->(791,415)]
+[Cycle:5823] [Line:-1] [CMD:DRAG] [Level:INFO] [Op:Drop block id=1] [Data:]
+[Cycle:5884] [Line:-1] [CMD:HELP] [Level:INFO] [Op:Open menu] [Data:]
+[Cycle:6047] [Line:-1] [CMD:HELP] [Level:INFO] [Op:Show Logs] [Data:ON]
+[Cycle:6047] [Line:-1] [CMD:HELP] [Level:INFO] [Op:Close Logs panel] [Data:]
+[Cycle:6164] [Line:-1] [CMD:HELP] [Level:INFO] [Op:Open menu] [Data:]
+[Cycle:6505] [Line:-1] [CMD:HELP] [Level:INFO] [Op:Close menu] [Data:]
+[Cycle:6574] [Line:-1] [CMD:ADD] [Level:INFO] [Op:Added block] [Data:]
+[Cycle:6733] [Line:-1] [CMD:DRAG] [Level:INFO] [Op:Pick block id=4] [Data:]
+[Cycle:6734] [Line:3] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=4 (240,112)->(240,111)]
+[Cycle:6736] [Line:3] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=4 (240,111)->(243,111)]
+[Cycle:6737] [Line:3] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=4 (243,111)->(248,111)]
+[Cycle:6738] [Line:3] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=4 (248,111)->(260,112)]
+[Cycle:6739] [Line:3] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=4 (260,112)->(280,114)]
+[Cycle:6740] [Line:3] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=4 (280,114)->(311,115)]
+[Cycle:6741] [Line:3] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=4 (311,115)->(347,117)]
+[Cycle:6742] [Line:3] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=4 (347,117)->(385,117)]
+[Cycle:6743] [Line:3] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=4 (385,117)->(453,117)]
+[Cycle:6745] [Line:3] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=4 (453,117)->(482,117)]
+[Cycle:6746] [Line:3] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=4 (482,117)->(510,117)]
+[Cycle:6747] [Line:3] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=4 (510,117)->(542,117)]
+[Cycle:6749] [Line:3] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=4 (542,117)->(558,117)]
+[Cycle:6751] [Line:3] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=4 (558,117)->(564,117)]
+[Cycle:6753] [Line:3] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=4 (564,117)->(568,116)]
+[Cycle:6755] [Line:3] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=4 (568,116)->(569,114)]
+[Cycle:6757] [Line:3] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=4 (569,114)->(570,113)]
+[Cycle:6760] [Line:3] [CMD:DRAG] [Level:WARNING] [Op:Block clamped to bounds] [Data:id=4 (570,113)->(571,113)]
+[Cycle:6773] [Line:-1] [CMD:DRAG] [Level:INFO] [Op:Drop block id=4] [Data:]
+[Cycle:6904] [Line:-1] [CMD:UI] [Level:INFO] [Op:Open Load dialog] [Data:]
+[Cycle:6905] [Line:-1] [CMD:LOAD] [Level:INFO] [Op:Loaded: SMemory\yasna.txt] [Data:]
+[Cycle:6973] [Line:-1] [CMD:HELP] [Level:INFO] [Op:Open menu] [Data:]
+[Cycle:7064] [Line:-1] [CMD:HELP] [Level:INFO] [Op:Show Logs] [Data:ON]
+[Cycle:7064] [Line:-1] [CMD:HELP] [Level:INFO] [Op:Close Logs panel] [Data:]
