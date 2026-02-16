@@ -6,4 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 add_executable(Scratch main.cpp
         include/Block.h
         include/Sprite.h
+        src/Block.cpp
+        include/MoveBlock.h
+        src/MoveBlock.cpp
 )

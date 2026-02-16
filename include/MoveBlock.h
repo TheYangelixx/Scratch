@@ -1,8 +1,15 @@
-//
-// Created by ECA 09338368732 on 2/16/2026.
-//
+#ifndef MOVEBLOCK_H
+#define MOVEBLOCK_H
 
-#ifndef SCRATCH_MOVEBLOCK_H
-#define SCRATCH_MOVEBLOCK_H
+#include "Block.h"
 
-#endif //SCRATCH_MOVEBLOCK_H
+class MoveBlock : public Block {
+public:
+    // Constructor passes coordinates to the base Block
+    MoveBlock(int x, int y);
+
+    // Override the draw method to render specific graphics
+    void draw(SDL_Renderer* renderer) override;
+};
+
+#endif // MOVEBLOCK_H
