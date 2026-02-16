@@ -9,4 +9,9 @@ add_executable(Scratch main.cpp
         src/Block.cpp
         include/MoveBlock.h
         src/MoveBlock.cpp
+        src/Workspace.h
+        src/Workspace.cpp
 )
+
+target_link_libraries(${PROJECT_NAME} -lconio)
+target_link_libraries(${PROJECT_NAME} -lmingw32 -lSDL2main -lSDL2 -lSDL2_image -lSDL2_ttf -lSDL2_mixer)
