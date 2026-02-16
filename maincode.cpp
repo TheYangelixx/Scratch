@@ -351,7 +351,7 @@ static vector<string> listSaveStems() {
     if (h == INVALID_HANDLE_VALUE) return out;
 
     do {
-        string name = fd.cFileName; // e.g. abc.txt
+        string name = fd.cFileName; // e.g. abc.txttttttttttt
         if (name.size() >= 4) {
             string tail = name.substr(name.size() - 4);
             for (size_t i = 0; i < tail.size(); i++) tail[i] = (char)tolower(tail[i]);
