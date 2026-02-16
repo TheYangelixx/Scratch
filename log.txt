@@ -1,0 +1,11 @@
+[Cycle:184] [UI] Open Load dialog
+[Cycle:277] [UI] Open Save dialog
+[Cycle:278] [SAVE] Saved: SMemory\matin.txt
+[Cycle:402] [UI] Open Load dialog
+[Cycle:403] [LOAD] Loaded: SMemory\matin.txt
+[Cycle:255] [DRAG] Pick block id=1
+[Cycle:294] [DRAG] Drop block id=1
+[Cycle:377] [UI] Open Save dialog
+[Cycle:378] [SAVE] Saved: SMemory\yasna.txt
+[Cycle:1235] [UI] Open Load dialog
+[Cycle:1236] [LOAD] Loaded: SMemory\yasna.txt
