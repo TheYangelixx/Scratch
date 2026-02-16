@@ -253,9 +253,13 @@ struct Block {
     int offX = 0, offY = 0;
 
     // --- Script/Interpreter minimal fields (for Help tools)
-    string cmd = "MOVE";   // "MOVE", "DIV", "SQRT", "LOOP"
+    string cmd = "MOVE";   // "MOVE", "DIV", "SQRT", "LOOP", "PEN_*"
     double a = 40.0;       // MOVE: dx, DIV: a, SQRT: a
     double b = 0.0;        // DIV: b
+
+    // --- Extension: Pen extra params
+    string opt = "";                 // dropdown: "COLOR", "SAT", "BRI" (for SET/CHANGE ATTR)
+    SDL_Color pickColor = {0, 255, 0, 255}; // for PEN_SET_COLOR block
 };
 
 struct Workspace {
@@ -347,6 +351,22 @@ struct Workspace {
             SDL_RenderDrawRect(r, &b.rect);
         }
     }
+};
+
+// =========================
+// Extension: Pen (Data)
+// =========================
+struct PenSegment {
+    double x1=0, y1=0, x2=0, y2=0;
+    SDL_Color c{0,255,0,255};
+    int size = 3;
+};
+
+struct PenStamp {
+    double x=0, y=0;
+    int size = 12;
+    SDL_Color fill{240,240,240,255};   // sprite fill
+    SDL_Color outline{10,10,10,255};  // sprite outline
 };
 
 // =========================
@@ -548,6 +568,33 @@ struct AppState {
     double actorX = 0.0;
     double actorY = 0.0;
     double lastValue = 0.0;
+
+    // =========================
+    // Add Extension: Library + Pen
+    // =========================
+    bool extensionLibraryOpen = false;
+    bool penExtensionEnabled = false;
+
+    // Left palette (code list)
+    vector<Button> palette;
+    bool paletteDirty = true;
+    int paletteLastW = 0, paletteLastH = 0;
+    bool paletteLastPenEnabled = false;
+
+    // Pen state + persistent drawings
+    bool penDown = false;
+    double penHue = 120.0;       // 0..360
+    double penSat = 100.0;       // 0..100
+    double penBri = 100.0;       // 0..100
+    SDL_Color penRGB{0,255,0,255};
+    int penSize = 3;             // 1..30
+
+    vector<PenSegment> penSegs;
+    vector<PenStamp> penStamps;
+
+    // Minimal color picker modal
+    bool penColorPickerOpen = false;
+    int  penColorPickerBlockIndex = -1;
 };
 
 // =========================
@@ -789,6 +836,348 @@ static void renderDialogs(const AppState& st, SDL_Renderer* r, int winW, int win
 }
 
 // =========================
+// Add Extension: Pen helpers (logic + rendering)
+// =========================
+static SDL_Color hsvToRgb(double h, double s, double v) {
+    s = clampT(s, 0.0, 100.0) / 100.0;
+    v = clampT(v, 0.0, 100.0) / 100.0;
+    h = fmod(h, 360.0);
+    if (h < 0) h += 360.0;
+
+    double c = v * s;
+    double x = c * (1.0 - fabs(fmod(h / 60.0, 2.0) - 1.0));
+    double m = v - c;
+
+    double r=0,g=0,b=0;
+    if      (h < 60)  { r=c; g=x; b=0; }
+    else if (h < 120) { r=x; g=c; b=0; }
+    else if (h < 180) { r=0; g=c; b=x; }
+    else if (h < 240) { r=0; g=x; b=c; }
+    else if (h < 300) { r=x; g=0; b=c; }
+    else              { r=c; g=0; b=x; }
+
+    Uint8 R = (Uint8)clampT((int)round((r + m) * 255.0), 0, 255);
+    Uint8 G = (Uint8)clampT((int)round((g + m) * 255.0), 0, 255);
+    Uint8 B = (Uint8)clampT((int)round((b + m) * 255.0), 0, 255);
+    return SDL_Color{R,G,B,255};
+}
+
+static void rgbToHsv(const SDL_Color& c, double& outH, double& outS, double& outV) {
+    double r = c.r / 255.0;
+    double g = c.g / 255.0;
+    double b = c.b / 255.0;
+
+    double mx = max(r, max(g,b));
+    double mn = min(r, min(g,b));
+    double d = mx - mn;
+
+    double h = 0.0;
+    if (d == 0.0) h = 0.0;
+    else if (mx == r) h = 60.0 * fmod(((g - b) / d), 6.0);
+    else if (mx == g) h = 60.0 * (((b - r) / d) + 2.0);
+    else              h = 60.0 * (((r - g) / d) + 4.0);
+
+    if (h < 0) h += 360.0;
+
+    double s = (mx == 0.0) ? 0.0 : (d / mx);
+    double v = mx;
+
+    outH = h;
+    outS = s * 100.0;
+    outV = v * 100.0;
+}
+
+static bool isPenCmd(const string& cmd) {
+    return cmd.rfind("PEN_", 0) == 0;
+}
+
+static void penSyncRGB(AppState& st) {
+    st.penRGB = hsvToRgb(st.penHue, st.penSat, st.penBri);
+}
+
+static string penNextAttr(const string& cur) {
+    if (cur == "COLOR") return "SAT";
+    if (cur == "SAT")   return "BRI";
+    return "COLOR";
+}
+
+static void penClearAll(AppState& st) {
+    st.penSegs.clear();
+    st.penStamps.clear();
+}
+
+static void penAddSegment(AppState& st, double x1, double y1, double x2, double y2) {
+    PenSegment seg;
+    seg.x1 = x1; seg.y1 = y1; seg.x2 = x2; seg.y2 = y2;
+    seg.c = st.penRGB;
+    seg.size = st.penSize;
+    st.penSegs.push_back(seg);
+}
+
+static void penAddStamp(AppState& st) {
+    PenStamp s;
+    s.x = st.actorX;
+    s.y = st.actorY;
+    s.size = 12;
+    st.penStamps.push_back(s);
+}
+
+static void drawThickLine(SDL_Renderer* r, double x1, double y1, double x2, double y2, SDL_Color c, int size) {
+    size = clampT(size, 1, 30);
+    double dx = x2 - x1;
+    double dy = y2 - y1;
+    double steps = max(fabs(dx), fabs(dy));
+    if (steps < 1.0) steps = 1.0;
+
+    SDL_SetRenderDrawColor(r, c.r, c.g, c.b, c.a);
+
+    for (int i = 0; i <= (int)steps; i++) {
+        double t = (double)i / steps;
+        int px = (int)round(x1 + dx * t);
+        int py = (int)round(y1 + dy * t);
+        SDL_Rect dot{px - size/2, py - size/2, size, size};
+        SDL_RenderFillRect(r, &dot);
+    }
+}
+
+static void renderPenLayer(const AppState& st, SDL_Renderer* r) {
+    SDL_RenderSetClipRect(r, &st.ws.bounds);
+
+    for (const auto& seg : st.penSegs) {
+        drawThickLine(r, seg.x1, seg.y1, seg.x2, seg.y2, seg.c, seg.size);
+    }
+
+    for (const auto& sp : st.penStamps) {
+        int s = sp.size;
+        SDL_Rect rc{(int)sp.x - s/2, (int)sp.y - s/2, s, s};
+        SDL_SetRenderDrawColor(r, sp.fill.r, sp.fill.g, sp.fill.b, sp.fill.a);
+        SDL_RenderFillRect(r, &rc);
+        SDL_SetRenderDrawColor(r, sp.outline.r, sp.outline.g, sp.outline.b, sp.outline.a);
+        SDL_RenderDrawRect(r, &rc);
+    }
+
+    SDL_RenderSetClipRect(r, nullptr);
+}
+
+// =========================
+// Add Extension: Library UI + Palette + Color Picker
+// =========================
+static void openExtensionLibrary(AppState& st) {
+    st.extensionLibraryOpen = true;
+    st.helpMenuOpen = false;
+    st.showLogsPanel = false;
+    st.penColorPickerOpen = false;
+    st.log.info(-1, "EXT", "Open library", "");
+}
+
+static SDL_Rect extensionLibraryRect(int w, int h) {
+    return SDL_Rect{w/2 - 320, h/2 - 220, 640, 440};
+}
+
+static SDL_Rect extensionItemRect(const SDL_Rect& box, int i) {
+    return SDL_Rect{box.x + 30, box.y + 90 + i*70, box.w - 60, 56};
+}
+
+static bool handleExtensionLibraryEvent(AppState& st, const SDL_Event& e, int w, int h) {
+    if (!st.extensionLibraryOpen) return false;
+
+    if (e.type == SDL_KEYDOWN && !e.key.repeat) {
+        if (e.key.keysym.sym == SDLK_ESCAPE) {
+            st.extensionLibraryOpen = false;
+            st.log.info(-1, "EXT", "Close library (Esc)", "");
+            return true;
+        }
+    }
+
+    if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+        int mx = e.button.x, my = e.button.y;
+        SDL_Rect box = extensionLibraryRect(w,h);
+
+        // click outside => close
+        if (!pointInRect(mx, my, box)) {
+            st.extensionLibraryOpen = false;
+            st.log.info(-1, "EXT", "Close library (outside click)", "");
+            return true;
+        }
+
+        SDL_Rect penItem = extensionItemRect(box, 0);
+        if (pointInRect(mx, my, penItem)) {
+            st.penExtensionEnabled = true;
+            st.extensionLibraryOpen = false;
+            st.paletteDirty = true;
+            st.log.info(-1, "EXT", "Enable Pen", "installed=1");
+            return true;
+        }
+
+        return true;
+    }
+
+    return true; // consume everything while open
+}
+
+static void renderExtensionLibrary(const AppState& st, SDL_Renderer* r, int w, int h) {
+    if (!st.extensionLibraryOpen) return;
+
+    SDL_SetRenderDrawColor(r, 0,0,0,170);
+    SDL_Rect full{0,0,w,h};
+    SDL_RenderFillRect(r, &full);
+
+    SDL_Rect box = extensionLibraryRect(w,h);
+    SDL_SetRenderDrawColor(r, 40,40,46,255);
+    SDL_RenderFillRect(r, &box);
+    SDL_SetRenderDrawColor(r, 200,200,200,255);
+    SDL_RenderDrawRect(r, &box);
+
+    SDL_Color white{240,240,240,255};
+    renderText(r, st.uiFont, "Extension Library (Esc to close)", box.x + 20, box.y + 18, white);
+    renderText(r, st.uiFont, "Click an extension to enable it:", box.x + 20, box.y + 44, white);
+
+    SDL_Rect penItem = extensionItemRect(box, 0);
+    SDL_SetRenderDrawColor(r, 30,30,34,255);
+    SDL_RenderFillRect(r, &penItem);
+    SDL_SetRenderDrawColor(r, 15,15,15,255);
+    SDL_RenderDrawRect(r, &penItem);
+
+    string penLabel = "Pen";
+    string penState = st.penExtensionEnabled ? "Installed" : "Click to enable";
+    renderText(r, st.uiFont, penLabel, penItem.x + 16, penItem.y + 10, white);
+    renderText(r, st.uiFont, penState, penItem.x + 16, penItem.y + 30, white);
+
+    SDL_Rect sw{penItem.x + penItem.w - 44, penItem.y + 12, 28, 28};
+    SDL_SetRenderDrawColor(r, 40,180,90,255);
+    SDL_RenderFillRect(r, &sw);
+    SDL_SetRenderDrawColor(r, 10,10,10,255);
+    SDL_RenderDrawRect(r, &sw);
+}
+
+// ---- Pen color picker (minimal preset palette)
+static SDL_Rect colorPickerRect(int w, int h) {
+    return SDL_Rect{w/2 - 250, h/2 - 180, 500, 360};
+}
+
+static bool handlePenColorPickerEvent(AppState& st, const SDL_Event& e, int w, int h) {
+    if (!st.penColorPickerOpen) return false;
+
+    if (e.type == SDL_KEYDOWN && !e.key.repeat) {
+        if (e.key.keysym.sym == SDLK_ESCAPE) {
+            st.penColorPickerOpen = false;
+            st.penColorPickerBlockIndex = -1;
+            st.log.info(-1, "PEN", "Close color picker (Esc)", "");
+            return true;
+        }
+    }
+
+    if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+        int mx = e.button.x, my = e.button.y;
+        SDL_Rect box = colorPickerRect(w,h);
+
+        if (!pointInRect(mx, my, box)) {
+            st.penColorPickerOpen = false;
+            st.penColorPickerBlockIndex = -1;
+            st.log.info(-1, "PEN", "Close color picker (outside click)", "");
+            return true;
+        }
+
+        SDL_Color presets[12] = {
+            {255,0,0,255},{255,128,0,255},{255,255,0,255},{128,255,0,255},
+            {0,255,0,255},{0,255,128,255},{0,255,255,255},{0,128,255,255},
+            {0,0,255,255},{128,0,255,255},{255,0,255,255},{255,255,255,255}
+        };
+
+        int gridX = box.x + 40;
+        int gridY = box.y + 90;
+        int cell = 60;
+        int cols = 4;
+
+        for (int i = 0; i < 12; i++) {
+            int cx = gridX + (i % cols) * cell;
+            int cy = gridY + (i / cols) * cell;
+            SDL_Rect rc{cx, cy, 44, 44};
+            if (pointInRect(mx,my,rc)) {
+                SDL_Color chosen = presets[i];
+
+                rgbToHsv(chosen, st.penHue, st.penSat, st.penBri);
+                penSyncRGB(st);
+
+                if (st.penColorPickerBlockIndex >= 0 &&
+                    st.penColorPickerBlockIndex < (int)st.ws.blocks.size()) {
+                    Block& b = st.ws.blocks[st.penColorPickerBlockIndex];
+                    b.pickColor = chosen;
+                }
+
+                st.penColorPickerOpen = false;
+                st.penColorPickerBlockIndex = -1;
+                st.log.info(-1, "PEN", "Pick color",
+                            "rgb=(" + to_string((int)chosen.r) + "," +
+                                    to_string((int)chosen.g) + "," +
+                                    to_string((int)chosen.b) + ")");
+                return true;
+            }
+        }
+
+        return true;
+    }
+
+    return true;
+}
+
+static void renderPenColorPicker(const AppState& st, SDL_Renderer* r, int w, int h) {
+    if (!st.penColorPickerOpen) return;
+
+    SDL_SetRenderDrawColor(r, 0,0,0,170);
+    SDL_Rect full{0,0,w,h};
+    SDL_RenderFillRect(r, &full);
+
+    SDL_Rect box = colorPickerRect(w,h);
+    SDL_SetRenderDrawColor(r, 40,40,46,255);
+    SDL_RenderFillRect(r, &box);
+    SDL_SetRenderDrawColor(r, 200,200,200,255);
+    SDL_RenderDrawRect(r, &box);
+
+    SDL_Color white{240,240,240,255};
+    renderText(r, st.uiFont, "Pick Pen Color (Esc to close)", box.x + 20, box.y + 18, white);
+    renderText(r, st.uiFont, "Click a color:", box.x + 20, box.y + 44, white);
+
+    SDL_Color presets[12] = {
+        {255,0,0,255},{255,128,0,255},{255,255,0,255},{128,255,0,255},
+        {0,255,0,255},{0,255,128,255},{0,255,255,255},{0,128,255,255},
+        {0,0,255,255},{128,0,255,255},{255,0,255,255},{255,255,255,255}
+    };
+
+    int gridX = box.x + 40;
+    int gridY = box.y + 90;
+    int cell = 60;
+    int cols = 4;
+
+    for (int i = 0; i < 12; i++) {
+        int cx = gridX + (i % cols) * cell;
+        int cy = gridY + (i / cols) * cell;
+        SDL_Rect rc{cx, cy, 44, 44};
+
+        SDL_SetRenderDrawColor(r, presets[i].r, presets[i].g, presets[i].b, 255);
+        SDL_RenderFillRect(r, &rc);
+        SDL_SetRenderDrawColor(r, 10,10,10,255);
+        SDL_RenderDrawRect(r, &rc);
+    }
+
+    SDL_Rect prev{box.x + box.w - 86, box.y + 18, 56, 56};
+    SDL_SetRenderDrawColor(r, st.penRGB.r, st.penRGB.g, st.penRGB.b, 255);
+    SDL_RenderFillRect(r, &prev);
+    SDL_SetRenderDrawColor(r, 10,10,10,255);
+    SDL_RenderDrawRect(r, &prev);
+}
+
+// ---- Left palette: minimal "Code list"
+static Button makePaletteBtn(int x, int y, int w, const string& label, const string& sub, function<void()> cb) {
+    Button b;
+    b.rect = SDL_Rect{x, y, w, 34};
+    b.text = label;
+    b.sub = sub;
+    b.onClick = cb;
+    return b;
+}
+
+// =========================
 // Help Menu + Logs Panel + Minimal Runner (Functions only)
 // =========================
 static void setBlockVisual(Block& b) {
@@ -796,6 +1185,7 @@ static void setBlockVisual(Block& b) {
     else if (b.cmd == "DIV") b.color = SDL_Color{200, 80, 80, 255};
     else if (b.cmd == "SQRT") b.color = SDL_Color{150, 90, 200, 255};
     else if (b.cmd == "LOOP") b.color = SDL_Color{220, 160, 60, 255};
+    else if (isPenCmd(b.cmd)) b.color = SDL_Color{40, 180, 90, 255};
 }
 
 static void addTypedBlock(AppState& st, const string& cmd, double a, double bb) {
@@ -808,6 +1198,88 @@ static void addTypedBlock(AppState& st, const string& cmd, double a, double bb) 
         setBlockVisual(b);
         st.log.info((int)st.ws.blocks.size() - 1, cmd, "Add block", "a=" + to_string(a) + " b=" + to_string(bb));
     }
+}
+
+static void rebuildPalette(AppState& st, int winW, int winH) {
+    (void)winW; (void)winH;
+    st.palette.clear();
+
+    int x = 10;
+    int w = LEFT_PANEL_W - 20;
+    int y = TOP_BAR_H + 60;
+
+    st.palette.push_back(makePaletteBtn(x, y, w, "MOVE (+40)", "", [&]{
+        addTypedBlock(st, "MOVE", 40.0, 0.0);
+    })); y += 42;
+
+    st.palette.push_back(makePaletteBtn(x, y, w, "DIV (10/2)", "", [&]{
+        addTypedBlock(st, "DIV", 10.0, 2.0);
+    })); y += 42;
+
+    st.palette.push_back(makePaletteBtn(x, y, w, "SQRT (9)", "", [&]{
+        addTypedBlock(st, "SQRT", 9.0, 0.0);
+    })); y += 42;
+
+    st.palette.push_back(makePaletteBtn(x, y, w, "LOOP (test)", "", [&]{
+        addTypedBlock(st, "LOOP", 0.0, 0.0);
+    })); y += 54;
+
+    if (st.penExtensionEnabled) {
+        st.palette.push_back(makePaletteBtn(x, y, w, "PEN Down", "", [&]{
+            addTypedBlock(st, "PEN_DOWN", 0.0, 0.0);
+        })); y += 42;
+
+        st.palette.push_back(makePaletteBtn(x, y, w, "PEN Up", "", [&]{
+            addTypedBlock(st, "PEN_UP", 0.0, 0.0);
+        })); y += 42;
+
+        st.palette.push_back(makePaletteBtn(x, y, w, "Stamp", "", [&]{
+            addTypedBlock(st, "PEN_STAMP", 0.0, 0.0);
+        })); y += 42;
+
+        st.palette.push_back(makePaletteBtn(x, y, w, "All Erase", "", [&]{
+            addTypedBlock(st, "PEN_ERASE_ALL", 0.0, 0.0);
+        })); y += 42;
+
+        st.palette.push_back(makePaletteBtn(x, y, w, "Set Attr (Shift=cycle)", "", [&]{
+            addTypedBlock(st, "PEN_SET_ATTR", 120.0, 0.0);
+            if (!st.ws.blocks.empty()) st.ws.blocks.back().opt = "COLOR";
+            setBlockVisual(st.ws.blocks.back());
+        })); y += 42;
+
+        st.palette.push_back(makePaletteBtn(x, y, w, "Change Attr (+10)", "", [&]{
+            addTypedBlock(st, "PEN_CHANGE_ATTR", 10.0, 0.0);
+            if (!st.ws.blocks.empty()) st.ws.blocks.back().opt = "BRI";
+            setBlockVisual(st.ws.blocks.back());
+        })); y += 42;
+
+        st.palette.push_back(makePaletteBtn(x, y, w, "Set Size (3)", "", [&]{
+            addTypedBlock(st, "PEN_SET_SIZE", 3.0, 0.0);
+        })); y += 42;
+
+        st.palette.push_back(makePaletteBtn(x, y, w, "Change Size (+1)", "", [&]{
+            addTypedBlock(st, "PEN_CHANGE_SIZE", 1.0, 0.0);
+        })); y += 42;
+
+        st.palette.push_back(makePaletteBtn(x, y, w, "Set Color (picker)", "Shift+Click edit", [&]{
+            addTypedBlock(st, "PEN_SET_COLOR", 0.0, 0.0);
+            if (!st.ws.blocks.empty()) {
+                st.ws.blocks.back().pickColor = st.penRGB;
+                setBlockVisual(st.ws.blocks.back());
+                st.penColorPickerOpen = true;
+                st.penColorPickerBlockIndex = (int)st.ws.blocks.size() - 1;
+            }
+        }));
+    }
+
+    st.paletteDirty = false;
+}
+
+static void renderPaletteHeader(const AppState& st, SDL_Renderer* r) {
+    SDL_Color white{240,240,240,255};
+    renderText(r, st.uiFont, "Code", 12, TOP_BAR_H + 6, white);
+    if (st.penExtensionEnabled) renderText(r, st.uiFont, "Pen: enabled", 12, TOP_BAR_H + 28, SDL_Color{40,180,90,255});
+    else                       renderText(r, st.uiFont, "Pen: Extensions (E)", 12, TOP_BAR_H + 28, SDL_Color{160,160,160,255});
 }
 
 static SDL_Rect helpMenuRect(const AppState& st) {
@@ -902,7 +1374,7 @@ static void renderHelpMenu(const AppState& st, SDL_Renderer* r) {
 
 static void updateLogsPanel(AppState& st) {
     if (!st.showLogsPanel) return;
-    // Esc handled in shortcuts (so app doesn't quit)
+    // Esc handled in shortcuts
 }
 
 static void renderLogsPanel(const AppState& st, SDL_Renderer* r, int winW, int winH) {
@@ -1027,6 +1499,12 @@ static void executeOneBlock(AppState& st) {
         st.actorX += b.a;
 
         bool clamped = clampActor(st, idx, cmd, bx, by);
+
+        // Pen draw (persistent) if enabled + down
+        if (st.penExtensionEnabled && st.penDown) {
+            penAddSegment(st, bx, by, st.actorX, st.actorY);
+        }
+
         st.log.info(idx, cmd, "Move actor",
                     "x:" + to_string(bx) + "->" + to_string(st.actorX) +
                     (clamped ? " (clamped)" : ""));
@@ -1063,6 +1541,99 @@ static void executeOneBlock(AppState& st) {
     if (cmd == "LOOP") {
         // do NOT advance PC => watchdog catches in non-step mode
         st.log.warn(idx, cmd, "Infinite loop block", "pc stays same");
+        return;
+    }
+
+    // --- Pen extension blocks
+    if (isPenCmd(cmd) && !st.penExtensionEnabled) {
+        st.log.warn(idx, cmd, "Pen extension not enabled", "skipped");
+        st.scriptPC++;
+        return;
+    }
+
+    if (cmd == "PEN_DOWN") {
+        st.penDown = true;
+        st.log.info(idx, cmd, "Pen down", "");
+        st.scriptPC++;
+        return;
+    }
+
+    if (cmd == "PEN_UP") {
+        st.penDown = false;
+        st.log.info(idx, cmd, "Pen up", "");
+        st.scriptPC++;
+        return;
+    }
+
+    if (cmd == "PEN_ERASE_ALL") {
+        penClearAll(st);
+        st.log.info(idx, cmd, "All erase", "cleared");
+        st.scriptPC++;
+        return;
+    }
+
+    if (cmd == "PEN_STAMP") {
+        penAddStamp(st);
+        st.log.info(idx, cmd, "Stamp", "count=" + to_string((int)st.penStamps.size()));
+        st.scriptPC++;
+        return;
+    }
+
+    if (cmd == "PEN_SET_SIZE") {
+        int before = st.penSize;
+        st.penSize = clampT((int)round(b.a), 1, 30);
+        st.log.info(idx, cmd, "Set size", "size:" + to_string(before) + "->" + to_string(st.penSize));
+        st.scriptPC++;
+        return;
+    }
+
+    if (cmd == "PEN_CHANGE_SIZE") {
+        int before = st.penSize;
+        st.penSize = clampT((int)round(st.penSize + b.a), 1, 30);
+        st.log.info(idx, cmd, "Change size", "size:" + to_string(before) + "->" + to_string(st.penSize));
+        st.scriptPC++;
+        return;
+    }
+
+    if (cmd == "PEN_SET_COLOR") {
+        SDL_Color c = b.pickColor;
+        rgbToHsv(c, st.penHue, st.penSat, st.penBri);
+        penSyncRGB(st);
+        st.log.info(idx, cmd, "Set color (direct)",
+                    "rgb=(" + to_string((int)c.r) + "," + to_string((int)c.g) + "," + to_string((int)c.b) + ")");
+        st.scriptPC++;
+        return;
+    }
+
+    if (cmd == "PEN_SET_ATTR" || cmd == "PEN_CHANGE_ATTR") {
+        string opt = b.opt.empty() ? "COLOR" : b.opt;
+        bool isChange = (cmd == "PEN_CHANGE_ATTR");
+
+        if (opt == "COLOR") {
+            double before = st.penHue;
+            st.penHue = isChange ? (st.penHue + b.a) : b.a;
+            st.penHue = fmod(st.penHue, 360.0);
+            if (st.penHue < 0) st.penHue += 360.0;
+            penSyncRGB(st);
+            st.log.info(idx, cmd, isChange ? "Change hue" : "Set hue",
+                        "h:" + to_string(before) + "->" + to_string(st.penHue));
+        } else if (opt == "SAT") {
+            double before = st.penSat;
+            st.penSat = isChange ? (st.penSat + b.a) : b.a;
+            st.penSat = clampT(st.penSat, 0.0, 100.0);
+            penSyncRGB(st);
+            st.log.info(idx, cmd, isChange ? "Change sat" : "Set sat",
+                        "s:" + to_string(before) + "->" + to_string(st.penSat));
+        } else { // "BRI"
+            double before = st.penBri;
+            st.penBri = isChange ? (st.penBri + b.a) : b.a;
+            st.penBri = clampT(st.penBri, 0.0, 100.0);
+            penSyncRGB(st);
+            st.log.info(idx, cmd, isChange ? "Change bri" : "Set bri",
+                        "v:" + to_string(before) + "->" + to_string(st.penBri));
+        }
+
+        st.scriptPC++;
         return;
     }
 
@@ -1125,6 +1696,9 @@ static void setupUI(AppState& st) {
 
     st.buttons.push_back(mkBtn(x, 90, "New", "Ctrl+N", [&] {
         st.ws.reset();
+        st.penDown = false;
+        penClearAll(st);
+
         st.ws.addBlock(st.ws.bounds.x + 40, st.ws.bounds.y + 40);
         if (!st.ws.blocks.empty()) {
             Block& b = st.ws.blocks.back();
@@ -1158,6 +1732,11 @@ static void setupUI(AppState& st) {
     }));
     x += 120;
 
+    st.buttons.push_back(mkBtn(x, 120, "Extensions", "E", [&] {
+        openExtensionLibrary(st);
+    }));
+    x += 130;
+
     st.buttons.push_back(mkBtn(x, 90, "Help", "H", [&] {
         st.helpMenuOpen = !st.helpMenuOpen;
         st.log.info(-1, "HELP", st.helpMenuOpen ? "Open menu" : "Close menu", "");
@@ -1183,6 +1762,14 @@ static void processEvents(AppState& st, SDL_Window* window) {
         if (e.type == SDL_MOUSEMOTION) {
             st.in.mx = e.motion.x;
             st.in.my = e.motion.y;
+        }
+
+        // Extension modals first (library / color picker)
+        if (st.extensionLibraryOpen) {
+            if (handleExtensionLibraryEvent(st, e, winW, winH)) continue;
+        }
+        if (st.penColorPickerOpen) {
+            if (handlePenColorPickerEvent(st, e, winW, winH)) continue;
         }
 
         // if modal open -> consume via dialog handler
@@ -1234,6 +1821,25 @@ static void processEvents(AppState& st, SDL_Window* window) {
 // Shortcuts
 // =========================
 static void handleShortcuts(AppState& st) {
+    // If extension library open: Esc closes (do not quit)
+    if (st.extensionLibraryOpen) {
+        if (st.in.keyPressed[SDL_SCANCODE_ESCAPE]) {
+            st.extensionLibraryOpen = false;
+            st.log.info(-1, "EXT", "Close library (Esc)", "");
+        }
+        return;
+    }
+
+    // If color picker open: Esc closes
+    if (st.penColorPickerOpen) {
+        if (st.in.keyPressed[SDL_SCANCODE_ESCAPE]) {
+            st.penColorPickerOpen = false;
+            st.penColorPickerBlockIndex = -1;
+            st.log.info(-1, "PEN", "Close color picker (Esc)", "");
+        }
+        return;
+    }
+
     // If logs panel open: Esc closes panel (do not quit app)
     if (st.showLogsPanel) {
         if (st.in.keyPressed[SDL_SCANCODE_ESCAPE]) {
@@ -1257,6 +1863,11 @@ static void handleShortcuts(AppState& st) {
     if (st.in.keyPressed[SDL_SCANCODE_H]) {
         st.helpMenuOpen = !st.helpMenuOpen;
         st.log.info(-1, "HELP", st.helpMenuOpen ? "Open menu (H)" : "Close menu (H)", "");
+    }
+
+    // Extensions shortcut
+    if (st.in.keyPressed[SDL_SCANCODE_E]) {
+        openExtensionLibrary(st);
     }
 
     // Start/Stop script (for testing)
@@ -1285,6 +1896,9 @@ static void handleShortcuts(AppState& st) {
 
     if (ctrl && st.in.keyPressed[SDL_SCANCODE_N]) {
         st.ws.reset();
+        st.penDown = false;
+        penClearAll(st);
+
         st.ws.addBlock(st.ws.bounds.x + 40, st.ws.bounds.y + 40);
         if (!st.ws.blocks.empty()) {
             Block& b = st.ws.blocks.back();
@@ -1328,9 +1942,22 @@ static void update(AppState& st, SDL_Window* window) {
 
     st.ws.bounds = SDL_Rect{LEFT_PANEL_W, TOP_BAR_H, w - LEFT_PANEL_W, h - TOP_BAR_H};
 
+    // rebuild palette when needed
+    if (w != st.paletteLastW || h != st.paletteLastH || st.penExtensionEnabled != st.paletteLastPenEnabled) {
+        st.paletteDirty = true;
+        st.paletteLastW = w; st.paletteLastH = h;
+        st.paletteLastPenEnabled = st.penExtensionEnabled;
+    }
+    if (st.paletteDirty) rebuildPalette(st, w, h);
+
     // If modal open: only update hover for load list (no interaction behind modal)
     if (st.loadDialogOpen) updateLoadHover(st, w, h);
+
+    // block interactions behind dialogs
     if (st.saveDialogOpen || st.loadDialogOpen) return;
+
+    // block interactions behind extension modals
+    if (st.extensionLibraryOpen || st.penColorPickerOpen) return;
 
     // Help menu click handling (consume click if used)
     if (updateHelpMenu(st)) return;
@@ -1343,8 +1970,30 @@ static void update(AppState& st, SDL_Window* window) {
     }
 
     for (size_t i = 0; i < st.buttons.size(); i++) st.buttons[i].update(st.in);
+    for (size_t i = 0; i < st.palette.size(); i++) st.palette[i].update(st.in);
 
     handleShortcuts(st);
+
+    // Shift+Click interactions for Pen blocks (minimal attr cycle / color picker)
+    bool shift = st.in.keyDown[SDL_SCANCODE_LSHIFT] || st.in.keyDown[SDL_SCANCODE_RSHIFT];
+    if (shift && st.in.mousePressed) {
+        int hit = st.ws.hitTest(st.in.mx, st.in.my);
+        if (hit != -1) {
+            Block& b = st.ws.blocks[hit];
+            if (b.cmd == "PEN_SET_COLOR") {
+                st.penColorPickerOpen = true;
+                st.penColorPickerBlockIndex = hit;
+                st.log.info(hit, "PEN_SET_COLOR", "Open color picker", "");
+                return; // do not drag this frame
+            }
+            if (b.cmd == "PEN_SET_ATTR" || b.cmd == "PEN_CHANGE_ATTR") {
+                if (b.opt.empty()) b.opt = "COLOR";
+                b.opt = penNextAttr(b.opt);
+                st.log.info(hit, b.cmd, "Cycle attr", "opt=" + b.opt);
+                return; // do not drag this frame
+            }
+        }
+    }
 
     st.log.cycle++;
     st.ws.update(st.in, st.log);
@@ -1372,10 +2021,17 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
 
     for (size_t i = 0; i < st.buttons.size(); i++) st.buttons[i].draw(r, st.uiFont);
 
+    // left palette
+    renderPaletteHeader(st, r);
+    for (size_t i = 0; i < st.palette.size(); i++) st.palette[i].draw(r, st.uiFont);
+
     SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
     SDL_RenderDrawRect(r, &st.ws.bounds);
 
     st.ws.draw(r);
+
+    // Pen output must be behind actor and above background
+    renderPenLayer(st, r);
 
     // highlight current script block
     if (st.scriptRunning && st.scriptPC >= 0 && st.scriptPC < (int)st.ws.blocks.size()) {
@@ -1398,6 +2054,10 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
 
     // Logs panel overlay
     renderLogsPanel(st, r, w, h);
+
+    // Extension overlays
+    renderExtensionLibrary(st, r, w, h);
+    renderPenColorPicker(st, r, w, h);
 
     // dialogs (overlay)
     renderDialogs(st, r, w, h);
@@ -1455,6 +2115,8 @@ static int RunApp() {
         SDL_Quit();
         return 1;
     }
+
+    penSyncRGB(st);
 
     st.ws.bounds = SDL_Rect{LEFT_PANEL_W, TOP_BAR_H, WINDOW_W - LEFT_PANEL_W, WINDOW_H - TOP_BAR_H};
     st.ws.addBlock(st.ws.bounds.x + 40, st.ws.bounds.y + 40);
