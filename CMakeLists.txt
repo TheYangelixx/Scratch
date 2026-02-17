@@ -3,6 +3,9 @@ project(Scratch)
 
 set(CMAKE_CXX_STANDARD 20)
 
+include_directories(include)
+include_directories(src)
+
 add_executable(Scratch main.cpp
         include/Block.h
         include/Sprite.h

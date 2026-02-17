@@ -3,13 +3,8 @@
 
 #include "Block.h"
 
-class MoveBlock : public Block {
-public:
-    // Constructor passes coordinates to the base Block
-    MoveBlock(int x, int y);
+struct Block* createMoveBlock(float x, float y);
 
-    // Override the draw method to render specific graphics
-    void draw(SDL_Renderer* renderer) override;
-};
+void drawMoveBlock(SDL_Renderer*renderer, struct Block* block);
 
 #endif // MOVEBLOCK_H
