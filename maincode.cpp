@@ -32,8 +32,8 @@ static const int WINDOW_W = 1200;
 static const int WINDOW_H = 720;
 
 static const int TOP_BAR_H = 52;
-// requested: a bit larger
-static const int LEFT_PANEL_W = 240;
+// requested: a bit larger (bigger than previous)
+static const int LEFT_PANEL_W = 280;
 
 static bool pointInRect(int x, int y, const SDL_Rect& r) {
     return (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
@@ -257,6 +257,13 @@ struct Block {
     // --- Extension: Pen extra params
     string opt = "";                 // dropdown: "COLOR", "SAT", "BRI"
     SDL_Color pickColor = {0, 255, 0, 255}; // for PEN_SET_COLOR block
+
+    // --- Section 5: Function I/O
+    // cmd = "FUNC_APPLY"
+    // s1 = function name
+    // inSel/outSel: selected input/output sources
+    string inSel = "last";
+    string outSel = "last";
 };
 
 struct Workspace {
@@ -550,7 +557,6 @@ struct Value {
 
 static double asNum(const Value& v) {
     if (v.isNum) return v.num;
-    // minimal parse
     char* endp = nullptr;
     double x = strtod(v.str.c_str(), &endp);
     if (endp && endp != v.str.c_str()) return x;
@@ -596,17 +602,17 @@ struct AppState {
     // Actor state (Section 4 base props)
     double actorX = 0.0;
     double actorY = 0.0;
-    double actorDirDeg = 90.0; // Scratch-like: 90 right (approx), but we treat as standard degrees
+    double actorDirDeg = 90.0;
     bool actorVisible = true;
-    double actorSizePct = 100.0; // 0..100.. (we clamp)
-    double lookColorEffect = 0.0; // minimal, 0..360
-    int costumeIndex = 0;         // placeholder
-    int backdropIndex = 0;        // placeholder
+    double actorSizePct = 100.0;
+    double lookColorEffect = 0.0;
+    int costumeIndex = 0;
+    int backdropIndex = 0;
 
     // Looks speech bubble (minimal)
     string bubbleText = "";
     bool bubbleThink = false;
-    uint32_t bubbleUntilMs = 0; // 0 => persistent
+    uint32_t bubbleUntilMs = 0;
 
     // Sensing: ask/answer (minimal modal)
     bool askDialogOpen = false;
@@ -619,7 +625,7 @@ struct AppState {
     uint32_t timerStartMs = 0;
 
     // Sound (minimal state; no real audio)
-    int soundVolume = 100;  // 0..100
+    int soundVolume = 100;
     bool soundMuted = false;
 
     // Variables
@@ -630,12 +636,12 @@ struct AppState {
     Value lastValue = Value::Num(0.0);
 
     // Control pre-scan jumps
-    vector<int> jumpTo;   // generic jump target for start blocks (IF/REPEAT/etc)
-    vector<int> jumpElse; // IFELSE start -> else index
-    vector<int> jumpEnd;  // IF/IFELSE start -> end index
-    vector<int> loopEnd;  // REPEAT/FOREVER start -> end index
-    vector<int> loopStart;// END_REPEAT/END_FOREVER -> start index
-    vector<int> repeatCounter; // runtime counters for REPEAT (per pc index)
+    vector<int> jumpTo;
+    vector<int> jumpElse;
+    vector<int> jumpEnd;
+    vector<int> loopEnd;
+    vector<int> loopStart;
+    vector<int> repeatCounter;
 
     // Events minimal
     string lastBroadcast = "";
@@ -654,7 +660,7 @@ struct AppState {
     // Palette scroll + category labels
     int paletteScroll = 0;
     int paletteMaxScroll = 0;
-    vector<pair<int,string>> paletteCats; // (y, label) in palette content coords
+    vector<pair<int,string>> paletteCats;
 
     // Pen state + persistent drawings
     bool penDown = false;
@@ -669,6 +675,12 @@ struct AppState {
 
     bool penColorPickerOpen = false;
     int  penColorPickerBlockIndex = -1;
+
+    // =========================
+    // Section 5: Function I/O Menu
+    // =========================
+    bool funcIOMenuOpen = false;
+    int  funcIOMenuBlockIndex = -1;
 };
 
 // =========================
@@ -727,7 +739,7 @@ static bool handleDialogsEvent(AppState& st, const SDL_Event& e, int winW, int w
                 st.askDialogOpen = false;
                 SDL_StopTextInput();
                 st.lastAnswer = "";
-                st.scriptPC = st.askResumePC; // continue anyway
+                st.scriptPC = st.askResumePC;
                 st.askResumePC = -1;
                 st.log.warn(st.scriptPC, "ASK", "Ask cancelled", "");
                 return true;
@@ -1149,6 +1161,8 @@ static void openExtensionLibrary(AppState& st) {
     st.helpMenuOpen = false;
     st.showLogsPanel = false;
     st.penColorPickerOpen = false;
+    st.funcIOMenuOpen = false;
+    st.funcIOMenuBlockIndex = -1;
     st.log.info(-1, "EXT", "Open library", "");
 }
 
@@ -1348,6 +1362,199 @@ static void renderPenColorPicker(const AppState& st, SDL_Renderer* r, int w, int
     SDL_RenderDrawRect(r, &prev);
 }
 
+// =========================
+// Section 5: Function I/O Menu (Modal)
+// =========================
+static SDL_Rect funcIOMenuRect(int w, int h) {
+    return SDL_Rect{w/2 - 260, h/2 - 150, 520, 300};
+}
+
+static const vector<string>& funcList() {
+    static vector<string> v = {"sqrt","abs","sin","cos","tan","round","floor","ceil"};
+    return v;
+}
+static const vector<string>& funcInputList() {
+    // minimal sources
+    static vector<string> v = {"last","v","score","msg","mouseX","mouseY","timer","answer","actorX","actorY","dir"};
+    return v;
+}
+static const vector<string>& funcOutputList() {
+    static vector<string> v = {"last","v","score","msg"};
+    return v;
+}
+
+static int indexOfStr(const vector<string>& v, const string& s) {
+    for (int i = 0; i < (int)v.size(); i++) if (v[i] == s) return i;
+    return -1;
+}
+
+static string cycleStrInList(const vector<string>& v, const string& cur) {
+    if (v.empty()) return cur;
+    int idx = indexOfStr(v, cur);
+    if (idx < 0) return v[0];
+    return v[(idx + 1) % (int)v.size()];
+}
+
+static string prettyIO(const string& token) {
+    if (token == "last")   return "lastValue";
+    if (token == "mouseX") return "mouseX";
+    if (token == "mouseY") return "mouseY";
+    if (token == "timer")  return "timer(sec)";
+    if (token == "answer") return "answer";
+    if (token == "actorX") return "actorX";
+    if (token == "actorY") return "actorY";
+    if (token == "dir")    return "direction";
+    return string("var: ") + token;
+}
+
+static void openFuncIOMenu(AppState& st, int blockIndex) {
+    if (blockIndex < 0 || blockIndex >= (int)st.ws.blocks.size()) return;
+    if (st.ws.blocks[blockIndex].cmd != "FUNC_APPLY") return;
+
+    st.funcIOMenuOpen = true;
+    st.funcIOMenuBlockIndex = blockIndex;
+
+    // close other overlays
+    st.helpMenuOpen = false;
+    st.showLogsPanel = false;
+    st.extensionLibraryOpen = false;
+    st.penColorPickerOpen = false;
+
+    st.log.info(blockIndex, "FUNC", "Open I/O menu", "");
+}
+
+static void closeFuncIOMenu(AppState& st, const string& why) {
+    if (!st.funcIOMenuOpen) return;
+    st.funcIOMenuOpen = false;
+    st.funcIOMenuBlockIndex = -1;
+    st.log.info(-1, "FUNC", "Close I/O menu", why);
+}
+
+static bool handleFuncIOMenuEvent(AppState& st, const SDL_Event& e, int w, int h) {
+    if (!st.funcIOMenuOpen) return false;
+
+    if (e.type == SDL_KEYDOWN && !e.key.repeat) {
+        if (e.key.keysym.sym == SDLK_ESCAPE) {
+            closeFuncIOMenu(st, "Esc");
+            return true;
+        }
+    }
+
+    if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+        int mx = e.button.x, my = e.button.y;
+        SDL_Rect box = funcIOMenuRect(w,h);
+
+        if (!pointInRect(mx, my, box)) {
+            closeFuncIOMenu(st, "outside click");
+            return true;
+        }
+
+        int bi = st.funcIOMenuBlockIndex;
+        if (bi < 0 || bi >= (int)st.ws.blocks.size()) {
+            closeFuncIOMenu(st, "invalid index");
+            return true;
+        }
+        Block& b = st.ws.blocks[bi];
+
+        SDL_Rect rowFn  = {box.x + 30, box.y + 80,  box.w - 60, 38};
+        SDL_Rect rowIn  = {box.x + 30, box.y + 126, box.w - 60, 38};
+        SDL_Rect rowOut = {box.x + 30, box.y + 172, box.w - 60, 38};
+
+        SDL_Rect okBtn  = {box.x + box.w - 180, box.y + box.h - 60, 140, 40};
+        SDL_Rect canBtn = {box.x +  40,         box.y + box.h - 60, 140, 40};
+
+        if (pointInRect(mx,my,rowFn)) {
+            b.s1 = cycleStrInList(funcList(), b.s1.empty() ? "sqrt" : b.s1);
+            st.log.info(bi, "FUNC_APPLY", "Cycle function", "fn=" + b.s1);
+            return true;
+        }
+        if (pointInRect(mx,my,rowIn)) {
+            b.inSel = cycleStrInList(funcInputList(), b.inSel.empty() ? "last" : b.inSel);
+            st.log.info(bi, "FUNC_APPLY", "Cycle input", "in=" + b.inSel);
+            return true;
+        }
+        if (pointInRect(mx,my,rowOut)) {
+            b.outSel = cycleStrInList(funcOutputList(), b.outSel.empty() ? "last" : b.outSel);
+            st.log.info(bi, "FUNC_APPLY", "Cycle output", "out=" + b.outSel);
+            return true;
+        }
+
+        if (pointInRect(mx,my,okBtn)) {
+            closeFuncIOMenu(st, "OK");
+            return true;
+        }
+        if (pointInRect(mx,my,canBtn)) {
+            closeFuncIOMenu(st, "Cancel");
+            return true;
+        }
+
+        return true;
+    }
+
+    return true;
+}
+
+static void renderFuncIOMenu(const AppState& st, SDL_Renderer* r, int w, int h) {
+    if (!st.funcIOMenuOpen) return;
+
+    SDL_SetRenderDrawColor(r, 0,0,0,170);
+    SDL_Rect full{0,0,w,h};
+    SDL_RenderFillRect(r, &full);
+
+    SDL_Rect box = funcIOMenuRect(w,h);
+    SDL_SetRenderDrawColor(r, 40,40,46,255);
+    SDL_RenderFillRect(r, &box);
+    SDL_SetRenderDrawColor(r, 200,200,200,255);
+    SDL_RenderDrawRect(r, &box);
+
+    SDL_Color white{240,240,240,255};
+    renderText(r, st.uiFont, "Function I/O Menu (Esc to close)", box.x + 20, box.y + 18, white);
+    renderText(r, st.uiFont, "Click each row to cycle options:", box.x + 20, box.y + 44, SDL_Color{200,200,200,255});
+
+    int bi = st.funcIOMenuBlockIndex;
+    string fn = "sqrt", inSel = "last", outSel = "last";
+    if (bi >= 0 && bi < (int)st.ws.blocks.size()) {
+        const Block& b = st.ws.blocks[bi];
+        fn = b.s1.empty() ? "sqrt" : b.s1;
+        inSel = b.inSel.empty() ? "last" : b.inSel;
+        outSel = b.outSel.empty() ? "last" : b.outSel;
+    }
+
+    SDL_Rect rowFn  = {box.x + 30, box.y + 80,  box.w - 60, 38};
+    SDL_Rect rowIn  = {box.x + 30, box.y + 126, box.w - 60, 38};
+    SDL_Rect rowOut = {box.x + 30, box.y + 172, box.w - 60, 38};
+
+    auto drawRow = [&](const SDL_Rect& rc, const string& title, const string& val) {
+        SDL_SetRenderDrawColor(r, 25,25,28,255);
+        SDL_RenderFillRect(r, &rc);
+        SDL_SetRenderDrawColor(r, 120,120,120,255);
+        SDL_RenderDrawRect(r, &rc);
+        renderText(r, st.uiFont, title + ": " + val, rc.x + 12, rc.y + 9, white);
+    };
+
+    drawRow(rowFn,  "Function", fn);
+    drawRow(rowIn,  "Input",    prettyIO(inSel));
+    drawRow(rowOut, "Output",   prettyIO(outSel));
+
+    SDL_Rect okBtn  = {box.x + box.w - 180, box.y + box.h - 60, 140, 40};
+    SDL_Rect canBtn = {box.x +  40,         box.y + box.h - 60, 140, 40};
+
+    SDL_SetRenderDrawColor(r, 60,140,70,255);
+    SDL_RenderFillRect(r, &okBtn);
+    SDL_SetRenderDrawColor(r, 140,60,60,255);
+    SDL_RenderFillRect(r, &canBtn);
+
+    SDL_SetRenderDrawColor(r, 20,20,20,255);
+    SDL_RenderDrawRect(r, &okBtn);
+    SDL_RenderDrawRect(r, &canBtn);
+
+    renderTextCentered(r, st.uiFont, "OK", okBtn, -6, white);
+    renderTextCentered(r, st.uiFont, "Enter", okBtn, +10, white);
+
+    renderTextCentered(r, st.uiFont, "Cancel", canBtn, -6, white);
+    renderTextCentered(r, st.uiFont, "Esc", canBtn, +10, white);
+}
+
 // ---- Left palette: minimal "Code list"
 static Button makePaletteBtn(int x, int y, int w, const string& label, const string& sub, function<void()> cb) {
     Button b;
@@ -1413,26 +1620,21 @@ static bool isVarCmd(const string& c) {
             c == "VAR_SHOW" || c == "VAR_HIDE" || c == "VAR_GET");
 }
 
+static bool isFuncCmd(const string& c) {
+    return (c == "FUNC_APPLY");
+}
+
 static void setBlockVisual(Block& b) {
-    // motion: blue
     if (isMotionCmd(b.cmd)) b.color = SDL_Color{60, 150, 220, 255};
-    // looks: purple-ish / blue (Scratch looks is purple; we keep a distinct tint)
     else if (isLooksCmd(b.cmd)) b.color = SDL_Color{120, 90, 200, 255};
-    // sound: magenta
     else if (isSoundCmd(b.cmd)) b.color = SDL_Color{190, 70, 170, 255};
-    // events: yellow
     else if (isEventCmd(b.cmd)) b.color = SDL_Color{220, 190, 60, 255};
-    // control: orange
     else if (isControlCmd(b.cmd)) b.color = SDL_Color{220, 160, 60, 255};
-    // sensing: cyan-ish
     else if (isSensingCmd(b.cmd)) b.color = SDL_Color{60, 200, 200, 255};
-    // operators: green-ish (but keep pen green reserved; so darker green)
     else if (isOperatorCmd(b.cmd)) b.color = SDL_Color{70, 160, 90, 255};
-    // variables: orange-brown
     else if (isVarCmd(b.cmd)) b.color = SDL_Color{200, 140, 70, 255};
-    // pen
+    else if (isFuncCmd(b.cmd)) b.color = SDL_Color{80, 140, 160, 255}; // Section 5
     else if (isPenCmd(b.cmd)) b.color = SDL_Color{40, 180, 90, 255};
-    // legacy math blocks
     else if (b.cmd == "SQRT") b.color = SDL_Color{150, 90, 200, 255};
     else if (b.cmd == "LOOP") b.color = SDL_Color{220, 160, 60, 255};
     else b.color = SDL_Color{80, 80, 90, 255};
@@ -1469,7 +1671,6 @@ static void rebuildPalette(AppState& st, int winW, int winH) {
     int x = 10;
     int w = LEFT_PANEL_W - 20;
 
-    // content y (before scroll)
     int contentY = TOP_BAR_H + 64;
     auto placeBtn = [&](const string& label, const string& sub, function<void()> cb) {
         int drawY = contentY - st.paletteScroll;
@@ -1561,6 +1762,18 @@ static void rebuildPalette(AppState& st, int winW, int winH) {
     placeBtn("letter 2 of \"abc\"", "", [&]{ addTypedBlock(st, "OP_LETTER", 2.0, 0.0, "abc"); });
     placeBtn("join \"a\" \"b\"", "", [&]{ addTypedBlock(st, "OP_JOIN", 0.0, 0.0, "a", "b"); });
 
+    // ===== Section 5: Functions =====
+    cat("Functions");
+    placeBtn("apply function (sqrt)", "Shift+Click edit I/O", [&]{
+        addTypedBlock(st, "FUNC_APPLY", 0.0, 0.0, "sqrt");
+        if (!st.ws.blocks.empty()) {
+            Block& b = st.ws.blocks.back();
+            b.inSel = "last";
+            b.outSel = "last";
+            setBlockVisual(b);
+        }
+    });
+
     cat("Variables");
     placeBtn("set v = 10", "Shift+Click cycle name", [&]{ addTypedBlock(st, "VAR_SET_NUM", 10.0, 0.0, "v"); });
     placeBtn("set msg = \"hi\"", "Shift+Click cycle name", [&]{ addTypedBlock(st, "VAR_SET_STR", 0.0, 0.0, "msg", "hi"); });
@@ -1614,7 +1827,6 @@ static void renderPaletteHeader(const AppState& st, SDL_Renderer* r) {
     if (st.penExtensionEnabled) renderText(r, st.uiFont, "Pen: enabled", 12, TOP_BAR_H + 28, SDL_Color{40,180,90,255});
     else                       renderText(r, st.uiFont, "Pen: Extensions (E)", 12, TOP_BAR_H + 28, SDL_Color{160,160,160,255});
 
-    // small hint for scroll
     renderText(r, st.uiFont, "Scroll wheel", 12, TOP_BAR_H + 46, SDL_Color{120,120,120,255});
 }
 
@@ -1824,9 +2036,8 @@ static void runnerPreScan(AppState& st) {
     st.loopStart.assign(n, -1);
     st.repeatCounter.assign(n, 0);
 
-    // stacks for matching
     vector<int> ifStack;
-    vector<int> ifElseStack; // track starts that are IFELSE
+    vector<int> ifElseStack;
     vector<int> repeatStack;
     vector<int> foreverStack;
     vector<int> repeatUntilStack;
@@ -1843,7 +2054,6 @@ static void runnerPreScan(AppState& st) {
         if (c == "ELSE") {
             if (!ifStack.empty()) {
                 int start = ifStack.back();
-                // only meaningful for IFELSE
                 st.jumpElse[start] = i;
             }
             continue;
@@ -1854,10 +2064,9 @@ static void runnerPreScan(AppState& st) {
                 int start = ifStack.back();
                 ifStack.pop_back();
                 st.jumpEnd[start] = i;
-                // for ELSE, jump over false branch end
                 if (st.jumpElse[start] != -1) {
                     int elseIdx = st.jumpElse[start];
-                    st.jumpTo[elseIdx] = i; // ELSE -> END_IF jump
+                    st.jumpTo[elseIdx] = i;
                 }
             }
             continue;
@@ -1872,7 +2081,6 @@ static void runnerPreScan(AppState& st) {
             continue;
         }
         if (c == "END_REPEAT") {
-            // match with nearest REPEAT_UNTIL first if any after it? (simple: prefer REPEAT_UNTIL if it is the last opened)
             if (!repeatUntilStack.empty() && (repeatStack.empty() || repeatUntilStack.back() > repeatStack.back())) {
                 int start = repeatUntilStack.back();
                 repeatUntilStack.pop_back();
@@ -1902,7 +2110,6 @@ static void runnerPreScan(AppState& st) {
         }
     }
 
-    // warn on unmatched (minimal)
     for (int idx : ifStack) st.log.warn(idx, "IF", "Unmatched IF (missing END_IF)", "");
     for (int idx : repeatStack) st.log.warn(idx, "REPEAT", "Unmatched REPEAT (missing END_REPEAT)", "");
     for (int idx : repeatUntilStack) st.log.warn(idx, "REPEAT_UNTIL", "Unmatched REPEAT_UNTIL (missing END_REPEAT)", "");
@@ -1927,7 +2134,6 @@ static void startScript(AppState& st) {
 
     st.timerStartMs = SDL_GetTicks();
 
-    // build jumps for control flow
     runnerPreScan(st);
 
     st.log.info(0, "RUN", "Start script", "blocks=" + to_string((int)st.ws.blocks.size()));
@@ -1937,7 +2143,6 @@ static void startScript(AppState& st) {
 }
 
 static SDL_Color applyLookEffect(SDL_Color base, double hueShiftDeg) {
-    // minimal: shift hue by hueShiftDeg
     double h,s,v;
     rgbToHsv(base, h,s,v);
     h = fmod(h + hueShiftDeg, 360.0);
@@ -1945,9 +2150,84 @@ static SDL_Color applyLookEffect(SDL_Color base, double hueShiftDeg) {
     return hsvToRgb(h,s,v);
 }
 
+// =========================
+// Section 5: Function I/O (runtime helpers)
+// =========================
+static double funcReadInput(AppState& st, const string& inSel) {
+    if (inSel == "last") return asNum(st.lastValue);
+    if (inSel == "mouseX") return (double)st.in.mx;
+    if (inSel == "mouseY") return (double)st.in.my;
+    if (inSel == "timer")  return (SDL_GetTicks() - st.timerStartMs) / 1000.0;
+    if (inSel == "answer") {
+        char* endp = nullptr;
+        double x = strtod(st.lastAnswer.c_str(), &endp);
+        if (endp && endp != st.lastAnswer.c_str()) return x;
+        return 0.0;
+    }
+    if (inSel == "actorX") return st.actorX;
+    if (inSel == "actorY") return st.actorY;
+    if (inSel == "dir")    return st.actorDirDeg;
+
+    // otherwise treat as variable name
+    if (st.vars.count(inSel)) return asNum(st.vars[inSel]);
+    return 0.0;
+}
+
+static void funcWriteOutput(AppState& st, const string& outSel, double v) {
+    if (outSel == "last") {
+        st.lastValue = Value::Num(v);
+        return;
+    }
+    if (outSel == "msg") {
+        ostringstream ss; ss << v;
+        st.vars["msg"] = Value::Str(ss.str());
+        return;
+    }
+    // v / score / any name: numeric
+    st.vars[outSel] = Value::Num(v);
+}
+
+static bool funcApplyBuiltin(AppState& st, int blockIndex, const string& fn, double x, double& out) {
+    if (fn == "sqrt") {
+        return safeSqrt(st, blockIndex, x, out);
+    }
+    if (fn == "abs") {
+        out = fabs(x);
+        return true;
+    }
+    if (fn == "sin") {
+        out = sin(degToRad(x)); // degrees (Scratch-like)
+        return true;
+    }
+    if (fn == "cos") {
+        out = cos(degToRad(x));
+        return true;
+    }
+    if (fn == "tan") {
+        out = tan(degToRad(x));
+        return true;
+    }
+    if (fn == "round") {
+        out = (double)llround(x);
+        return true;
+    }
+    if (fn == "floor") {
+        out = floor(x);
+        return true;
+    }
+    if (fn == "ceil") {
+        out = ceil(x);
+        return true;
+    }
+
+    // unknown => passthrough
+    out = x;
+    return true;
+}
+
 static void executeOneBlock(AppState& st) {
     if (!st.scriptRunning) return;
-    if (st.askDialogOpen) return; // waiting for answer
+    if (st.askDialogOpen) return;
     if (st.scriptPC < 0 || st.scriptPC >= (int)st.ws.blocks.size()) {
         stopScript(st, "Reached end", "WARNING");
         return;
@@ -1970,7 +2250,6 @@ static void executeOneBlock(AppState& st) {
         return;
     }
     if (cmd == "WHEN_RECEIVE") {
-        // minimal: only logs; in full scratch it would start a separate script
         st.log.info(idx, cmd, "When receive", "msg=" + b.s1);
         st.scriptPC++;
         return;
@@ -1978,7 +2257,6 @@ static void executeOneBlock(AppState& st) {
 
     // ---- Motion
     if (cmd == "MOVE") {
-        // legacy: x += a
         double bx = st.actorX, by = st.actorY;
         st.actorX += b.a;
         clampActorPos(st, idx, cmd, bx, by);
@@ -1996,7 +2274,7 @@ static void executeOneBlock(AppState& st) {
         double bx = st.actorX, by = st.actorY;
         double rad = degToRad(st.actorDirDeg);
         st.actorX += cos(rad) * b.a;
-        st.actorY -= sin(rad) * b.a; // screen y down => subtract for "up"
+        st.actorY -= sin(rad) * b.a;
         clampActorPos(st, idx, cmd, bx, by);
 
         if (st.penExtensionEnabled && st.penDown) {
@@ -2092,7 +2370,6 @@ static void executeOneBlock(AppState& st) {
     }
 
     if (cmd == "BOUNCE_EDGE") {
-        // if touching any edge, flip direction (very simple)
         bool onEdge = (st.actorX <= st.ws.bounds.x + 0.5) ||
                       (st.actorX >= st.ws.bounds.x + st.ws.bounds.w - 0.5) ||
                       (st.actorY <= st.ws.bounds.y + 0.5) ||
@@ -2284,7 +2561,6 @@ static void executeOneBlock(AppState& st) {
         return;
     }
     if (cmd == "ASK") {
-        // open modal and pause here; when answered, resume at idx+1
         beginAskDialog(st, b.s1.empty() ? "?" : b.s1, idx + 1);
         return;
     }
@@ -2350,13 +2626,33 @@ static void executeOneBlock(AppState& st) {
         return;
     }
 
-    // ---- Variables
-    auto cycleVarName = [&](const string& cur) -> string {
-        if (cur == "v") return "score";
-        if (cur == "score") return "msg";
-        return "v";
-    };
+    // =========================
+    // Section 5: Function Apply
+    // =========================
+    if (cmd == "FUNC_APPLY") {
+        string fn = b.s1.empty() ? "sqrt" : b.s1;
+        string inSel = b.inSel.empty() ? "last" : b.inSel;
+        string outSel = b.outSel.empty() ? "last" : b.outSel;
 
+        double x = funcReadInput(st, inSel);
+        double y = 0.0;
+
+        if (!funcApplyBuiltin(st, idx, fn, x, y)) {
+            // safeSqrt already shows error; just advance
+            st.scriptPC++;
+            return;
+        }
+
+        funcWriteOutput(st, outSel, y);
+
+        st.log.info(idx, cmd, "Apply " + fn,
+                    "in=" + inSel + " x=" + to_string(x) +
+                    " -> out=" + outSel + " y=" + to_string(y));
+        st.scriptPC++;
+        return;
+    }
+
+    // ---- Variables
     if (cmd == "VAR_SET_NUM") {
         string name = b.s1.empty() ? "v" : b.s1;
         Value before = st.vars.count(name) ? st.vars[name] : Value::Num(0);
@@ -2407,7 +2703,6 @@ static void executeOneBlock(AppState& st) {
 
     // ---- Control flow
     if (cmd == "WAIT") {
-        // simplest: freeze whole app (as required in doc)
         int ms = (int)max(0.0, b.a * 1000.0);
         st.log.info(idx, cmd, "Wait", "ms=" + to_string(ms));
         SDL_Delay((Uint32)ms);
@@ -2422,7 +2717,6 @@ static void executeOneBlock(AppState& st) {
     }
 
     if (cmd == "WAIT_UNTIL") {
-        // condition is lastValue truthy; if false, keep PC here
         if (!st.lastValue.truthy()) {
             st.log.info(idx, cmd, "Wait until", "blocked (last=false)");
             return;
@@ -2440,7 +2734,7 @@ static void executeOneBlock(AppState& st) {
         if (!cond) {
             if (cmd == "IFELSE" && elseIdx != -1) {
                 st.log.info(idx, cmd, "IF false", "jump to ELSE");
-                st.scriptPC = elseIdx + 1; // run false-branch
+                st.scriptPC = elseIdx + 1;
                 return;
             }
             if (endIdx != -1) {
@@ -2492,7 +2786,6 @@ static void executeOneBlock(AppState& st) {
     }
 
     if (cmd == "REPEAT_UNTIL") {
-        // if condition already true, jump to end
         int endIdx = (idx >= 0 && idx < (int)st.loopEnd.size()) ? st.loopEnd[idx] : -1;
         if (st.lastValue.truthy()) {
             st.log.info(idx, cmd, "RepeatUntil", "cond true -> exit");
@@ -2521,7 +2814,6 @@ static void executeOneBlock(AppState& st) {
                 return;
             }
             if (startCmd == "REPEAT_UNTIL") {
-                // go back to start to re-check condition
                 st.log.info(idx, cmd, "RepeatUntil loop", "back to start");
                 st.scriptPC = startIdx;
                 return;
@@ -2635,7 +2927,7 @@ static void executeOneBlock(AppState& st) {
 
 static void runScriptTick(AppState& st) {
     if (!st.scriptRunning) return;
-    if (st.askDialogOpen) return; // paused by ASK modal
+    if (st.askDialogOpen) return;
 
     if (st.debugStepMode) {
         if (!st.stepRequested) return;
@@ -2774,6 +3066,10 @@ static void processEvents(AppState& st, SDL_Window* window) {
         if (st.penColorPickerOpen) {
             if (handlePenColorPickerEvent(st, e, winW, winH)) continue;
         }
+        // Section 5 modal
+        if (st.funcIOMenuOpen) {
+            if (handleFuncIOMenuEvent(st, e, winW, winH)) continue;
+        }
 
         // Ask/Save/Load dialogs
         if (st.askDialogOpen || st.saveDialogOpen || st.loadDialogOpen) {
@@ -2787,7 +3083,7 @@ static void processEvents(AppState& st, SDL_Window* window) {
                 int step = (e.wheel.y > 0) ? -42 : (e.wheel.y < 0 ? 42 : 0);
                 if (step != 0) {
                     st.paletteScroll = clampT(st.paletteScroll + step, 0, st.paletteMaxScroll);
-                    st.paletteDirty = true; // rebuild to reposition
+                    st.paletteDirty = true;
                     continue;
                 }
             }
@@ -2854,8 +3150,14 @@ static void handleShortcuts(AppState& st) {
         return;
     }
 
+    if (st.funcIOMenuOpen) {
+        if (st.in.keyPressed[SDL_SCANCODE_ESCAPE]) {
+            closeFuncIOMenu(st, "Esc shortcut");
+        }
+        return;
+    }
+
     if (st.askDialogOpen) {
-        // handled in dialog
         return;
     }
 
@@ -2961,7 +3263,7 @@ static void update(AppState& st, SDL_Window* window) {
     if (st.loadDialogOpen) updateLoadHover(st, w, h);
 
     if (st.askDialogOpen || st.saveDialogOpen || st.loadDialogOpen) return;
-    if (st.extensionLibraryOpen || st.penColorPickerOpen) return;
+    if (st.extensionLibraryOpen || st.penColorPickerOpen || st.funcIOMenuOpen) return;
 
     if (updateHelpMenu(st)) return;
 
@@ -2976,12 +3278,18 @@ static void update(AppState& st, SDL_Window* window) {
 
     handleShortcuts(st);
 
-    // Shift+Click: Pen blocks editing + Variable blocks name cycling (minimal)
+    // Shift+Click: Function IO menu + Pen blocks editing + Variable blocks name cycling (minimal)
     bool shift = st.in.keyDown[SDL_SCANCODE_LSHIFT] || st.in.keyDown[SDL_SCANCODE_RSHIFT];
     if (shift && st.in.mousePressed) {
         int hit = st.ws.hitTest(st.in.mx, st.in.my);
         if (hit != -1) {
             Block& b = st.ws.blocks[hit];
+
+            // Section 5 first: open IO menu for function block
+            if (b.cmd == "FUNC_APPLY") {
+                openFuncIOMenu(st, hit);
+                return;
+            }
 
             if (b.cmd == "PEN_SET_COLOR") {
                 st.penColorPickerOpen = true;
@@ -3024,7 +3332,7 @@ static void renderBlockLabels(const AppState& st, SDL_Renderer* r) {
     for (size_t i = 0; i < st.ws.blocks.size(); i++) {
         const Block& b = st.ws.blocks[i];
         string label = b.cmd;
-        // small prettify for common ones
+
         if (b.cmd == "MOVE_STEPS") label = "move " + to_string((int)round(b.a)) + " steps";
         else if (b.cmd == "TURN_R") label = "turn right " + to_string((int)round(b.a));
         else if (b.cmd == "TURN_L") label = "turn left " + to_string((int)round(b.a));
@@ -3037,8 +3345,13 @@ static void renderBlockLabels(const AppState& st, SDL_Renderer* r) {
         else if (b.cmd == "VAR_SET_NUM") label = "set " + b.s1 + " = " + to_string((int)round(b.a));
         else if (b.cmd == "VAR_SET_STR") label = "set " + b.s1 + " = \"" + b.s2 + "\"";
         else if (b.cmd == "VAR_CHANGE") label = "change " + b.s1 + " by " + to_string((int)round(b.a));
+        else if (b.cmd == "FUNC_APPLY") {
+            string fn = b.s1.empty() ? "sqrt" : b.s1;
+            string inSel = b.inSel.empty() ? "last" : b.inSel;
+            string outSel = b.outSel.empty() ? "last" : b.outSel;
+            label = fn + "(" + inSel + ") -> " + outSel;
+        }
 
-        // shadow + text
         renderText(r, st.uiFont, label, b.rect.x + 10 + 1, b.rect.y + 16 + 1, t);
         renderText(r, st.uiFont, label, b.rect.x + 10, b.rect.y + 16, w);
     }
@@ -3048,7 +3361,6 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
     int w = 0, h = 0;
     SDL_GetWindowSize(window, &w, &h);
 
-    // Backdrop (minimal: different shade)
     int bgBase = 30 + (st.backdropIndex % 5) * 6;
     SDL_SetRenderDrawColor(r, bgBase, bgBase, bgBase + 4, 255);
     SDL_RenderClear(r);
@@ -3065,7 +3377,6 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
 
     for (size_t i = 0; i < st.buttons.size(); i++) st.buttons[i].draw(r, st.uiFont);
 
-    // left palette
     renderPaletteHeader(st, r);
     renderPaletteCats(st, r);
     for (size_t i = 0; i < st.palette.size(); i++) st.palette[i].draw(r, st.uiFont);
@@ -3076,17 +3387,14 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
     st.ws.draw(r);
     renderBlockLabels(st, r);
 
-    // Pen output
     renderPenLayer(st, r);
 
-    // highlight current script block
     if (st.scriptRunning && st.scriptPC >= 0 && st.scriptPC < (int)st.ws.blocks.size()) {
         SDL_Rect hi = st.ws.blocks[st.scriptPC].rect;
         SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
         SDL_RenderDrawRect(r, &hi);
     }
 
-    // draw actor
     if (st.scriptRunning && st.actorVisible) {
         int sizePx = (int)clampT((int)round(12.0 * (st.actorSizePct / 100.0)), 2, 120);
         SDL_Rect a = {(int)st.actorX - sizePx/2, (int)st.actorY - sizePx/2, sizePx, sizePx};
@@ -3099,7 +3407,6 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
         SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
         SDL_RenderDrawRect(r, &a);
 
-        // direction indicator line
         double rad = degToRad(st.actorDirDeg);
         int x2 = (int)round(st.actorX + cos(rad) * (sizePx/2 + 10));
         int y2 = (int)round(st.actorY - sin(rad) * (sizePx/2 + 10));
@@ -3107,7 +3414,6 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
         SDL_RenderDrawLine(r, (int)st.actorX, (int)st.actorY, x2, y2);
     }
 
-    // speech bubble (minimal)
     if (!st.bubbleText.empty() && st.scriptRunning && st.actorVisible) {
         SDL_Rect box{(int)st.actorX + 16, (int)st.actorY - 40, 240, 46};
         SDL_SetRenderDrawColor(r, 245,245,245,255);
@@ -3117,7 +3423,6 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
         renderText(r, st.uiFont, st.bubbleThink ? ("(think) " + st.bubbleText) : st.bubbleText, box.x + 8, box.y + 12, SDL_Color{10,10,10,255});
     }
 
-    // variable watchers (minimal)
     int vy = TOP_BAR_H + 8;
     for (auto& kv : st.varVisible) {
         if (!kv.second) continue;
@@ -3128,17 +3433,15 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
         if (vy > TOP_BAR_H + 140) break;
     }
 
-    // Help dropdown
     renderHelpMenu(st, r);
-
-    // Logs panel overlay
     renderLogsPanel(st, r, w, h);
 
-    // Extension overlays
     renderExtensionLibrary(st, r, w, h);
     renderPenColorPicker(st, r, w, h);
 
-    // dialogs (overlay)
+    // Section 5 overlay
+    renderFuncIOMenu(st, r, w, h);
+
     renderDialogs(st, r, w, h);
 
     SDL_RenderPresent(r);
@@ -3199,7 +3502,6 @@ static int RunApp() {
 
     st.ws.bounds = SDL_Rect{LEFT_PANEL_W, TOP_BAR_H, WINDOW_W - LEFT_PANEL_W, WINDOW_H - TOP_BAR_H};
 
-    // minimal starter script: event + move
     st.ws.addBlock(st.ws.bounds.x + 40, st.ws.bounds.y + 40);
     if (!st.ws.blocks.empty()) {
         Block& b = st.ws.blocks.back();
