@@ -1,28 +1,43 @@
 #include "Workspace.h"
 
-Workspace::Workspace() {
-    // Vector initializes itself automatically
-}
-
-Workspace::~Workspace() {
-    // Clean up memory: Delete all Block objects stored in the vector
-    for (Block* block : blocks) {
-        delete block;
-    }
-    blocks.clear();
-}
-
-void Workspace::addBlock(Block* b) {
-    if (b != nullptr) {
-        blocks.push_back(b);
+// پیاده‌سازی تابع آماده‌سازی
+void initWorkspace(Workspace* ws) {
+    if (ws) {
+        // وکتور به صورت خودکار ساخته می‌شود اما برای اطمینان آن را خالی می‌کنیم
+        ws->blocks.clear();
     }
 }
 
-void Workspace::drawAll(SDL_Renderer* renderer) {
-    // Iterate through the vector and draw each block
-    for (Block* block : blocks) {
-        if (block != nullptr) {
-            block->draw(renderer);
+// پیاده‌سازی تابع پاکسازی (Destructor سابق)
+void cleanUpWorkspace(Workspace* ws) {
+    if (ws) {
+        // آزادسازی حافظه تک تک بلوک‌ها
+        for (Block* block : ws->blocks) {
+            // چون Block ها را با new ساخته‌ایم، باید delete شوند
+            delete block;
+        }
+        // خالی کردن لیست
+        ws->blocks.clear();
+    }
+}
+
+// پیاده‌سازی اضافه کردن بلوک
+void addBlockToWorkspace(Workspace* ws, Block* b) {
+    if (ws && b) {
+        ws->blocks.push_back(b);
+    }
+}
+
+// پیاده‌سازی رسم همه بلوک‌ها
+void drawAllBlocks(const Workspace* ws, SDL_Renderer* renderer) {
+    if (ws) {
+        // حلقه روی تمام بلوک‌های موجود در لیست
+        for (Block* block : ws->blocks) {
+            if (block) {
+                // نکته مهم: چون Block دیگر کلاس نیست، متد draw() ندارد.
+                // باید تابع drawBlock که در Block.h تعریف کردیم را صدا بزنیم.
+                drawBlock(block, renderer);
+            }
         }
     }
 }

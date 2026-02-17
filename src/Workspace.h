@@ -2,25 +2,28 @@
 #define WORKSPACE_H
 
 #include <vector>
-#include <SDL2/SDL.h> // Adjust based on your include path (e.g., <SDL.h>)
-#include "..\include\Block.h"
+#include <SDL2/SDL.h>
+// پکیج Block را ایمپورت می‌کنیم تا کامپایلر بداند Block چیست
+#include "Block.h"
 
-class Workspace {
-private:
-    // A container to hold pointers to all blocks currently in the workspace
+// به جای class از struct استفاده می‌کنیم
+struct Workspace {
+    // این لیست اشاره‌گرهایی به بلوک‌ها را نگه می‌دارد
     std::vector<Block*> blocks;
-
-public:
-    Workspace();
-
-    // Destructor to clean up memory
-    ~Workspace();
-
-    // Adds a new block to the workspace
-    void addBlock(Block* b);
-
-    // Iterates through all blocks and renders them
-    void drawAll(SDL_Renderer* renderer);
 };
+
+// --- تعریف توابع (Function Prototypes) ---
+
+// تابع برای آماده‌سازی اولیه (جایگزین Constructor)
+void initWorkspace(Workspace* ws);
+
+// تابع برای پاکسازی حافظه (جایگزین Destructor)
+void cleanUpWorkspace(Workspace* ws);
+
+// تابع برای اضافه کردن بلوک جدید
+void addBlockToWorkspace(Workspace* ws, Block* b);
+
+// تابع برای رسم تمام بلوک‌ها
+void drawAllBlocks(const Workspace* ws, SDL_Renderer* renderer);
 
 #endif // WORKSPACE_H
