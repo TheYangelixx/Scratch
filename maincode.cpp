@@ -658,6 +658,19 @@ struct AppState {
     // Sound (minimal state; no real audio)
     int soundVolume = 100;
     bool soundMuted = false;
+    bool bgmReady = false;
+    SDL_AudioDeviceID bgmDev = 0;
+    SDL_AudioSpec bgmSpec{};
+
+    Uint8* bgmBuf = nullptr;   // converted buffer (in bgmSpec format)
+    Uint32 bgmLen = 0;
+    Uint32 bgmPos = 0;
+
+    int  musicVolume = 100;    // 0..100 (BGM only)
+    bool musicMuted  = false;
+
+    // optional: file name
+    string bgmFile = "bgm.wav";
 
     // Variables
     map<string, Value> vars;
@@ -741,6 +754,193 @@ struct AppState {
 // =========================
 // settings
 // =========================
+// =========================
+// NEW: BGM helpers (looping WAV on separate device)
+// =========================
+static bool initBGMSystem(AppState& st) {
+    SDL_AudioSpec want{};
+    want.freq = 44100;
+    want.format = AUDIO_S16SYS;
+    want.channels = 2;
+    want.samples = 4096;
+    want.callback = nullptr;
+
+    SDL_AudioSpec have{};
+    st.bgmDev = SDL_OpenAudioDevice(nullptr, 0, &want, &have, SDL_AUDIO_ALLOW_ANY_CHANGE);
+    if (!st.bgmDev) {
+        st.bgmReady = false;
+        st.log.warn(-1, "BGM", "OpenAudioDevice failed", SDL_GetError());
+        return false;
+    }
+
+    st.bgmSpec = have;
+    st.bgmReady = true;
+    SDL_PauseAudioDevice(st.bgmDev, 0);
+
+    st.log.info(-1, "BGM", "BGM device ready",
+                "freq=" + to_string(have.freq) + " ch=" + to_string((int)have.channels));
+    return true;
+}
+
+static bool loadBGM(AppState& st, const string& wavFile) {
+    if (!st.bgmReady || !st.bgmDev) return false;
+
+    // free old
+    if (st.bgmBuf) { SDL_free(st.bgmBuf); st.bgmBuf = nullptr; }
+    st.bgmLen = 0;
+    st.bgmPos = 0;
+
+    SDL_AudioSpec srcSpec{};
+    Uint8* srcBuf = nullptr;
+    Uint32 srcLen = 0;
+
+    if (!SDL_LoadWAV(wavFile.c_str(), &srcSpec, &srcBuf, &srcLen)) {
+        st.log.warn(-1, "BGM", "LoadWAV failed", wavFile + " err=" + SDL_GetError());
+        return false;
+    }
+
+    // Convert to bgmSpec if needed
+    Uint8* outBuf = srcBuf;
+    Uint32 outLen = srcLen;
+
+    if (srcSpec.format != st.bgmSpec.format ||
+        srcSpec.channels != st.bgmSpec.channels ||
+        srcSpec.freq != st.bgmSpec.freq) {
+
+        SDL_AudioCVT cvt;
+        if (SDL_BuildAudioCVT(&cvt,
+                              srcSpec.format, srcSpec.channels, srcSpec.freq,
+                              st.bgmSpec.format, st.bgmSpec.channels, st.bgmSpec.freq) < 0) {
+            st.log.warn(-1, "BGM", "BuildAudioCVT failed", wavFile);
+            SDL_FreeWAV(srcBuf);
+            return false;
+        }
+
+        if (cvt.needed) {
+            cvt.len = (int)srcLen;
+            Uint8* cvtBuf = (Uint8*)SDL_malloc((size_t)cvt.len * (size_t)cvt.len_mult);
+            if (!cvtBuf) {
+                st.log.warn(-1, "BGM", "malloc failed", "cvt");
+                SDL_FreeWAV(srcBuf);
+                return false;
+            }
+
+            SDL_memcpy(cvtBuf, srcBuf, srcLen);
+            cvt.buf = cvtBuf;
+
+            if (SDL_ConvertAudio(&cvt) != 0) {
+                st.log.warn(-1, "BGM", "ConvertAudio failed", wavFile);
+                SDL_free(cvtBuf);
+                SDL_FreeWAV(srcBuf);
+                return false;
+            }
+
+            outBuf = cvtBuf;
+            outLen = (Uint32)cvt.len_cvt;
+
+            SDL_FreeWAV(srcBuf); // original freed; we keep converted
+        } else {
+            // no conversion needed actually
+        }
+    }
+
+    // If we didn't convert, outBuf == srcBuf must be freed with SDL_FreeWAV later.
+    // For simplicity, copy into SDL_malloc buffer so we always SDL_free().
+    Uint8* finalBuf = (Uint8*)SDL_malloc(outLen);
+    if (!finalBuf) {
+        st.log.warn(-1, "BGM", "malloc failed", "finalBuf");
+        if (outBuf == srcBuf) SDL_FreeWAV(srcBuf);
+        else SDL_free(outBuf);
+        return false;
+    }
+    SDL_memcpy(finalBuf, outBuf, outLen);
+
+    if (outBuf == srcBuf) SDL_FreeWAV(srcBuf);
+    else SDL_free(outBuf);
+
+    st.bgmBuf = finalBuf;
+    st.bgmLen = outLen;
+    st.bgmPos = 0;
+
+    st.log.info(-1, "BGM", "Loaded BGM", wavFile + " bytes=" + to_string(outLen));
+    return true;
+}
+
+static void shutdownBGMSystem(AppState& st) {
+    if (st.bgmDev) {
+        SDL_ClearQueuedAudio(st.bgmDev);
+        SDL_CloseAudioDevice(st.bgmDev);
+    }
+    st.bgmDev = 0;
+    st.bgmReady = false;
+
+    if (st.bgmBuf) {
+        SDL_free(st.bgmBuf);
+        st.bgmBuf = nullptr;
+    }
+    st.bgmLen = 0;
+    st.bgmPos = 0;
+}
+
+static void bgmClearQueue(AppState& st) {
+    if (st.bgmReady && st.bgmDev) SDL_ClearQueuedAudio(st.bgmDev);
+}
+
+// Feed BGM gradually (keeps latency stable)
+static void bgmTick(AppState& st) {
+    if (!st.bgmReady || !st.bgmDev) return;
+    if (!st.bgmBuf || st.bgmLen == 0) return;
+
+    int vol = st.musicMuted ? 0 : clampT(st.musicVolume, 0, 100);
+    if (vol <= 0) {
+        // keep silent
+        bgmClearQueue(st);
+        return;
+    }
+
+    // Keep queued audio around ~200ms..400ms
+    Uint32 queuedBytes = SDL_GetQueuedAudioSize(st.bgmDev);
+
+    int bytesPerSample = (SDL_AUDIO_BITSIZE(st.bgmSpec.format) / 8) * (int)st.bgmSpec.channels;
+    if (bytesPerSample <= 0 || st.bgmSpec.freq <= 0) return;
+
+    Uint32 targetMs = 300;
+    Uint32 targetBytes = (Uint32)((st.bgmSpec.freq * bytesPerSample) * (targetMs / 1000.0));
+
+    if (queuedBytes >= targetBytes) return;
+
+    // Chunk size ~100ms
+    Uint32 chunkMs = 100;
+    Uint32 chunkBytes = (Uint32)((st.bgmSpec.freq * bytesPerSample) * (chunkMs / 1000.0));
+    if (chunkBytes < 256) chunkBytes = 256;
+
+    // Prepare a temp buffer (scaled by volume)
+    Uint8* tmp = (Uint8*)SDL_malloc(chunkBytes);
+    if (!tmp) return;
+    SDL_memset(tmp, 0, chunkBytes);
+
+    // Fill tmp from bgmBuf with looping
+    Uint32 remaining = chunkBytes;
+    Uint32 writePos = 0;
+
+    while (remaining > 0) {
+        Uint32 avail = st.bgmLen - st.bgmPos;
+        Uint32 take = (avail < remaining) ? avail : remaining;
+
+        // scale using SDL_MixAudioFormat into tmp
+        int sdlVol = (int)llround((vol / 100.0) * SDL_MIX_MAXVOLUME); // 0..128
+        SDL_MixAudioFormat(tmp + writePos, st.bgmBuf + st.bgmPos, st.bgmSpec.format, take, sdlVol);
+
+        st.bgmPos += take;
+        if (st.bgmPos >= st.bgmLen) st.bgmPos = 0;
+
+        writePos += take;
+        remaining -= take;
+    }
+
+    SDL_QueueAudio(st.bgmDev, tmp, chunkBytes);
+    SDL_free(tmp);
+}
 
 static SDL_Rect settingsRect(int w, int h) {
     return SDL_Rect{w/2 - 260, h/2 - 170, 520, 340};
@@ -786,6 +986,20 @@ static bool handleSettingsEvent(AppState& st, const SDL_Event& e, int w, int h) 
         SDL_Rect rowToggle   = {box.x + 30, box.y + 150, box.w - 60, 44};
 
         SDL_Rect okBtn  = {box.x + box.w - 180, box.y + box.h - 60, 140, 40};
+        // NEW rows
+        SDL_Rect rowCostPrev = {box.x + 30,           box.y + 210, 60, 38};
+        SDL_Rect rowCostNext = {box.x + box.w - 90,   box.y + 210, 60, 38};
+        SDL_Rect rowCostMid  = {box.x + 100,          box.y + 210, box.w - 200, 38};
+
+        SDL_Rect rowBackPrev = {box.x + 30,           box.y + 255, 60, 38};
+        SDL_Rect rowBackNext = {box.x + box.w - 90,   box.y + 255, 60, 38};
+        SDL_Rect rowBackMid  = {box.x + 100,          box.y + 255, box.w - 200, 38};
+
+        SDL_Rect rowMusicDec = {box.x + 30,           box.y + 300, 60, 32};
+        SDL_Rect rowMusicInc = {box.x + box.w - 90,   box.y + 300, 60, 32};
+        SDL_Rect rowMusicMid = {box.x + 100,          box.y + 300, box.w - 320, 32}; // smaller to fit mute btn
+        SDL_Rect rowMusicMute= {box.x + box.w - 250,  box.y + 300, 150, 32};
+
 
         if (pointInRect(mx,my,rowSpeedDec)) {
             st.runSpeedMs = clampT(st.runSpeedMs - 10, 0, 300);
@@ -807,6 +1021,69 @@ static bool handleSettingsEvent(AppState& st, const SDL_Event& e, int w, int h) 
             st.log.info(-1, "SET", "Close settings (OK)", "");
             return true;
         }
+                // ===== NEW: Costume controls =====
+        if (pointInRect(mx,my,rowCostPrev)) {
+            if (!st.costumes.empty()) {
+                st.costumeIndex--;
+                if (st.costumeIndex < 0) st.costumeIndex = (int)st.costumes.size() - 1;
+            }
+            st.log.info(-1, "SET", "Costume prev", "idx=" + to_string(st.costumeIndex));
+            return true;
+        }
+        if (pointInRect(mx,my,rowCostNext)) {
+            if (!st.costumes.empty()) {
+                st.costumeIndex = (st.costumeIndex + 1) % (int)st.costumes.size();
+            }
+            st.log.info(-1, "SET", "Costume next", "idx=" + to_string(st.costumeIndex));
+            return true;
+        }
+
+        // ===== NEW: Backdrop controls =====
+        if (pointInRect(mx,my,rowBackPrev)) {
+            if (!st.backdrops.empty()) {
+                st.backdropIndex--;
+                if (st.backdropIndex < 0) st.backdropIndex = (int)st.backdrops.size() - 1;
+            }
+            st.log.info(-1, "SET", "Backdrop prev", "idx=" + to_string(st.backdropIndex));
+            return true;
+        }
+        if (pointInRect(mx,my,rowBackNext)) {
+            if (!st.backdrops.empty()) {
+                st.backdropIndex = (st.backdropIndex + 1) % (int)st.backdrops.size();
+            }
+            st.log.info(-1, "SET", "Backdrop next", "idx=" + to_string(st.backdropIndex));
+            return true;
+        }
+
+        // ===== NEW: Music volume +/-10 =====
+        if (pointInRect(mx,my,rowMusicDec)) {
+            st.musicVolume = clampT(st.musicVolume - 10, 0, 100);
+            st.log.info(-1, "SET", "Music volume -10", "musicVolume=" + to_string(st.musicVolume));
+            return true;
+        }
+        if (pointInRect(mx,my,rowMusicInc)) {
+            st.musicVolume = clampT(st.musicVolume + 10, 0, 100);
+            st.log.info(-1, "SET", "Music volume +10", "musicVolume=" + to_string(st.musicVolume));
+            return true;
+        }
+
+        // click bar to set volume
+        if (pointInRect(mx,my,rowMusicMid)) {
+            int rel = mx - rowMusicMid.x;
+            int v = (int)llround((rel / (double)max(1, rowMusicMid.w)) * 100.0);
+            st.musicVolume = clampT(v, 0, 100);
+            st.log.info(-1, "SET", "Music volume set", "musicVolume=" + to_string(st.musicVolume));
+            return true;
+        }
+
+        // mute/unmute
+        if (pointInRect(mx,my,rowMusicMute)) {
+            st.musicMuted = !st.musicMuted;
+            if (st.musicMuted) bgmClearQueue(st); // instantly silence
+            st.log.info(-1, "SET", "Music mute toggle", st.musicMuted ? "MUTED" : "UNMUTED");
+            return true;
+        }
+
 
         return true;
     }
@@ -861,6 +1138,90 @@ static void renderSettings(const AppState& st, SDL_Renderer* r, int w, int h) {
 
     string tv = string("Show actor when stopped: ") + (st.drawActorWhenStopped ? "ON" : "OFF");
     renderText(r, st.uiFont, tv, tog.x + 12, tog.y + 12, white);
+        // ===== NEW: Costume row =====
+    SDL_Rect costPrev = {box.x + 30,         box.y + 210, 60, 38};
+    SDL_Rect costNext = {box.x + box.w - 90, box.y + 210, 60, 38};
+    SDL_Rect costMid  = {box.x + 100,        box.y + 210, box.w - 200, 38};
+
+    SDL_SetRenderDrawColor(r, 80,80,90,255);
+    SDL_RenderFillRect(r, &costPrev);
+    SDL_RenderFillRect(r, &costNext);
+    SDL_SetRenderDrawColor(r, 25,25,28,255);
+    SDL_RenderFillRect(r, &costMid);
+
+    SDL_SetRenderDrawColor(r, 15,15,15,255);
+    SDL_RenderDrawRect(r, &costPrev);
+    SDL_RenderDrawRect(r, &costNext);
+    SDL_RenderDrawRect(r, &costMid);
+
+    renderTextCentered(r, st.uiFont, "<", costPrev, 0, white);
+    renderTextCentered(r, st.uiFont, ">", costNext, 0, white);
+
+    int cCount = (int)st.costumes.size();
+    int cIdx = cCount > 0 ? ((st.costumeIndex % cCount) + cCount) % cCount : 0;
+    string cLabel = "Costume: " + to_string(cIdx) + " / " + to_string(max(0, cCount - 1));
+    renderText(r, st.uiFont, cLabel, costMid.x + 10, costMid.y + 10, white);
+
+    // ===== NEW: Backdrop row =====
+    SDL_Rect backPrev = {box.x + 30,         box.y + 255, 60, 38};
+    SDL_Rect backNext = {box.x + box.w - 90, box.y + 255, 60, 38};
+    SDL_Rect backMid  = {box.x + 100,        box.y + 255, box.w - 200, 38};
+
+    SDL_SetRenderDrawColor(r, 80,80,90,255);
+    SDL_RenderFillRect(r, &backPrev);
+    SDL_RenderFillRect(r, &backNext);
+    SDL_SetRenderDrawColor(r, 25,25,28,255);
+    SDL_RenderFillRect(r, &backMid);
+
+    SDL_SetRenderDrawColor(r, 15,15,15,255);
+    SDL_RenderDrawRect(r, &backPrev);
+    SDL_RenderDrawRect(r, &backNext);
+    SDL_RenderDrawRect(r, &backMid);
+
+    renderTextCentered(r, st.uiFont, "<", backPrev, 0, white);
+    renderTextCentered(r, st.uiFont, ">", backNext, 0, white);
+
+    int bCount = (int)st.backdrops.size();
+    int bIdx = bCount > 0 ? ((st.backdropIndex % bCount) + bCount) % bCount : 0;
+    string bLabel = "Backdrop: " + to_string(bIdx) + " / " + to_string(max(0, bCount - 1));
+    renderText(r, st.uiFont, bLabel, backMid.x + 10, backMid.y + 10, white);
+
+    // ===== NEW: Music row (volume + mute) =====
+    SDL_Rect musDec  = {box.x + 30,         box.y + 300, 60, 32};
+    SDL_Rect musInc  = {box.x + box.w - 90, box.y + 300, 60, 32};
+    SDL_Rect musMid  = {box.x + 100,        box.y + 300, box.w - 320, 32};
+    SDL_Rect musMute = {box.x + box.w - 250, box.y + 300, 150, 32};
+
+    SDL_SetRenderDrawColor(r, 80,80,90,255);
+    SDL_RenderFillRect(r, &musDec);
+    SDL_RenderFillRect(r, &musInc);
+
+    SDL_SetRenderDrawColor(r, 25,25,28,255);
+    SDL_RenderFillRect(r, &musMid);
+
+    SDL_SetRenderDrawColor(r, st.musicMuted ? 120 : 60, st.musicMuted ? 60 : 140, 70, 255);
+    SDL_RenderFillRect(r, &musMute);
+
+    SDL_SetRenderDrawColor(r, 15,15,15,255);
+    SDL_RenderDrawRect(r, &musDec);
+    SDL_RenderDrawRect(r, &musInc);
+    SDL_RenderDrawRect(r, &musMid);
+    SDL_RenderDrawRect(r, &musMute);
+
+    renderTextCentered(r, st.uiFont, "-", musDec, 0, white);
+    renderTextCentered(r, st.uiFont, "+", musInc, 0, white);
+
+    string mv = "Music: " + to_string(clampT(st.musicVolume, 0, 100));
+    renderText(r, st.uiFont, mv, musMid.x + 10, musMid.y + 7, white);
+
+    // simple bar fill indicator
+    int fillW = (int)llround((clampT(st.musicVolume,0,100) / 100.0) * (musMid.w - 20));
+    SDL_Rect bar{musMid.x + 10, musMid.y + musMid.h - 8, max(0, fillW), 4};
+    SDL_SetRenderDrawColor(r, 200,200,200,255);
+    SDL_RenderFillRect(r, &bar);
+
+    renderTextCentered(r, st.uiFont, st.musicMuted ? "Muted" : "Mute", musMute, 0, white);
+
 
     // OK
     SDL_Rect okBtn  = {box.x + box.w - 180, box.y + box.h - 60, 140, 40};
@@ -2501,6 +2862,8 @@ static void shutdownAudioSystem(AppState& st) {
     st.soundBusyUntilMs = 0;
 }
 
+
+
 static uint32_t playWavOneShot(AppState& st, const string& wavFile) {
     if (!st.audioReady || !st.audioDev) {
         st.log.warn(-1, "AUDIO", "Audio not ready", "skip " + wavFile);
@@ -3905,6 +4268,7 @@ static void handleShortcuts(AppState& st) {
 static void update(AppState& st, SDL_Window* window) {
     int w = 0, h = 0;
     SDL_GetWindowSize(window, &w, &h);
+    bgmTick(st);
 
     st.ws.bounds = SDL_Rect{LEFT_PANEL_W, TOP_BAR_H, w - LEFT_PANEL_W, h - TOP_BAR_H};
 
@@ -4205,8 +4569,11 @@ static int RunApp() {
 
     penSyncRGB(st);
 
-    initAudioSystem(st);          // Section 7 (safe even if no wav)
-    initAssets(st, renderer);     // Section 6 (loads actor.bmp if exists)
+    initAudioSystem(st);          // Section 7 (SFX) - unchanged
+    initBGMSystem(st);            // NEW: BGM device
+    loadBGM(st, st.bgmFile);      // NEW: tries bgm.wav (if missing -> logs warning, no crash)
+
+    initAssets(st, renderer);     // Section 6
 
     st.ws.bounds = SDL_Rect{LEFT_PANEL_W, TOP_BAR_H, WINDOW_W - LEFT_PANEL_W, WINDOW_H - TOP_BAR_H};
 
@@ -4237,7 +4604,9 @@ static int RunApp() {
     SDL_StopTextInput();
 
     shutdownAssets(st);
+    shutdownBGMSystem(st);   // NEW
     shutdownAudioSystem(st);
+
 
     if (st.uiFont) TTF_CloseFont(st.uiFont);
 
