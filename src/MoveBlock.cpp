@@ -1,25 +1,27 @@
 #include "..\include\MoveBlock.h"
 
-MoveBlock::MoveBlock(int x, int y) : Block(x, y) {
+Block* createMoveBlock(float x, float y) {
+    Block* newBlock= new Block();
+    newBlock->x=x;
+    newBlock->y=y;
+    newBlock->type=BLOCK_MOVE;
+    newBlock->next=nullptr;
+
+    newBlock->color={76, 151, 255, 255};
+    return newBlock;
 }
 
-void MoveBlock::draw(SDL_Renderer* renderer) {
-    // 1. Draw the Block Body (Blue Rectangle)
-    // Scratch Motion Blue approx: R:76, G:151, B:255
+void drawMoveBlock(SDL_Renderer* renderer, Block*block) {
+    if(block==nullptr) return;
+
+    SDL_Rect blockRect={(int)block->x, (int)block->y, 100, 40};
     SDL_SetRenderDrawColor(renderer, 76, 151, 255, 255);
-    
-    SDL_Rect blockRect = { x, y, 100, 40 };
     SDL_RenderFillRect(renderer, &blockRect);
 
-    // 2. Draw a Border (Optional, for better visibility)
-    SDL_SetRenderDrawColor(renderer, 60, 120, 200, 255); // Slightly darker blue
+    SDL_SetRenderDrawColor(renderer, 60, 120, 200, 255);
     SDL_RenderDrawRect(renderer, &blockRect);
 
-    // 3. Draw "Text Placeholder" (White line/box)
-    // Since we aren't using SDL_ttf yet, we mimic text with a white strip
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // White
-    
-    // Simulate "Move 10 Steps" text roughly centered
-    SDL_Rect textPlaceholder = { x + 10, y + 18, 80, 4 }; 
-    SDL_RenderFillRect(renderer, &textPlaceholder);
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_Rect textLine={(int)block->x+10, (int)block->y+18, 80, 4};
+    SDL_RenderFillRect(renderer, &textLine);
 }

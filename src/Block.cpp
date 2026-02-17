@@ -1,12 +1,10 @@
 #include "..\include\Block.h"
 #include <iostream> // For debug logging if needed
 
-// Base Block Constructor
-Block::Block(int x, int y) : x(x), y(y) {
-    // Basic initialization
-}
+void drawBlock(SDL_Renderer*renderer, Block*block) {
+    if(block==nullptr) return;
 
-// Base Block Destructor
-Block::~Block() {
-    // Cleanup if necessary (nothing for now)
+    SDL_Rect rect={(int)block->x, (int)block->y, 100, 40};
+    SDL_SetRenderDrawColor(renderer, block->color.r, block->color.g, block->color.b, 255);
+    SDL_RenderFillRect(renderer, &rect);
 }
