@@ -4,6 +4,7 @@
 #include <SDL2/SDL_ttf.h>
 #include <algorithm>
 #include <cstdint>
+#include <iomanip>
 #include <cstdlib>
 #include <fstream>
 #include <functional>
@@ -367,9 +368,9 @@ struct PenSegment {
 
 struct PenStamp {
     double x=0, y=0;
-    int size = 12;
-    SDL_Color fill{240,240,240,255};
-    SDL_Color outline{10,10,10,255};
+    int costumeIndex = 0;
+    double dirDeg = 90.0;
+    double sizePct = 100.0;
 };
 
 // =========================
@@ -485,63 +486,8 @@ static vector<string> listSaveStems() {
     return out;
 }
 
-static bool saveProjectNamed(const string& saveStem, const Workspace& ws, Logger& log) {
-    const string path = buildSavePath(saveStem);
-    ofstream f(path.c_str());
-    if (!f) {
-        log.log("SAVE", "Cannot open: " + path);
-        return false;
-    }
 
-    f << "# YKP_SAVE_V1\n";
-    f << "BLOCKS " << ws.blocks.size() << "\n";
-    for (size_t i = 0; i < ws.blocks.size(); i++) {
-        const Block& b = ws.blocks[i];
-        f << "BLOCK "
-          << b.id << " "
-          << b.rect.x << " " << b.rect.y << " "
-          << b.rect.w << " " << b.rect.h << " "
-          << (int)b.color.r << " " << (int)b.color.g << " " << (int)b.color.b
-          << "\n";
-    }
 
-    log.log("SAVE", "Saved: " + path);
-    return true;
-}
-
-static bool loadProjectNamed(const string& saveStem, Workspace& ws, Logger& log) {
-    const string path = buildSavePath(saveStem);
-    ifstream f(path.c_str());
-    if (!f) {
-        log.log("LOAD", "Cannot open: " + path);
-        return false;
-    }
-
-    ws.reset();
-    string line;
-    int maxId = 0;
-
-    while (getline(f, line)) {
-        if (line.empty() || line[0] == '#') continue;
-
-        stringstream ss(line);
-        string tag;
-        ss >> tag;
-
-        if (tag == "BLOCK") {
-            Block b;
-            int r=60,g=150,bl=220;
-            ss >> b.id >> b.rect.x >> b.rect.y >> b.rect.w >> b.rect.h >> r >> g >> bl;
-            b.color = SDL_Color{(Uint8)r, (Uint8)g, (Uint8)bl, 255};
-            maxId = max(maxId, b.id);
-            ws.blocks.push_back(b);
-        }
-    }
-
-    ws.nextId = maxId + 1;
-    log.log("LOAD", "Loaded: " + path);
-    return true;
-}
 
 // =========================
 // Value (for Operators/Variables) - minimal dynamic typing
@@ -1237,6 +1183,283 @@ static void renderSettings(const AppState& st, SDL_Renderer* r, int w, int h) {
 // =========================
 // Dialog helpers (Save/Load + Ask)
 // =========================
+// ---- Forward declarations (needed for Save/Load)
+struct AppState;
+struct Block;
+
+static void setBlockVisual(Block& b);
+static void penSyncRGB(AppState& st);
+
+static bool saveProjectNamed(const string& saveStem, AppState& st){
+    const string path = buildSavePath(saveStem);
+    ofstream f(path.c_str());
+    if (!f) {
+        st.log.log("SAVE", "Cannot open: " + path);
+        return false;
+    }
+
+    // Header (as you requested)
+    f << "SAVE_V1\n";
+
+    // ---------- Workspace Blocks ----------
+    f << "BLOCKS " << st.ws.blocks.size() << "\n";
+    for (size_t i = 0; i < st.ws.blocks.size(); i++) {
+        const Block& b = st.ws.blocks[i];
+
+        f << "BLOCK "
+          << b.id << " "
+          << b.rect.x << " " << b.rect.y << " "
+          << b.rect.w << " " << b.rect.h << " "
+          << (int)b.color.r << " " << (int)b.color.g << " " << (int)b.color.b << " "
+          << b.cmd << " "
+          << b.a << " " << b.b << " "
+          << b.i1 << " "
+          << (int)b.pickColor.r << " " << (int)b.pickColor.g << " " << (int)b.pickColor.b << " "
+          << b.inSel << " " << b.outSel << " "
+          << std::quoted(b.s1) << " " << std::quoted(b.s2)
+          << "\n";
+    }
+
+    // ---------- Settings / UI state ----------
+    f << "SETTINGS " << st.runSpeedMs << " " << (st.drawActorWhenStopped ? 1 : 0) << "\n";
+
+    // ---------- Looks ----------
+    f << "LOOKS " << st.costumeIndex << " " << st.backdropIndex << " " << st.lookColorEffect << "\n";
+
+    // ---------- Extensions ----------
+    f << "EXT_PEN " << (st.penExtensionEnabled ? 1 : 0) << "\n";
+
+    // ---------- Pen state + drawings ----------
+    f << "PEN_STATE "
+      << (st.penDown ? 1 : 0) << " "
+      << st.penHue << " " << st.penSat << " " << st.penBri << " "
+      << st.penSize << "\n";
+
+    f << "PEN_SEGS " << st.penSegs.size() << "\n";
+    for (const auto& seg : st.penSegs) {
+        f << "SEG "
+          << seg.x1 << " " << seg.y1 << " " << seg.x2 << " " << seg.y2 << " "
+          << (int)seg.c.r << " " << (int)seg.c.g << " " << (int)seg.c.b << " "
+          << seg.size << "\n";
+    }
+
+    f << "PEN_STAMPS " << st.penStamps.size() << "\n";
+    for (const auto& sp : st.penStamps) {
+        f << "STAMP "
+          << sp.x << " " << sp.y << " "
+          << sp.costumeIndex << " "
+          << sp.dirDeg << " "
+          << sp.sizePct
+          << "\n";
+    }
+
+
+    // ---------- Variables ----------
+    f << "VARS " << st.vars.size() << "\n";
+    for (const auto& kv : st.vars) {
+        const string& name = kv.first;
+        const Value& v = kv.second;
+        f << "VAR " << name << " " << (v.isNum ? 1 : 0) << " ";
+        if (v.isNum) f << v.num << " " << std::quoted("") << "\n";
+        else         f << 0.0  << " " << std::quoted(v.str) << "\n";
+    }
+
+    f << "VARVIS " << st.varVisible.size() << "\n";
+    for (const auto& kv : st.varVisible) {
+        f << "VARV " << kv.first << " " << (kv.second ? 1 : 0) << "\n";
+    }
+
+    // ---------- Lists ----------
+    f << "LISTS " << st.lists.size() << "\n";
+    for (const auto& kv : st.lists) {
+        const string& name = kv.first;
+        const auto& items = kv.second;
+        f << "LIST " << name << " " << items.size() << "\n";
+        for (const auto& it : items) {
+            f << "ITEM " << (it.isNum ? 1 : 0) << " ";
+            if (it.isNum) f << it.num << " " << std::quoted("") << "\n";
+            else          f << 0.0   << " " << std::quoted(it.str) << "\n";
+        }
+    }
+
+    f << "LISTVIS " << st.listVisible.size() << "\n";
+    for (const auto& kv : st.listVisible) {
+        f << "LISTV " << kv.first << " " << (kv.second ? 1 : 0) << "\n";
+    }
+
+    st.log.log("SAVE", "Saved: " + path);
+    return true;
+}
+
+
+static bool loadProjectNamed(const string& saveStem, AppState& st) {
+    const string path = buildSavePath(saveStem);
+    ifstream f(path.c_str());
+    if (!f) {
+        st.log.log("LOAD", "Cannot open: " + path);
+        return false;
+    }
+
+    // Reset minimal state
+    st.ws.reset();
+    st.penSegs.clear();
+    st.penStamps.clear();
+    st.vars.clear();
+    st.varVisible.clear();
+    st.lists.clear();
+    st.listVisible.clear();
+
+    string header;
+    if (!getline(f, header)) return false;
+    if (header != "SAVE_V1") {
+        st.log.log("LOAD", "Invalid save header: " + header);
+        return false;
+    }
+
+    string line;
+    int maxId = 0;
+
+    size_t expectBlocks = 0;
+    size_t expectPenSegs = 0, expectPenStamps = 0;
+    size_t expectVars = 0, expectVarVis = 0;
+    size_t expectLists = 0, expectListVis = 0;
+
+    while (getline(f, line)) {
+        if (line.empty()) continue;
+
+        stringstream ss(line);
+        string tag;
+        ss >> tag;
+
+        if (tag == "BLOCKS") {
+            ss >> expectBlocks;
+            continue;
+        }
+
+        if (tag == "BLOCK") {
+            Block b;
+            int r=80,g=80,bl=90;
+            int pr=0,pg=255,pb=0;
+
+            ss >> b.id
+               >> b.rect.x >> b.rect.y >> b.rect.w >> b.rect.h
+               >> r >> g >> bl
+               >> b.cmd
+               >> b.a >> b.b
+               >> b.i1
+               >> pr >> pg >> pb
+               >> b.inSel >> b.outSel
+               >> std::quoted(b.s1) >> std::quoted(b.s2);
+
+            b.color = SDL_Color{(Uint8)r,(Uint8)g,(Uint8)bl,255};
+            b.pickColor = SDL_Color{(Uint8)pr,(Uint8)pg,(Uint8)pb,255};
+
+            setBlockVisual(b);
+
+            maxId = max(maxId, b.id);
+            st.ws.blocks.push_back(b);
+            continue;
+        }
+
+        if (tag == "SETTINGS") {
+            int drawFlag = 1;
+            ss >> st.runSpeedMs >> drawFlag;
+            st.drawActorWhenStopped = (drawFlag != 0);
+            continue;
+        }
+
+        if (tag == "LOOKS") {
+            ss >> st.costumeIndex >> st.backdropIndex >> st.lookColorEffect;
+            continue;
+        }
+
+        if (tag == "EXT_PEN") {
+            int v=0; ss >> v;
+            st.penExtensionEnabled = (v != 0);
+            continue;
+        }
+
+        if (tag == "PEN_STATE") {
+            int down=0;
+            ss >> down >> st.penHue >> st.penSat >> st.penBri >> st.penSize;
+            st.penDown = (down != 0);
+            penSyncRGB(st);
+            continue;
+        }
+
+        if (tag == "PEN_SEGS") { ss >> expectPenSegs; continue; }
+        if (tag == "SEG") {
+            PenSegment seg;
+            int cr=0,cg=255,cb=0;
+            ss >> seg.x1 >> seg.y1 >> seg.x2 >> seg.y2 >> cr >> cg >> cb >> seg.size;
+            seg.c = SDL_Color{(Uint8)cr,(Uint8)cg,(Uint8)cb,255};
+            st.penSegs.push_back(seg);
+            continue;
+        }
+
+        if (tag == "PEN_STAMPS") { ss >> expectPenStamps; continue; }
+        if (tag == "STAMP") {
+            PenStamp sp;
+            ss >> sp.x >> sp.y >> sp.costumeIndex >> sp.dirDeg >> sp.sizePct;
+            st.penStamps.push_back(sp);
+            continue;
+        }
+
+
+        if (tag == "VARS") { ss >> expectVars; continue; }
+        if (tag == "VAR") {
+            string name; int isNum=1; double num=0.0; string str;
+            ss >> name >> isNum >> num >> std::quoted(str);
+            if (isNum) st.vars[name] = Value::Num(num);
+            else       st.vars[name] = Value::Str(str);
+            continue;
+        }
+
+        if (tag == "VARVIS") { ss >> expectVarVis; continue; }
+        if (tag == "VARV") {
+            string name; int v=0;
+            ss >> name >> v;
+            st.varVisible[name] = (v!=0);
+            continue;
+        }
+
+        if (tag == "LISTS") { ss >> expectLists; continue; }
+        if (tag == "LIST") {
+            string name; size_t n=0;
+            ss >> name >> n;
+            auto& L = st.lists[name];
+            L.clear();
+            // next n lines should be ITEM
+            for (size_t i = 0; i < n; i++) {
+                string itemLine;
+                if (!getline(f, itemLine)) break;
+                stringstream is(itemLine);
+                string itag; is >> itag;
+                if (itag != "ITEM") break;
+
+                int isNum=1; double num=0.0; string s;
+                is >> isNum >> num >> std::quoted(s);
+                if (isNum) L.push_back(Value::Num(num));
+                else       L.push_back(Value::Str(s));
+            }
+            continue;
+        }
+
+        if (tag == "LISTVIS") { ss >> expectListVis; continue; }
+        if (tag == "LISTV") {
+            string name; int v=0;
+            ss >> name >> v;
+            st.listVisible[name] = (v!=0);
+            continue;
+        }
+    }
+
+    st.ws.nextId = maxId + 1;
+    st.paletteDirty = true; // because pen enabled affects palette
+    st.log.log("LOAD", "Loaded: " + path);
+    return true;
+}
+
 static void beginSaveDialog(AppState& st) {
     st.saveDialogOpen = true;
     st.loadDialogOpen = false;
@@ -1358,7 +1581,7 @@ static bool handleDialogsEvent(AppState& st, const SDL_Event& e, int winW, int w
             }
             if (e.key.keysym.sym == SDLK_RETURN) {
                 string stem = sanitizeStem(st.saveNameInput);
-                bool ok = saveProjectNamed(stem, st.ws, st.log);
+                bool ok = saveProjectNamed(stem, st);
                 st.saveDialogOpen = false;
                 SDL_StopTextInput();
                 if (ok) infoBox("Saved", "Project saved successfully.");
@@ -1379,7 +1602,7 @@ static bool handleDialogsEvent(AppState& st, const SDL_Event& e, int winW, int w
 
             if (pointInRect(mx, my, okBtn)) {
                 string stem = sanitizeStem(st.saveNameInput);
-                bool ok = saveProjectNamed(stem, st.ws, st.log);
+                bool ok = saveProjectNamed(stem, st);
                 st.saveDialogOpen = false;
                 SDL_StopTextInput();
                 if (ok) infoBox("Saved", "Project saved successfully.");
@@ -1438,7 +1661,7 @@ static bool handleDialogsEvent(AppState& st, const SDL_Event& e, int winW, int w
                 int idx = st.loadScroll + local;
 
                 if (idx >= 0 && idx < (int)st.saveList.size()) {
-                    bool ok = loadProjectNamed(st.saveList[idx], st.ws, st.log);
+                    bool ok = loadProjectNamed(st.saveList[idx], st);
                     st.loadDialogOpen = false;
                     if (ok) infoBox("Loaded", "Project loaded successfully.");
                     else    infoBox("Load failed", "Could not load the project.");
@@ -1663,9 +1886,12 @@ static void penAddStamp(AppState& st) {
     PenStamp s;
     s.x = st.actorX;
     s.y = st.actorY;
-    s.size = 12;
+    s.costumeIndex = st.costumeIndex;
+    s.dirDeg = st.actorDirDeg;
+    s.sizePct = st.actorSizePct;
     st.penStamps.push_back(s);
 }
+
 
 static void drawThickLine(SDL_Renderer* r, double x1, double y1, double x2, double y2, SDL_Color c, int size) {
     size = clampT(size, 1, 30);
@@ -1693,13 +1919,34 @@ static void renderPenLayer(const AppState& st, SDL_Renderer* r) {
     }
 
     for (const auto& sp : st.penStamps) {
-        int s = sp.size;
-        SDL_Rect rc{(int)sp.x - s/2, (int)sp.y - s/2, s, s};
-        SDL_SetRenderDrawColor(r, sp.fill.r, sp.fill.g, sp.fill.b, sp.fill.a);
-        SDL_RenderFillRect(r, &rc);
-        SDL_SetRenderDrawColor(r, sp.outline.r, sp.outline.g, sp.outline.b, sp.outline.a);
-        SDL_RenderDrawRect(r, &rc);
+        // انتخاب تکسچر مشابه drawSprite
+        SDL_Texture* useTex = nullptr;
+
+        if (!st.costumes.empty()) {
+            int ci = sp.costumeIndex;
+            if (ci < 0) ci = 0;
+            ci %= (int)st.costumes.size();
+            if (st.costumes[ci].tex) useTex = st.costumes[ci].tex;
+        }
+        if (!useTex && st.actorIcon.tex) useTex = st.actorIcon.tex;
+
+        int sizePx = (int)clampT((int)round(80.0 * (sp.sizePct / 100.0)), 10, 300);
+        SDL_Rect dst{(int)round(sp.x) - sizePx/2, (int)round(sp.y) - sizePx/2, sizePx, sizePx};
+
+        if (useTex) {
+            // جهت Scratch-like: 90 = راست  => زاویه 0
+            double angle = sp.dirDeg - 90.0; // SDL clockwise
+            SDL_RenderCopyEx(r, useTex, nullptr, &dst, angle, nullptr, SDL_FLIP_NONE);
+            SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
+            SDL_RenderDrawRect(r, &dst);
+        } else {
+            SDL_SetRenderDrawColor(r, 240, 240, 240, 255);
+            SDL_RenderFillRect(r, &dst);
+            SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
+            SDL_RenderDrawRect(r, &dst);
+        }
     }
+
 
     SDL_RenderSetClipRect(r, nullptr);
 }
@@ -2245,13 +2492,13 @@ static void rebuildPalette(AppState& st, int winW, int winH) {
         paletteAddCat(st, contentY, label);
         contentY += 28;
     };
-
+/*
     cat("Events");
     placeBtn("when flag clicked", "", [&]{ addTypedBlock(st, "EVENT_FLAG", 0, 0); });
     placeBtn("when key pressed (Space)", "", [&]{ addTypedBlock(st, "EVENT_KEY", 0, 0, "", "", (int)SDL_SCANCODE_SPACE); });
     placeBtn("broadcast (msg1)", "", [&]{ addTypedBlock(st, "BROADCAST", 0, 0, "msg1"); });
     placeBtn("when I receive (msg1)", "", [&]{ addTypedBlock(st, "WHEN_RECEIVE", 0, 0, "msg1"); });
-
+*/
     cat("Motion");
     placeBtn("move 10 steps", "", [&]{ addTypedBlock(st, "MOVE_STEPS", 10.0, 0.0); });
     placeBtn("turn right 15", "", [&]{ addTypedBlock(st, "TURN_R", 15.0, 0.0); });
@@ -2371,16 +2618,6 @@ static void rebuildPalette(AppState& st, int winW, int winH) {
         placeBtn("PEN Up", "", [&]{ addTypedBlock(st, "PEN_UP", 0.0, 0.0); });
         placeBtn("Stamp", "", [&]{ addTypedBlock(st, "PEN_STAMP", 0.0, 0.0); });
         placeBtn("All Erase", "", [&]{ addTypedBlock(st, "PEN_ERASE_ALL", 0.0, 0.0); });
-        placeBtn("Set Attr (Shift=cycle)", "", [&]{
-            addTypedBlock(st, "PEN_SET_ATTR", 120.0, 0.0);
-            if (!st.ws.blocks.empty()) st.ws.blocks.back().opt = "COLOR";
-            setBlockVisual(st.ws.blocks.back());
-        });
-        placeBtn("Change Attr (+10)", "", [&]{
-            addTypedBlock(st, "PEN_CHANGE_ATTR", 10.0, 0.0);
-            if (!st.ws.blocks.empty()) st.ws.blocks.back().opt = "BRI";
-            setBlockVisual(st.ws.blocks.back());
-        });
         placeBtn("Set Size (3)", "", [&]{ addTypedBlock(st, "PEN_SET_SIZE", 3.0, 0.0); });
         placeBtn("Change Size (+1)", "", [&]{ addTypedBlock(st, "PEN_CHANGE_SIZE", 1.0, 0.0); });
         placeBtn("Set Color (picker)", "Shift+Click edit", [&]{
@@ -2618,6 +2855,17 @@ static void clampActorPos(AppState& st, int blockIndex, const string& cmd, doubl
 
 static double degToRad(double d) { return d * 3.14159265358979323846 / 180.0; }
 
+static double scratchRad(double dirDeg) {
+    // Scratch: 90=right, 0=up, 180=left, -90=down
+    return degToRad(90.0 - dirDeg);
+}
+
+static double scratchToSDLAangle(double dirDeg) {
+    // اگر تکسچر پیش‌فرض رو به راست باشد، angle=0 یعنی راست
+    // SDL angle: clockwise مثبت
+    return dirDeg - 90.0;
+}
+
 static void runnerPreScan(AppState& st) {
     int n = (int)st.ws.blocks.size();
     st.jumpTo.assign(n, -1);
@@ -2711,6 +2959,7 @@ static void startScript(AppState& st) {
     st.scriptRunning = true;
     st.scriptPC = 0;
     st.stepRequested = false;
+    st.penDown = false;
 
     st.nextStepAtMs = SDL_GetTicks();
     st.waiting = false;
@@ -3005,7 +3254,11 @@ static void drawSprite(SDL_Renderer* r, const AppState& st,
     if (!useTex && st.actorIcon.tex) useTex = st.actorIcon.tex;
 
     if (useTex) {
-        SDL_RenderCopy(r, useTex, nullptr, &dst);
+        double angle = scratchToSDLAangle(dirDeg);
+        SDL_Color mod = applyLookEffect(SDL_Color{255,255,255,255}, st.lookColorEffect);
+        SDL_SetTextureColorMod(useTex, mod.r, mod.g, mod.b);
+        SDL_RenderCopyEx(r, useTex, nullptr, &dst, angle, nullptr, SDL_FLIP_NONE);
+        SDL_SetTextureColorMod(useTex, 255, 255, 255);
         SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
         SDL_RenderDrawRect(r, &dst);
     } else {
@@ -3016,7 +3269,7 @@ static void drawSprite(SDL_Renderer* r, const AppState& st,
     }
 
     // جهت (فلش)
-    double rad = degToRad(dirDeg);
+    double rad = scratchRad(dirDeg);
     int x2 = (int)round(x + cos(rad) * (sizePx/2 + 10));
     int y2 = (int)round(y - sin(rad) * (sizePx/2 + 10));
     SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
@@ -3165,7 +3418,7 @@ static StepResult executeOneBlock(AppState& st) {
 
     if (cmd == "MOVE_STEPS") {
         double bx = st.actorX, by = st.actorY;
-        double rad = degToRad(st.actorDirDeg);
+        double rad = scratchRad(st.actorDirDeg);
         st.actorX += cos(rad) * b.a;
         st.actorY -= sin(rad) * b.a;
         clampActorPos(st, idx, cmd, bx, by);
@@ -3864,7 +4117,13 @@ static StepResult executeOneBlock(AppState& st) {
 
     if (cmd == "PEN_DOWN") { st.penDown = true;  st.log.info(idx, cmd, "Pen down", ""); st.scriptPC++; return StepResult::Advanced; }
     if (cmd == "PEN_UP")   { st.penDown = false; st.log.info(idx, cmd, "Pen up", "");   st.scriptPC++; return StepResult::Advanced; }
-    if (cmd == "PEN_ERASE_ALL") { penClearAll(st); st.log.info(idx, cmd, "All erase", "cleared"); st.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "PEN_ERASE_ALL") {
+        penClearAll(st);
+        st.penDown = false; // optional: prevent immediate redraw
+        st.log.info(idx, cmd, "All erase", "cleared");
+        st.scriptPC++;
+        return StepResult::Advanced;
+    }
     if (cmd == "PEN_STAMP") { penAddStamp(st); st.log.info(idx, cmd, "Stamp", "count=" + to_string((int)st.penStamps.size())); st.scriptPC++; return StepResult::Advanced; }
 
     if (cmd == "PEN_SET_SIZE") {
@@ -3887,37 +4146,6 @@ static StepResult executeOneBlock(AppState& st) {
         penSyncRGB(st);
         st.log.info(idx, cmd, "Set color (direct)",
                     "rgb=(" + to_string((int)c.r) + "," + to_string((int)c.g) + "," + to_string((int)c.b) + ")");
-        st.scriptPC++;
-        return StepResult::Advanced;
-    }
-    if (cmd == "PEN_SET_ATTR" || cmd == "PEN_CHANGE_ATTR") {
-        string opt = b.opt.empty() ? "COLOR" : b.opt;
-        bool isChange = (cmd == "PEN_CHANGE_ATTR");
-
-        if (opt == "COLOR") {
-            double before = st.penHue;
-            st.penHue = isChange ? (st.penHue + b.a) : b.a;
-            st.penHue = fmod(st.penHue, 360.0);
-            if (st.penHue < 0) st.penHue += 360.0;
-            penSyncRGB(st);
-            st.log.info(idx, cmd, isChange ? "Change hue" : "Set hue",
-                        "h:" + to_string(before) + "->" + to_string(st.penHue));
-        } else if (opt == "SAT") {
-            double before = st.penSat;
-            st.penSat = isChange ? (st.penSat + b.a) : b.a;
-            st.penSat = clampT(st.penSat, 0.0, 100.0);
-            penSyncRGB(st);
-            st.log.info(idx, cmd, isChange ? "Change sat" : "Set sat",
-                        "s:" + to_string(before) + "->" + to_string(st.penSat));
-        } else {
-            double before = st.penBri;
-            st.penBri = isChange ? (st.penBri + b.a) : b.a;
-            st.penBri = clampT(st.penBri, 0.0, 100.0);
-            penSyncRGB(st);
-            st.log.info(idx, cmd, isChange ? "Change bri" : "Set bri",
-                        "v:" + to_string(before) + "->" + to_string(st.penBri));
-        }
-
         st.scriptPC++;
         return StepResult::Advanced;
     }
@@ -4318,12 +4546,7 @@ static void update(AppState& st, SDL_Window* window) {
                 st.log.info(hit, "PEN_SET_COLOR", "Open color picker", "");
                 return;
             }
-            if (b.cmd == "PEN_SET_ATTR" || b.cmd == "PEN_CHANGE_ATTR") {
-                if (b.opt.empty()) b.opt = "COLOR";
-                b.opt = penNextAttr(b.opt);
-                st.log.info(hit, b.cmd, "Cycle attr", "opt=" + b.opt);
-                return;
-            }
+
 
             if (b.cmd.rfind("VAR_", 0) == 0) {
                 b.s1 = cycleName3(b.s1.empty() ? "v" : b.s1);
