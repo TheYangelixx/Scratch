@@ -1,10 +1,18 @@
 #ifndef MOVEBLOCK_H
 #define MOVEBLOCK_H
 
-#include "Block.h"
+#include <SDL2/SDL.h>
 
-struct Block* createMoveBlock(float x, float y);
+// به جای کلاس از struct استفاده می‌کنیم
+struct MoveBlock {
+    int x;
+    int y;
+    int w;
+    int h;
+    SDL_Color color;
+};
 
-void drawMoveBlock(SDL_Renderer*renderer, struct Block* block);
+// تعریف تابع رسم که یک نمونه از struct را می‌گیرد
+void drawMoveBlock(SDL_Renderer* renderer, struct MoveBlock block);
 
-#endif // MOVEBLOCK_H
+#endif

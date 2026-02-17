@@ -1,31 +1,28 @@
 #include "Workspace.h"
-#include "..\include\MoveBlock.h"
 
-void initWorkspace(struct Workspace* ws) {
+Workspace::Workspace() {
     // Vector initializes itself automatically
-    if(ws!=nullptr) ws->blocks.clear();
 }
 
-void clearWorkspace(struct Workspace* ws) {
-    if(ws==nullptr) return;
-    for(Block*b : ws->blocks) {
-        delete b;
+Workspace::~Workspace() {
+    // Clean up memory: Delete all Block objects stored in the vector
+    for (Block* block : blocks) {
+        delete block;
     }
-    ws->blocks.clear();
+    blocks.clear();
 }
 
-void addBlockToWorkspace(struct Workspace*ws, struct Block*b) {
-    if(b!=nullptr && ws!=nullptr) {
-        ws->blocks.push_back(b);
+void Workspace::addBlock(Block* b) {
+    if (b != nullptr) {
+        blocks.push_back(b);
     }
 }
 
-void drawWorkspace(SDL_Renderer*renderer, struct Workspace*ws) {
-    if (ws == nullptr || renderer == nullptr) return;
-
-    for (Block *b: ws->blocks) {
-        if (b != nullptr) {
-            drawMoveBlock(renderer, b);
+void Workspace::drawAll(SDL_Renderer* renderer) {
+    // Iterate through the vector and draw each block
+    for (Block* block : blocks) {
+        if (block != nullptr) {
+            block->draw(renderer);
         }
     }
 }

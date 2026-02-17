@@ -5,14 +5,22 @@
 #include <SDL2/SDL.h> // Adjust based on your include path (e.g., <SDL.h>)
 #include "..\include\Block.h"
 
-struct Workspace {
+class Workspace {
+private:
+    // A container to hold pointers to all blocks currently in the workspace
     std::vector<Block*> blocks;
+
+public:
+    Workspace();
+
+    // Destructor to clean up memory
+    ~Workspace();
+
+    // Adds a new block to the workspace
+    void addBlock(Block* b);
+
+    // Iterates through all blocks and renders them
+    void drawAll(SDL_Renderer* renderer);
 };
-
-void initWorkspace(struct Workspace*ws);
-void clearWorkspace(struct Workspace*ws);
-void addBlockToWorkspace(struct Workspace*ws, struct Block*b);
-void drawWorkspace(SDL_Renderer*renderer,struct Workspace*ws);
-
 
 #endif // WORKSPACE_H
