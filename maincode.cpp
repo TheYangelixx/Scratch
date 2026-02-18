@@ -550,6 +550,7 @@ struct AppState {
     Logger log = Logger("log.txt");
 
     Workspace ws;
+    SDL_Rect stageBounds {};
     vector<Button> buttons;
 
     string baseTitle = "YKP Base (SDL2)";
@@ -1912,7 +1913,6 @@ static void drawThickLine(SDL_Renderer* r, double x1, double y1, double x2, doub
 }
 
 static void renderPenLayer(const AppState& st, SDL_Renderer* r) {
-    SDL_RenderSetClipRect(r, &st.ws.bounds);
 
     for (const auto& seg : st.penSegs) {
         drawThickLine(r, seg.x1, seg.y1, seg.x2, seg.y2, seg.c, seg.size);
@@ -1946,9 +1946,6 @@ static void renderPenLayer(const AppState& st, SDL_Renderer* r) {
             SDL_RenderDrawRect(r, &dst);
         }
     }
-
-
-    SDL_RenderSetClipRect(r, nullptr);
 }
 
 // =========================
@@ -2833,10 +2830,10 @@ static bool safeSqrt(AppState& st, int blockIndex, double v, double& out) {
 }
 
 static void clampActorPos(AppState& st, int blockIndex, const string& cmd, double beforeX, double beforeY) {
-    double minX = st.ws.bounds.x;
-    double maxX = st.ws.bounds.x + st.ws.bounds.w;
-    double minY = st.ws.bounds.y;
-    double maxY = st.ws.bounds.y + st.ws.bounds.h;
+    double minX = st.stageBounds.x;
+    double maxX = st.stageBounds.x + st.stageBounds.w;
+    double minY = st.stageBounds.y;
+    double maxY = st.stageBounds.y + st.stageBounds.h;
 
     double ox = st.actorX, oy = st.actorY;
 
@@ -2969,8 +2966,8 @@ static void startScript(AppState& st) {
     st.waiting = false;
     st.waitUntilMs = 0;
 
-    st.actorX = st.ws.bounds.x + st.ws.bounds.w * 0.5;
-    st.actorY = st.ws.bounds.y + st.ws.bounds.h * 0.5;
+    st.actorX = st.stageBounds.x + st.stageBounds.w * 0.5;
+    st.actorY = st.stageBounds.y + st.stageBounds.h * 0.5;
     st.actorDirDeg = 90.0;
     st.actorVisible = true;
     st.actorSizePct = 100.0;
@@ -3490,16 +3487,16 @@ static StepResult executeOneBlock(AppState& st) {
 
     if (cmd == "GOTO_RANDOM") {
         double bx = st.actorX, by = st.actorY;
-        double minX = st.ws.bounds.x;
-        double maxX = st.ws.bounds.x + st.ws.bounds.w;
-        double minY = st.ws.bounds.y;
-        double maxY = st.ws.bounds.y + st.ws.bounds.h;
+        // تغییر به stageBounds
+        double minX = st.stageBounds.x;
+        double maxX = st.stageBounds.x + st.stageBounds.w;
+        double minY = st.stageBounds.y;
+        double maxY = st.stageBounds.y + st.stageBounds.h;
 
         st.actorX = minX + (rand() / (double)RAND_MAX) * (maxX - minX);
         st.actorY = minY + (rand() / (double)RAND_MAX) * (maxY - minY);
 
         if (st.penExtensionEnabled && st.penDown) penAddSegment(st, bx, by, st.actorX, st.actorY);
-
         st.log.info(idx, cmd, "Go random", "pos(" + to_string(st.actorX) + "," + to_string(st.actorY) + ")");
         st.scriptPC++;
         return StepResult::Advanced;
@@ -3519,10 +3516,10 @@ static StepResult executeOneBlock(AppState& st) {
     }
 
     if (cmd == "BOUNCE_EDGE") {
-        bool onEdge = (st.actorX <= st.ws.bounds.x + 0.5) ||
-                      (st.actorX >= st.ws.bounds.x + st.ws.bounds.w - 0.5) ||
-                      (st.actorY <= st.ws.bounds.y + 0.5) ||
-                      (st.actorY >= st.ws.bounds.y + st.ws.bounds.h - 0.5);
+        bool onEdge = (st.actorX <= st.stageBounds.x + 0.5) ||
+                      (st.actorX >= st.stageBounds.x + st.stageBounds.w - 0.5) ||
+                      (st.actorY <= st.stageBounds.y + 0.5) ||
+                      (st.actorY >= st.stageBounds.y + st.stageBounds.h - 0.5);
 
         if (onEdge) {
             double before = st.actorDirDeg;
@@ -3660,10 +3657,11 @@ static StepResult executeOneBlock(AppState& st) {
 
     // ---- Sensing
     if (cmd == "TOUCH_EDGE") {
-        bool onEdge = (st.actorX <= st.ws.bounds.x + 0.5) ||
-                      (st.actorX >= st.ws.bounds.x + st.ws.bounds.w - 0.5) ||
-                      (st.actorY <= st.ws.bounds.y + 0.5) ||
-                      (st.actorY >= st.ws.bounds.y + st.ws.bounds.h - 0.5);
+        bool onEdge = (st.actorX <= st.stageBounds.x + 0.5) ||
+                     (st.actorX >= st.stageBounds.x + st.stageBounds.w - 0.5) ||
+                     (st.actorY <= st.stageBounds.y + 0.5) ||
+                     (st.actorY >= st.stageBounds.y + st.stageBounds.h - 0.5);
+        st.lastValue = Value::Num(onEdge ? 1.0 : 0.0);
         st.lastValue = Value::Num(onEdge ? 1.0 : 0.0);
         st.log.info(idx, cmd, "Touch edge?", st.lastValue.toString());
         st.scriptPC++;
@@ -4498,7 +4496,27 @@ static void update(AppState& st, SDL_Window* window) {
     SDL_GetWindowSize(window, &w, &h);
     bgmTick(st);
 
-    st.ws.bounds = SDL_Rect{LEFT_PANEL_W, TOP_BAR_H, w - LEFT_PANEL_W, h - TOP_BAR_H};
+    // --- Layout Scratch-like ---
+    int stageW = 480;
+    int stageH = 360;
+    int padding = 10;
+    int rightPanelW = stageW + (padding * 2);
+
+    // ناحیه بلاک‌ها (وسط)
+    st.ws.bounds = SDL_Rect{
+        LEFT_PANEL_W,
+        TOP_BAR_H,
+        w - LEFT_PANEL_W - rightPanelW,
+        h - TOP_BAR_H
+    };
+
+    // ناحیه نمایش (بالا راست)
+    st.stageBounds = SDL_Rect{
+        w - stageW - padding,
+        TOP_BAR_H + padding,
+        stageW,
+        stageH
+    };
 
     if (w != st.paletteLastW || h != st.paletteLastH || st.penExtensionEnabled != st.paletteLastPenEnabled) {
         st.paletteDirty = true;
@@ -4654,19 +4672,37 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
     renderPaletteCats(st, r);
     for (size_t i = 0; i < st.palette.size(); i++) st.palette[i].draw(r, st.uiFont);
 
-    SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
-    SDL_RenderDrawRect(r, &st.ws.bounds);
-
+    // 1. رسم بلاک‌ها در محیط وسط (Workspace)
     st.ws.draw(r);
     renderBlockLabels(st, r);
 
-    renderPenLayer(st, r);
-
+    // رسم هایلایت دور بلاکی که در حال اجراست
     if (st.scriptRunning && st.scriptPC >= 0 && st.scriptPC < (int)st.ws.blocks.size()) {
         SDL_Rect hi = st.ws.blocks[st.scriptPC].rect;
         SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
         SDL_RenderDrawRect(r, &hi);
     }
+
+    // 2. رسم پس‌زمینه Stage (سمت راست بالا)
+    if (!st.backdrops.empty()) {
+        int bi = st.backdropIndex;
+        if (bi < 0) bi = 0;
+        bi %= (int)st.backdrops.size();
+        if (st.backdrops[bi].tex) {
+            SDL_RenderCopy(r, st.backdrops[bi].tex, nullptr, &st.stageBounds);
+        }
+    } else {
+        SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+        SDL_RenderFillRect(r, &st.stageBounds);
+    }
+    SDL_SetRenderDrawColor(r, 200, 200, 200, 255); // کادر دور Stage
+    SDL_RenderDrawRect(r, &st.stageBounds);
+
+    // 3. شروع محدودیت رسم (Clipping) برای Stage
+    // هر چیزی که از اینجا به بعد کشیده شود، اگر بیرون از کادر Stage باشد دیده نمی‌شود
+    SDL_RenderSetClipRect(r, &st.stageBounds);
+
+    renderPenLayer(st, r); // رسم خطوط نقاشی شده
 
     bool shouldDrawActor = st.scriptRunning || st.drawActorWhenStopped;
 
@@ -4680,6 +4716,7 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
         drawSprite(r, st, st.actorX, st.actorY, st.actorDirDeg, st.actorSizePct, st.actorVisible);
     }
 
+    // رسم حباب صحبت
     if (!st.bubbleText.empty() && st.scriptRunning && st.actorVisible) {
         SDL_Rect box{(int)st.actorX + 16, (int)st.actorY - 40, 240, 46};
         SDL_SetRenderDrawColor(r, 245,245,245,255);
@@ -4689,6 +4726,8 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
         renderText(r, st.uiFont, st.bubbleThink ? ("(think) " + st.bubbleText) : st.bubbleText, box.x + 8, box.y + 12, SDL_Color{10,10,10,255});
     }
 
+    // 4. پایان محدودیت رسم (Clipping)
+    SDL_RenderSetClipRect(r, nullptr);
     int vy = TOP_BAR_H + 8;
     for (auto& kv : st.varVisible) {
         if (!kv.second) continue;
