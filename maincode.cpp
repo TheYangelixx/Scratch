@@ -14,15 +14,19 @@
 #include <vector>
 #include <cmath>
 #include <map>
+#include <SDL2/SDL_syswm.h>
 
 #ifdef _WIN32
   #define NOMINMAX
   #include <windows.h>
   #include <direct.h>
+  #include <commdlg.h>
 #else
   #include <sys/stat.h>
   #include <dirent.h>
 #endif
+
+
 
 using namespace std;
 
@@ -3035,6 +3039,36 @@ static TextureAsset loadBMPTexture(SDL_Renderer* r, const string& path, Logger& 
     return out;
 }
 
+
+static string openBMPDialog(SDL_Window* owner) {
+#ifdef _WIN32
+    OPENFILENAMEA ofn;
+    char szFile[260] = {0};
+
+    ZeroMemory(&ofn, sizeof(ofn));
+    ofn.lStructSize = sizeof(ofn);
+    // هندل پنجره اصلی را می‌گیریم (برای اینکه دیالوگ روی بازی باز شود)
+    SDL_SysWMinfo wmInfo;
+    SDL_VERSION(&wmInfo.version);
+    SDL_GetWindowWMInfo(owner, &wmInfo);
+    ofn.hwndOwner = wmInfo.info.win.window;
+
+    ofn.lpstrFile = szFile;
+    ofn.nMaxFile = sizeof(szFile);
+    ofn.lpstrFilter = "BMP Files\0*.bmp\0All Files\0*.*\0";
+    ofn.nFilterIndex = 1;
+    ofn.lpstrFileTitle = NULL;
+    ofn.nMaxFileTitle = 0;
+    ofn.lpstrInitialDir = NULL;
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
+
+    if (GetOpenFileNameA(&ofn) == TRUE) {
+        return string(ofn.lpstrFile);
+    }
+#endif
+    return "";
+}
+
 static void initAssets(AppState& st, SDL_Renderer* r) {
     // main actor icon (fallback)
     destroyTextureAsset(st.actorIcon);
@@ -3047,8 +3081,8 @@ static void initAssets(AppState& st, SDL_Renderer* r) {
 
     // load backdrops موجود در پروژه
     st.backdrops.clear();
-    st.backdrops.push_back(loadBMPTexture(r, "backdrop0.bmp", st.log));
-    st.backdrops.push_back(loadBMPTexture(r, "backdrop1.bmp", st.log));
+    // st.backdrops.push_back(loadBMPTexture(r, "backdrop0.bmp", st.log));
+    // st.backdrops.push_back(loadBMPTexture(r, "backdrop1.bmp", st.log));
 }
 
 static void shutdownAssets(AppState& st) {
@@ -4591,6 +4625,38 @@ static void update(AppState& st, SDL_Window* window) {
     st.ws.update(st.in, st.log);
 
     runScriptTick(st);
+    // ... کدهای قبلی داخل تابع update ...
+
+    st.log.cycle++;
+    st.ws.update(st.in, st.log);
+
+    runScriptTick(st);
+
+    // ==========================================
+    // کد جدید را اینجا اضافه کنید (بدون حذف چیزی):
+    // ==========================================
+
+    // --- دکمه آپلود عکس پس‌زمینه ---
+    SDL_Rect uploadBtn = { st.stageBounds.x, st.stageBounds.y + st.stageBounds.h + 10, 160, 30 };
+
+    if (st.in.mousePressed && pointInRect(st.in.mx, st.in.my, uploadBtn)) {
+        // باز کردن فایل
+        string path = openBMPDialog(window);
+        if (!path.empty()) {
+            st.log.info(-1, "UI", "Loading backdrop", path);
+            // لود کردن عکس جدید
+            SDL_Renderer* r = SDL_GetRenderer(window);
+            TextureAsset newBg = loadBMPTexture(r, path, st.log);
+            if (newBg.tex) {
+                if (st.backdrops.size() > 0 && st.backdrops[0].tex) {
+                    SDL_DestroyTexture(st.backdrops[0].tex); // پاک کردن عکس قبلی برای جلوگیری از نشت حافظه
+                }
+                st.backdrops.clear();
+                st.backdrops.push_back(newBg);
+                st.backdropIndex = 0;
+            }
+        }
+    }
 }
 
 static void renderBlockLabels(const AppState& st, SDL_Renderer* r) {
@@ -4698,11 +4764,10 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
     SDL_SetRenderDrawColor(r, 200, 200, 200, 255); // کادر دور Stage
     SDL_RenderDrawRect(r, &st.stageBounds);
 
-    // 3. شروع محدودیت رسم (Clipping) برای Stage
-    // هر چیزی که از اینجا به بعد کشیده شود، اگر بیرون از کادر Stage باشد دیده نمی‌شود
+
     SDL_RenderSetClipRect(r, &st.stageBounds);
 
-    renderPenLayer(st, r); // رسم خطوط نقاشی شده
+    renderPenLayer(st, r);
 
     bool shouldDrawActor = st.scriptRunning || st.drawActorWhenStopped;
 
@@ -4716,7 +4781,7 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
         drawSprite(r, st, st.actorX, st.actorY, st.actorDirDeg, st.actorSizePct, st.actorVisible);
     }
 
-    // رسم حباب صحبت
+
     if (!st.bubbleText.empty() && st.scriptRunning && st.actorVisible) {
         SDL_Rect box{(int)st.actorX + 16, (int)st.actorY - 40, 240, 46};
         SDL_SetRenderDrawColor(r, 245,245,245,255);
@@ -4726,8 +4791,17 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
         renderText(r, st.uiFont, st.bubbleThink ? ("(think) " + st.bubbleText) : st.bubbleText, box.x + 8, box.y + 12, SDL_Color{10,10,10,255});
     }
 
-    // 4. پایان محدودیت رسم (Clipping)
+
     SDL_RenderSetClipRect(r, nullptr);
+
+    SDL_Rect uploadBtn = { st.stageBounds.x, st.stageBounds.y + st.stageBounds.h + 10, 160, 30 };
+    SDL_SetRenderDrawColor(r, 60, 100, 180, 255); // رنگ آبی
+    SDL_RenderFillRect(r, &uploadBtn);
+    SDL_SetRenderDrawColor(r, 200, 200, 200, 255); // کادر
+    SDL_RenderDrawRect(r, &uploadBtn);
+
+    SDL_Color white = {255, 255, 255, 255};
+    renderTextCentered(r, st.uiFont, "Upload Backdrop", uploadBtn, 0, white);
     int vy = TOP_BAR_H + 8;
     for (auto& kv : st.varVisible) {
         if (!kv.second) continue;
