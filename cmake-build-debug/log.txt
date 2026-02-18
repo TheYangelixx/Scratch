@@ -1,0 +1,21 @@
+[Cycle:300] [SAVE] Saved: project.txt
+[Cycle:377] [LOAD] Loaded: project.txt
+[Cycle:489] [SAVE] Saved: project.txt
+[Cycle:540] [NEW] Reset workspace
+[Cycle:396] [UI] Open Save dialog
+[Cycle:397] [SAVE] Saved: SMemory\matin.txt
+[Cycle:567] [UI] Open Load dialog
+[Cycle:568] [LOAD] Loaded: SMemory\matin.txt
+[Cycle:1284] [DRAG] Pick block id=1
+[Cycle:1646] [DRAG] Drop block id=1
+[Cycle:1915] [ADD] Added block
+[Cycle:1981] [DRAG] Pick block id=3
+[Cycle:2113] [DRAG] Drop block id=3
+[Cycle:2231] [UI] Open Save dialog
+[Cycle:2232] [SAVE] Saved: SMemory\Yasna.txt
+[Cycle:2356] [UI] Open Load dialog
+[Cycle:2357] [LOAD] Loaded: SMemory\matin.txt
+[Cycle:2532] [UI] Open Load dialog
+[Cycle:2533] [LOAD] Loaded: SMemory\Yasna.txt
+[Cycle:135] [UI] Open Load dialog
+[Cycle:136] [LOAD] Loaded: SMemory\matin.txt

@@ -1,0 +1,3 @@
+C:/Users/ECA 09338368732/CLionProjects/YKP/cmake-build-debug/CMakeFiles/YKP.dir
+C:/Users/ECA 09338368732/CLionProjects/YKP/cmake-build-debug/CMakeFiles/edit_cache.dir
+C:/Users/ECA 09338368732/CLionProjects/YKP/cmake-build-debug/CMakeFiles/rebuild_cache.dir
