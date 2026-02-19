@@ -4632,26 +4632,38 @@ static void update(AppState& st, SDL_Window* window) {
 
     runScriptTick(st);
 
-    // ==========================================
-    // کد جدید را اینجا اضافه کنید (بدون حذف چیزی):
-    // ==========================================
+    // ============================================================
+    // شروع کد دکمه آپلود (این قسمت را اضافه کن)
+    // ============================================================
 
-    // --- دکمه آپلود عکس پس‌زمینه ---
+    // 1. تعریف موقعیت دکمه (دقیقاً زیر کادر Stage)
     SDL_Rect uploadBtn = { st.stageBounds.x, st.stageBounds.y + st.stageBounds.h + 10, 160, 30 };
 
+    // 2. بررسی کلیک روی دکمه
     if (st.in.mousePressed && pointInRect(st.in.mx, st.in.my, uploadBtn)) {
-        // باز کردن فایل
+
+        // باز کردن پنجره انتخاب فایل
         string path = openBMPDialog(window);
+
         if (!path.empty()) {
             st.log.info(-1, "UI", "Loading backdrop", path);
-            // لود کردن عکس جدید
+
+            // گرفتن رندرر برای ساخت تکسچر
             SDL_Renderer* r = SDL_GetRenderer(window);
+
+            // لود کردن عکس جدید
             TextureAsset newBg = loadBMPTexture(r, path, st.log);
+
             if (newBg.tex) {
-                if (st.backdrops.size() > 0 && st.backdrops[0].tex) {
-                    SDL_DestroyTexture(st.backdrops[0].tex); // پاک کردن عکس قبلی برای جلوگیری از نشت حافظه
+                // الف) پاک کردن عکس‌های قبلی از حافظه (برای جلوگیری از پر شدن رم)
+                for (auto& bg : st.backdrops) {
+                    if (bg.tex) SDL_DestroyTexture(bg.tex);
                 }
+
+                // ب) خالی کردن لیست
                 st.backdrops.clear();
+
+                // ج) اضافه کردن عکس جدید به عنوان تنها پس‌زمینه
                 st.backdrops.push_back(newBg);
                 st.backdropIndex = 0;
             }
@@ -4711,15 +4723,24 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
     SDL_RenderClear(r);
 
     // اگر backdrop texture داریم، توی workspace بکش
-    if (!st.backdrops.empty()) {
+    // رسم پس‌زمینه فقط در مربع سمت راست بالا (Stage)
+    if (!st.backdrops.empty() && st.backdrops.size() > 0) {
         int bi = st.backdropIndex;
-        if (bi < 0) bi = 0;
-        bi %= (int)st.backdrops.size();
+        if (bi < 0 || bi >= (int)st.backdrops.size()) bi = 0;
+
         if (st.backdrops[bi].tex) {
-            SDL_Rect dst = st.ws.bounds; // فقط داخل صحنه
-            SDL_RenderCopy(r, st.backdrops[bi].tex, nullptr, &dst);
+            // به جای dst، گفتیم عکس را مستقیماً و فقط در st.stageBounds بکش
+            SDL_RenderCopy(r, st.backdrops[bi].tex, nullptr, &st.stageBounds);
         }
+    } else {
+        // اگر هنوز عکسی آپلود نشده، مربع را به صورت پیش‌فرض سفید کن
+        SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+        SDL_RenderFillRect(r, &st.stageBounds);
     }
+
+    // رسم یک کادر خاکستری دور مربع برای زیبایی
+    SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
+    SDL_RenderDrawRect(r, &st.stageBounds);
 
 
     SDL_Rect top = {0, 0, w, TOP_BAR_H};
@@ -4742,30 +4763,40 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
     st.ws.draw(r);
     renderBlockLabels(st, r);
 
-    // رسم هایلایت دور بلاکی که در حال اجراست
+    // --- شروع کد جدید برای رسم پس‌زمینه Stage ---
+
+    // (اختیاری) رسم هایلایت دور بلاک در حال اجرا
     if (st.scriptRunning && st.scriptPC >= 0 && st.scriptPC < (int)st.ws.blocks.size()) {
         SDL_Rect hi = st.ws.blocks[st.scriptPC].rect;
         SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
         SDL_RenderDrawRect(r, &hi);
     }
 
-    // 2. رسم پس‌زمینه Stage (سمت راست بالا)
+    // رسم پس‌زمینه (Background)
+    bool bgDrawn = false;
     if (!st.backdrops.empty()) {
         int bi = st.backdropIndex;
-        if (bi < 0) bi = 0;
-        bi %= (int)st.backdrops.size();
+        // اطمینان از اینکه ایندکس معتبر است
+        if (bi < 0 || bi >= (int)st.backdrops.size()) bi = 0;
+
         if (st.backdrops[bi].tex) {
+            // *** بخش مهم: عکس فقط در stageBounds رسم می‌شود ***
             SDL_RenderCopy(r, st.backdrops[bi].tex, nullptr, &st.stageBounds);
+            bgDrawn = true;
         }
-    } else {
+    }
+
+    // اگر عکسی نبود یا رسم نشد، یک مستطیل سفید بکش
+    if (!bgDrawn) {
         SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
         SDL_RenderFillRect(r, &st.stageBounds);
     }
-    SDL_SetRenderDrawColor(r, 200, 200, 200, 255); // کادر دور Stage
+
+    // رسم کادر خاکستری دور Stage (برای زیبایی)
+    SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
     SDL_RenderDrawRect(r, &st.stageBounds);
 
-
-    SDL_RenderSetClipRect(r, &st.stageBounds);
+    // --- پایان کد جدید ---
 
     renderPenLayer(st, r);
 
