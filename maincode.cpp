@@ -4977,6 +4977,15 @@ static int RunApp() {
         setBlockVisual(b2);
     }
 
+    // --- اضافه کردن این بخش برای وسط چین کردن اولیه ---
+    int stageW = 480;
+    int stageH = 360;
+    int padding = 10;
+    st.stageBounds = SDL_Rect{WINDOW_W - stageW - padding, TOP_BAR_H + padding, stageW, stageH};
+
+    st.actorX = st.stageBounds.x + (st.stageBounds.w / 2.0);
+    st.actorY = st.stageBounds.y + (st.stageBounds.h / 2.0);
+
     setupUI(st);
 
     while (!st.quit) {
