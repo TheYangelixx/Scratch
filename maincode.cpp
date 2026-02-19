@@ -554,6 +554,7 @@ struct AppState {
     Logger log = Logger("log.txt");
 
     Workspace ws;
+    bool isFullscreen = false;
     SDL_Rect stageBounds {};
     vector<Button> buttons;
 
@@ -4544,13 +4545,18 @@ static void update(AppState& st, SDL_Window* window) {
         h - TOP_BAR_H
     };
 
-    // ناحیه نمایش (بالا راست)
-    st.stageBounds = SDL_Rect{
-        w - stageW - padding,
-        TOP_BAR_H + padding,
-        stageW,
-        stageH
-    };
+    if (st.isFullscreen) {
+        // در حالت تمام‌صفحه، کل پنجره را می‌گیرد
+        st.stageBounds = SDL_Rect{0, 0, w, h};
+    } else {
+        // در حالت عادی، همان مربع بالا سمت راست است
+        st.stageBounds = SDL_Rect{
+            w - stageW - padding,
+            TOP_BAR_H + padding,
+            stageW,
+            stageH
+        };
+    }
 
     if (w != st.paletteLastW || h != st.paletteLastH || st.penExtensionEnabled != st.paletteLastPenEnabled) {
         st.paletteDirty = true;
@@ -4637,36 +4643,33 @@ static void update(AppState& st, SDL_Window* window) {
     // ============================================================
 
     // 1. تعریف موقعیت دکمه (دقیقاً زیر کادر Stage)
-    SDL_Rect uploadBtn = { st.stageBounds.x, st.stageBounds.y + st.stageBounds.h + 10, 160, 30 };
-
-    // 2. بررسی کلیک روی دکمه
-    if (st.in.mousePressed && pointInRect(st.in.mx, st.in.my, uploadBtn)) {
-
-        // باز کردن پنجره انتخاب فایل
-        string path = openBMPDialog(window);
-
-        if (!path.empty()) {
-            st.log.info(-1, "UI", "Loading backdrop", path);
-
-            // گرفتن رندرر برای ساخت تکسچر
-            SDL_Renderer* r = SDL_GetRenderer(window);
-
-            // لود کردن عکس جدید
-            TextureAsset newBg = loadBMPTexture(r, path, st.log);
-
-            if (newBg.tex) {
-                // الف) پاک کردن عکس‌های قبلی از حافظه (برای جلوگیری از پر شدن رم)
-                for (auto& bg : st.backdrops) {
-                    if (bg.tex) SDL_DestroyTexture(bg.tex);
+    if (st.isFullscreen) {
+        // دکمه خروج از تمام صفحه
+        SDL_Rect exitBtn = {20, 20, 150, 40};
+        if (st.in.mousePressed && pointInRect(st.in.mx, st.in.my, exitBtn)) {
+            st.isFullscreen = false;
+        }
+    } else {
+        // دکمه آپلود عکس
+        SDL_Rect uploadBtn = { st.stageBounds.x, st.stageBounds.y + st.stageBounds.h + 10, 160, 30 };
+        if (st.in.mousePressed && pointInRect(st.in.mx, st.in.my, uploadBtn)) {
+            string path = openBMPDialog(window);
+            if (!path.empty()) {
+                SDL_Renderer* r = SDL_GetRenderer(window);
+                TextureAsset newBg = loadBMPTexture(r, path, st.log);
+                if (newBg.tex) {
+                    for(auto& bg : st.backdrops) if(bg.tex) SDL_DestroyTexture(bg.tex);
+                    st.backdrops.clear();
+                    st.backdrops.push_back(newBg);
+                    st.backdropIndex = 0;
                 }
-
-                // ب) خالی کردن لیست
-                st.backdrops.clear();
-
-                // ج) اضافه کردن عکس جدید به عنوان تنها پس‌زمینه
-                st.backdrops.push_back(newBg);
-                st.backdropIndex = 0;
             }
+        }
+
+        // دکمه ورود به تمام صفحه
+        SDL_Rect fullBtn = { st.stageBounds.x + 170, st.stageBounds.y + st.stageBounds.h + 10, 150, 30 };
+        if (st.in.mousePressed && pointInRect(st.in.mx, st.in.my, fullBtn)) {
+            st.isFullscreen = true;
         }
     }
 }
@@ -4742,7 +4745,7 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
     SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
     SDL_RenderDrawRect(r, &st.stageBounds);
 
-
+    if (!st.isFullscreen) {
     SDL_Rect top = {0, 0, w, TOP_BAR_H};
     SDL_SetRenderDrawColor(r, 20, 20, 22, 255);
     SDL_RenderFillRect(r, &top);
@@ -4762,7 +4765,7 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
     // 1. رسم بلاک‌ها در محیط وسط (Workspace)
     st.ws.draw(r);
     renderBlockLabels(st, r);
-
+}
     // --- شروع کد جدید برای رسم پس‌زمینه Stage ---
 
     // (اختیاری) رسم هایلایت دور بلاک در حال اجرا
@@ -4868,6 +4871,22 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
         if (ly > TOP_BAR_H + 280) break;
     }
 
+    if (st.isFullscreen) {
+        SDL_Rect exitBtn = {20, 20, 150, 40};
+        SDL_SetRenderDrawColor(r, 200, 50, 50, 255);
+        SDL_RenderFillRect(r, &exitBtn);
+        renderTextCentered(r, st.uiFont, "Exit Fullscreen", exitBtn, 0, SDL_Color{255, 255, 255, 255});
+    } else {
+        SDL_Rect uploadBtn = { st.stageBounds.x, st.stageBounds.y + st.stageBounds.h + 10, 160, 30 };
+        SDL_SetRenderDrawColor(r, 60, 100, 180, 255);
+        SDL_RenderFillRect(r, &uploadBtn);
+        renderTextCentered(r, st.uiFont, "Upload BG (BMP)", uploadBtn, 0, SDL_Color{255, 255, 255, 255});
+
+        SDL_Rect fullBtn = { st.stageBounds.x + 170, st.stageBounds.y + st.stageBounds.h + 10, 150, 30 };
+        SDL_SetRenderDrawColor(r, 60, 180, 100, 255);
+        SDL_RenderFillRect(r, &fullBtn);
+        renderTextCentered(r, st.uiFont, "Fullscreen", fullBtn, 0, SDL_Color{255, 255, 255, 255});
+    }
     renderHelpMenu(st, r);
     renderLogsPanel(st, r, w, h);
 
