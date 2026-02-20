@@ -2628,6 +2628,8 @@ static void rebuildPalette(AppState& st, int winW, int winH) {
     placeBtn("broadcast (msg1)", "", [&]{ addTypedBlock(st, "BROADCAST", 0, 0, "msg1"); });
     placeBtn("when I receive (msg1)", "", [&]{ addTypedBlock(st, "WHEN_RECEIVE", 0, 0, "msg1"); });
 */
+    cat("Events");
+    placeBtn("when flag clicked", "", [&]{ addTypedBlock(st, "EVENT_FLAG", 0, 0); });
     cat("Motion");
     placeBtn("move 10 steps", "", [&]{ addTypedBlock(st, "MOVE_STEPS", 10.0, 0.0); });
     placeBtn("turn right 15", "", [&]{ addTypedBlock(st, "TURN_R", 15.0, 0.0); });
@@ -3097,7 +3099,12 @@ static void startScript(AppState& st) {
         sp.costumeIndex = sp.backupCostumeIndex;
 
         // ۲. شروع مجدد اسکریپت
-        sp.scriptRunning = true;
+        // ۲. شروع مجدد اسکریپت (فقط اگر بلاک اول پرچم باشد)
+        if (!sp.ws.blocks.empty() && sp.ws.blocks.front().cmd == "EVENT_FLAG") {
+            sp.scriptRunning = true;
+        } else {
+            sp.scriptRunning = false; // اگر پرچم نبود، این اسپرایت اجرا نمی‌شود
+        }
         sp.scriptPC = 0;
         sp.stepRequested = false;
         sp.waiting = false;
@@ -4324,13 +4331,6 @@ static void setupUI(AppState& st) {
         st.getActive().ws.reset();
         st.penDown = false;
         penClearAll(st);
-
-        st.getActive().ws.addBlock(st.getActive().ws.bounds.x + 40, st.getActive().ws.bounds.y + 40);
-        if (!st.getActive().ws.blocks.empty()) {
-            Block& b = st.getActive().ws.blocks.back();
-            b.cmd = "EVENT_FLAG";
-            setBlockVisual(b);
-        }
         st.log.log("NEW", "Reset workspace");
     }));
     x += 100;
@@ -4581,13 +4581,6 @@ static void handleShortcuts(AppState& st) {
         st.getActive().ws.reset();
         st.penDown = false;
         penClearAll(st);
-
-        st.getActive().ws.addBlock(st.getActive().ws.bounds.x + 40, st.getActive().ws.bounds.y + 40);
-        if (!st.getActive().ws.blocks.empty()) {
-            Block& b = st.getActive().ws.blocks.back();
-            b.cmd = "EVENT_FLAG";
-            setBlockVisual(b);
-        }
         st.log.log("NEW", "Reset (shortcut)");
     }
 
@@ -5213,20 +5206,6 @@ static int RunApp() {
 
     // حالا که اسپرایت ساخته شده، می‌توانیم محیط کدنویسی آن را تنظیم کنیم
     st.getActive().ws.bounds = SDL_Rect{LEFT_PANEL_W, TOP_BAR_H, WINDOW_W - LEFT_PANEL_W, WINDOW_H - TOP_BAR_H};
-
-    st.getActive().ws.addBlock(st.getActive().ws.bounds.x + 40, st.getActive().ws.bounds.y + 40);
-    if (!st.getActive().ws.blocks.empty()) {
-        Block& b = st.getActive().ws.blocks.back();
-        b.cmd = "EVENT_FLAG";
-        setBlockVisual(b);
-    }
-    st.getActive().ws.addBlock(st.getActive().ws.bounds.x + 40, st.getActive().ws.bounds.y + 110);
-    if (st.getActive().ws.blocks.size() >= 2) {
-        Block& b2 = st.getActive().ws.blocks.back();
-        b2.cmd = "MOVE_STEPS";
-        b2.a = 10.0;
-        setBlockVisual(b2);
-    }
 
     setupUI(st);
 
