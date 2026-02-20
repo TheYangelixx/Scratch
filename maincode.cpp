@@ -536,6 +536,10 @@ struct Sprite {
     string name = "Sprite";
     TextureAsset icon; // عکس کوچکی که پایین صفحه نشان داده می‌شود
 
+    bool isDragging = false;
+    double dragOffX = 0.0;
+    double dragOffY = 0.0;
+
     // --- مشخصات مکانی و ظاهری ---
     double x = 0.0;
     double y = 0.0;
@@ -4554,6 +4558,64 @@ static void update(AppState& st, SDL_Window* window) {
         st.bubbleText.clear();
         st.bubbleUntilMs = 0;
     }
+
+    // ==========================================
+    // مدیریت کلیک و جابه‌جایی اسپرایت‌ها روی Stage
+    // ==========================================
+    // اگر موس داخل کادر Stage بود یا در حال کشیدن چیزی بودیم
+    if (pointInRect(st.in.mx, st.in.my, st.stageBounds) || st.in.mouseDown) {
+
+        // ۱. وقتی کلیک موس فشرده می‌شود (انتخاب اسپرایت)
+        if (st.in.mousePressed) {
+            // از آخر به اول می‌گردیم تا اسپرایتی که روی بقیه است انتخاب شود
+            for (int i = (int)st.sprites.size() - 1; i >= 0; i--) {
+                Sprite& sp = st.sprites[i];
+                if (!sp.visible) continue;
+
+                // محاسبه مربع دور اسپرایت (باکس برخورد)
+                int sizePx = (int)clampT((int)round(80.0 * (sp.sizePct / 100.0)), 10, 300);
+                SDL_Rect spRect{(int)round(sp.x) - sizePx/2, (int)round(sp.y) - sizePx/2, sizePx, sizePx};
+
+                // اگر کلیک روی این اسپرایت بود
+                if (pointInRect(st.in.mx, st.in.my, spRect)) {
+                    st.activeSprite = i; // تغییر محیط برنامه‌نویسی به این اسپرایت
+                    sp.isDragging = true;
+                    sp.dragOffX = st.in.mx - sp.x; // محاسبه فاصله موس تا مرکز اسپرایت
+                    sp.dragOffY = st.in.my - sp.y;
+                    break; // فقط یکی انتخاب شود
+                }
+            }
+        }
+
+        // ۲. وقتی کلیک را نگه داشته‌ایم و حرکت می‌دهیم (Drag)
+        if (st.in.mouseDown) {
+            for (auto& sp : st.sprites) {
+                if (sp.isDragging) {
+                    sp.x = st.in.mx - sp.dragOffX;
+                    sp.y = st.in.my - sp.dragOffY;
+
+                    // محدود کردن حرکت به داخل مربع سفید
+                    double minX = st.stageBounds.x;
+                    double maxX = st.stageBounds.x + st.stageBounds.w;
+                    double minY = st.stageBounds.y;
+                    double maxY = st.stageBounds.y + st.stageBounds.h;
+
+                    if (sp.x < minX) sp.x = minX;
+                    if (sp.x > maxX) sp.x = maxX;
+                    if (sp.y < minY) sp.y = minY;
+                    if (sp.y > maxY) sp.y = maxY;
+                }
+            }
+        }
+    }
+
+    // ۳. وقتی کلیک رها می‌شود (Drop)
+    if (st.in.mouseReleased) {
+        for (auto& sp : st.sprites) {
+            sp.isDragging = false;
+        }
+    }
+    // ==========================================
 
     st.log.cycle++;
     if (!st.sprites.empty()) {
