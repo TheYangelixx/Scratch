@@ -540,6 +540,14 @@ struct Sprite {
     double dragOffX = 0.0;
     double dragOffY = 0.0;
 
+    double backupX = 0.0;
+    double backupY = 0.0;
+    double backupDirDeg = 90.0;
+    bool backupVisible = true;
+    double backupSizePct = 100.0;
+    double backupColorEffect = 0.0;
+    int backupCostumeIndex = 0;
+
     // --- مشخصات مکانی و ظاهری ---
     double x = 0.0;
     double y = 0.0;
@@ -588,6 +596,8 @@ struct AppState {
     }
 
     bool quit = false;
+
+    bool isPaused = false; // متغیر توقف موقت
 
     // ===== Settings Menu (NEW) =====
     bool settingsOpen = false;
@@ -2989,8 +2999,22 @@ static void startScript(AppState& st) {
     st.timerStartMs = SDL_GetTicks();
     st.soundBusyUntilMs = 0;
 
-    // اجرای کدهای تمام اسپرایت‌ها با هم!
+    // پاک کردن تمام کپی‌ها (Clones) و نقاشی‌ها (Pen) در هر بار اجرای مجدد
+    st.clones.clear();
+    st.penSegs.clear();
+    st.penStamps.clear();
+
     for (auto& sp : st.sprites) {
+        // ۱. بازگرداندن مختصات و ظاهر به حالت ذخیره شده در بک‌آپ
+        sp.x = sp.backupX;
+        sp.y = sp.backupY;
+        sp.dirDeg = sp.backupDirDeg;
+        sp.visible = sp.backupVisible;
+        sp.sizePct = sp.backupSizePct;
+        sp.colorEffect = sp.backupColorEffect;
+        sp.costumeIndex = sp.backupCostumeIndex;
+
+        // ۲. شروع مجدد اسکریپت
         sp.scriptRunning = true;
         sp.scriptPC = 0;
         sp.stepRequested = false;
@@ -2999,7 +3023,6 @@ static void startScript(AppState& st) {
         runnerPreScan(st, sp);
     }
 }
-
 
 static SDL_Color applyLookEffect(SDL_Color base, double hueShiftDeg) {
     double h,s,v;
@@ -4182,6 +4205,7 @@ static StepResult executeOneBlock(AppState& st, Sprite& sp) {
 }
 
 static void runScriptTick(AppState& st) {
+    if (st.isPaused) return;
     uint32_t now = SDL_GetTicks();
     if (st.runSpeedMs > 0 && now < st.nextStepAtMs) return;
 
@@ -4269,17 +4293,31 @@ static void setupUI(AppState& st) {
     }));
     x += 120;
 
-    st.buttons.push_back(mkBtn(x, 90, "Run", "F5", [&] {
+    st.buttons.push_back(mkBtn(x, 70, "Run", "F5", [&] {
+        st.isPaused = false; // با زدن Run توقف موقت لغو می‌شود
         startScript(st);
     }));
-    x += 100;
+    x += 80;
 
-    st.buttons.push_back(mkBtn(x, 90, "Stop", "F6", [&] {
+    st.buttons.push_back(mkBtn(x, 75, "Pause", "F7", [&] {
+        st.isPaused = true;
+        st.log.log("RUN", "Paused");
+    }));
+    x += 85;
+
+    st.buttons.push_back(mkBtn(x, 85, "Resume", "F8", [&] {
+        st.isPaused = false;
+        st.log.log("RUN", "Resumed");
+    }));
+    x += 95;
+
+    st.buttons.push_back(mkBtn(x, 70, "Stop", "F6", [&] {
+        st.isPaused = false;
         for (auto& s : st.sprites) stopScript(st, s, "User stop (F6)");
     }));
-    x += 100;
+    x += 80;
 
-    st.buttons.push_back(mkBtn(x, 90, "Quit", "Esc", [&] {
+    st.buttons.push_back(mkBtn(x, 70, "Quit", "Esc", [&] {
         st.quit = true;
     }));
 }
@@ -4436,9 +4474,19 @@ static void handleShortcuts(AppState& st) {
     }
 
     if (st.in.keyPressed[SDL_SCANCODE_F5]) {
+        st.isPaused = false;
         startScript(st);
     }
+    if (st.in.keyPressed[SDL_SCANCODE_F7]) {
+        st.isPaused = true;
+        st.log.log("RUN", "Paused via shortcut");
+    }
+    if (st.in.keyPressed[SDL_SCANCODE_F8]) {
+        st.isPaused = false;
+        st.log.log("RUN", "Resumed via shortcut");
+    }
     if (st.in.keyPressed[SDL_SCANCODE_F6]) {
+        st.isPaused = false;
         for (auto& s : st.sprites) stopScript(st, s, "User stop (F6)");
     }
 
@@ -4610,9 +4658,15 @@ static void update(AppState& st, SDL_Window* window) {
     }
 
     // ۳. وقتی کلیک رها می‌شود (Drop)
+    // ۳. وقتی کلیک رها می‌شود (Drop)
     if (st.in.mouseReleased) {
         for (auto& sp : st.sprites) {
-            sp.isDragging = false;
+            if (sp.isDragging) {
+                sp.isDragging = false;
+                // جایی که موس را رها کردیم، در حافظه به عنوان نقطه شروع جدید ذخیره می‌شود!
+                sp.backupX = sp.x;
+                sp.backupY = sp.y;
+            }
         }
     }
     // ==========================================
@@ -4661,6 +4715,8 @@ static void update(AppState& st, SDL_Window* window) {
                 newSp.name = "Sprite " + to_string(st.sprites.size() + 1);
                 newSp.x = st.stageBounds.x + st.stageBounds.w / 2.0;
                 newSp.y = st.stageBounds.y + st.stageBounds.h / 2.0;
+                newSp.backupX = newSp.x;
+                newSp.backupY = newSp.y;
                 newSp.icon = loadBMPTexture(SDL_GetRenderer(window), path, st.log);
                 st.sprites.push_back(newSp);
                 st.activeSprite = st.sprites.size() - 1;
@@ -4951,6 +5007,8 @@ static int RunApp() {
     s1.name = "Sprite 1";
     s1.x = st.stageBounds.x + st.stageBounds.w / 2.0;
     s1.y = st.stageBounds.y + st.stageBounds.h / 2.0;
+    s1.backupX = s1.x;
+    s1.backupY = s1.y;
     s1.icon = loadBMPTexture(renderer, st.actorIconFile, st.log);
     st.sprites.push_back(s1);
     st.activeSprite = 0;
