@@ -628,6 +628,9 @@ struct AppState {
     bool saveDialogOpen = false;
     bool loadDialogOpen = false;
 
+    bool renameDialogOpen = false;
+    string renameInput = "";
+
     string saveNameInput = "";
     vector<string> saveList;
     int loadHoverIndex = -1;
@@ -1557,6 +1560,50 @@ static void updateLoadHover(AppState& st, int winW, int winH) {
 
 static bool handleDialogsEvent(AppState& st, const SDL_Event& e, int winW, int winH) {
     // --- Ask Dialog (highest priority)
+
+    // --- Rename Dialog
+    if (st.renameDialogOpen) {
+        if (e.type == SDL_KEYDOWN && !e.key.repeat) {
+            if (e.key.keysym.sym == SDLK_ESCAPE) {
+                st.renameDialogOpen = false;
+                SDL_StopTextInput();
+                return true;
+            }
+            if (e.key.keysym.sym == SDLK_BACKSPACE) {
+                if (!st.renameInput.empty()) st.renameInput.pop_back();
+                return true;
+            }
+            if (e.key.keysym.sym == SDLK_RETURN) {
+                if (!st.renameInput.empty()) st.getActive().name = st.renameInput;
+                st.renameDialogOpen = false;
+                SDL_StopTextInput();
+                return true;
+            }
+        }
+        if (e.type == SDL_TEXTINPUT) {
+            st.renameInput += e.text.text;
+            return true;
+        }
+        if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+            SDL_Rect modal = {winW/2 - 220, winH/2 - 90, 440, 180};
+            SDL_Rect okBtn  = {modal.x + 260, modal.y + 120, 140, 40};
+            SDL_Rect canBtn = {modal.x +  40, modal.y + 120, 140, 40};
+
+            if (pointInRect(e.button.x, e.button.y, okBtn)) {
+                if (!st.renameInput.empty()) st.getActive().name = st.renameInput;
+                st.renameDialogOpen = false;
+                SDL_StopTextInput();
+                return true;
+            }
+            if (pointInRect(e.button.x, e.button.y, canBtn)) {
+                st.renameDialogOpen = false;
+                SDL_StopTextInput();
+                return true;
+            }
+            return true;
+        }
+        return true;
+    }
     if (st.askDialogOpen) {
         if (e.type == SDL_KEYDOWN && !e.key.repeat) {
             if (e.key.keysym.sym == SDLK_ESCAPE) {
@@ -1728,7 +1775,7 @@ static bool handleDialogsEvent(AppState& st, const SDL_Event& e, int winW, int w
 }
 
 static void renderDialogs(const AppState& st, SDL_Renderer* r, int winW, int winH) {
-    if (!st.saveDialogOpen && !st.loadDialogOpen && !st.askDialogOpen) return;
+    if (!st.saveDialogOpen && !st.loadDialogOpen && !st.askDialogOpen && !st.renameDialogOpen) return;
 
     SDL_SetRenderDrawColor(r, 0, 0, 0, 160);
     SDL_Rect full = {0, 0, winW, winH};
@@ -1770,6 +1817,42 @@ static void renderDialogs(const AppState& st, SDL_Renderer* r, int winW, int win
         renderTextCentered(r, st.uiFont, "OK", okBtn, -6, white);
         renderTextCentered(r, st.uiFont, "Enter", okBtn, +10, white);
 
+        renderTextCentered(r, st.uiFont, "Cancel", canBtn, -6, white);
+        renderTextCentered(r, st.uiFont, "Esc", canBtn, +10, white);
+    }
+
+    if (st.renameDialogOpen) {
+        SDL_Rect modal = {winW/2 - 220, winH/2 - 90, 440, 180};
+        SDL_SetRenderDrawColor(r, 40, 40, 46, 255);
+        SDL_RenderFillRect(r, &modal);
+        SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
+        SDL_RenderDrawRect(r, &modal);
+
+        renderText(r, st.uiFont, "Rename Sprite", modal.x + 20, modal.y + 14, white);
+
+        SDL_Rect field = {modal.x + 20, modal.y + 55, modal.w - 40, 40};
+        SDL_SetRenderDrawColor(r, 25, 25, 28, 255);
+        SDL_RenderFillRect(r, &field);
+        SDL_SetRenderDrawColor(r, 120, 120, 120, 255);
+        SDL_RenderDrawRect(r, &field);
+
+        string shown = st.renameInput.empty() ? "type new name..." : st.renameInput;
+        renderText(r, st.uiFont, shown, field.x + 10, field.y + 8, white);
+
+        SDL_Rect okBtn  = {modal.x + 260, modal.y + 120, 140, 40};
+        SDL_Rect canBtn = {modal.x +  40, modal.y + 120, 140, 40};
+
+        SDL_SetRenderDrawColor(r, 60, 140, 70, 255);
+        SDL_RenderFillRect(r, &okBtn);
+        SDL_SetRenderDrawColor(r, 140, 60, 60, 255);
+        SDL_RenderFillRect(r, &canBtn);
+
+        SDL_SetRenderDrawColor(r, 20, 20, 20, 255);
+        SDL_RenderDrawRect(r, &okBtn);
+        SDL_RenderDrawRect(r, &canBtn);
+
+        renderTextCentered(r, st.uiFont, "OK", okBtn, -6, white);
+        renderTextCentered(r, st.uiFont, "Enter", okBtn, +10, white);
         renderTextCentered(r, st.uiFont, "Cancel", canBtn, -6, white);
         renderTextCentered(r, st.uiFont, "Esc", canBtn, +10, white);
     }
@@ -4324,6 +4407,9 @@ static void setupUI(AppState& st) {
 // =========================
 // Event processing
 // =========================
+// =========================================
+// تابع پردازش موس و کیبورد (اصلاح شده)
+// =========================================
 static void processEvents(AppState& st, SDL_Window* window) {
     SDL_Event e;
     int winW = 0, winH = 0;
@@ -4334,30 +4420,27 @@ static void processEvents(AppState& st, SDL_Window* window) {
             st.in.mx = e.motion.x;
             st.in.my = e.motion.y;
         }
-        // Settings modal first
+
         if (st.settingsOpen) {
             if (handleSettingsEvent(st, e, winW, winH)) continue;
         }
 
-
-        // Extension modals first
         if (st.extensionLibraryOpen) {
             if (handleExtensionLibraryEvent(st, e, winW, winH)) continue;
         }
         if (st.penColorPickerOpen) {
             if (handlePenColorPickerEvent(st, e, winW, winH)) continue;
         }
-        // Section 5 modal
         if (st.funcIOMenuOpen) {
             if (handleFuncIOMenuEvent(st, e, winW, winH)) continue;
         }
 
-        // Ask/Save/Load dialogs
-        if (st.askDialogOpen || st.saveDialogOpen || st.loadDialogOpen) {
+        // ======= این همون خط طلاییه که باعث رفع فریز میشه =======
+        if (st.askDialogOpen || st.saveDialogOpen || st.loadDialogOpen || st.renameDialogOpen) {
             if (handleDialogsEvent(st, e, winW, winH)) continue;
         }
+        // ========================================================
 
-        // palette scrolling (wheel over left panel)
         if (e.type == SDL_MOUSEWHEEL) {
             SDL_Rect left = {0, TOP_BAR_H, LEFT_PANEL_W, winH - TOP_BAR_H};
             if (pointInRect(st.in.mx, st.in.my, left)) {
@@ -4568,7 +4651,7 @@ static void update(AppState& st, SDL_Window* window) {
 
     if (st.loadDialogOpen) updateLoadHover(st, w, h);
 
-    if (st.askDialogOpen || st.saveDialogOpen || st.loadDialogOpen) return;
+    if (st.askDialogOpen || st.saveDialogOpen || st.loadDialogOpen || st.renameDialogOpen) return;
     if (st.extensionLibraryOpen || st.penColorPickerOpen || st.funcIOMenuOpen) return;
     if (st.settingsOpen) return;
 
@@ -4731,42 +4814,39 @@ static void update(AppState& st, SDL_Window* window) {
             cx += 50;
         }
         // ==========================================
-        // عملکرد دکمه‌های پنل اطلاعات (چرخش و حذف)
+        // ==========================================
+        // عملکرد دکمه‌های پنل اطلاعات (چرخش، حذف و تغییر نام)
         // ==========================================
         if (!st.sprites.empty() && st.in.mousePressed) {
-            // مختصات دکمه‌ها دقیقاً مشابه تابع render
-            SDL_Rect infoBox = { st.stageBounds.x + 330, st.stageBounds.y + st.stageBounds.h + 10, 150, 80 };
-            SDL_Rect dirLeftBtn = { infoBox.x + 90, infoBox.y + 32, 22, 22 };
-            SDL_Rect dirRightBtn = { infoBox.x + 118, infoBox.y + 32, 22, 22 };
-            SDL_Rect deleteBtn = { infoBox.x + 10, infoBox.y + 57, 130, 20 };
+            SDL_Rect infoBox = { st.stageBounds.x + 330, st.stageBounds.y + st.stageBounds.h + 10, 150, 110 };
+            SDL_Rect renameBtn = { infoBox.x + 10, infoBox.y + 10, 130, 20 };
+            SDL_Rect dirLeftBtn = { infoBox.x + 90, infoBox.y + 60, 22, 22 };
+            SDL_Rect dirRightBtn = { infoBox.x + 118, infoBox.y + 60, 22, 22 };
+            SDL_Rect deleteBtn = { infoBox.x + 10, infoBox.y + 85, 130, 20 };
 
-            // ۱. چرخش به چپ (۱۵ درجه)
-            if (pointInRect(st.in.mx, st.in.my, dirLeftBtn)) {
-                st.getActive().dirDeg = fmod(st.getActive().dirDeg - 15.0 + 360.0, 360.0);
-                st.getActive().backupDirDeg = st.getActive().dirDeg; // ذخیره در بک‌آپ
-                st.log.info(-1, "UI", "Rotate Left", to_string(st.getActive().dirDeg));
+            // 0. دکمه تغییر نام
+            if (pointInRect(st.in.mx, st.in.my, renameBtn)) {
+                st.renameDialogOpen = true;
+                st.renameInput = st.getActive().name;
+                SDL_StartTextInput();
             }
-            // ۲. چرخش به راست (۱۵ درجه)
+            // 1. چرخش به چپ
+            else if (pointInRect(st.in.mx, st.in.my, dirLeftBtn)) {
+                st.getActive().dirDeg = fmod(st.getActive().dirDeg - 15.0 + 360.0, 360.0);
+                st.getActive().backupDirDeg = st.getActive().dirDeg;
+            }
+            // 2. چرخش به راست
             else if (pointInRect(st.in.mx, st.in.my, dirRightBtn)) {
                 st.getActive().dirDeg = fmod(st.getActive().dirDeg + 15.0, 360.0);
-                st.getActive().backupDirDeg = st.getActive().dirDeg; // ذخیره در بک‌آپ
-                st.log.info(-1, "UI", "Rotate Right", to_string(st.getActive().dirDeg));
+                st.getActive().backupDirDeg = st.getActive().dirDeg;
             }
-            // ۳. دکمه حذف اسپرایت
+            // 3. حذف اسپرایت
             else if (pointInRect(st.in.mx, st.in.my, deleteBtn)) {
-                st.log.info(-1, "UI", "Delete Sprite", st.getActive().name);
-
-                // اسپرایت فعلی را از لیست پاک می‌کنیم
                 st.sprites.erase(st.sprites.begin() + st.activeSprite);
-
-                // برای جلوگیری از کرش، مشخص می‌کنیم حالا کدام اسپرایت انتخاب شود
-                if (!st.sprites.empty()) {
-                    // اگر اسپرایت آخری را پاک کردیم، یکی به عقب برگرد
-                    if (st.activeSprite >= (int)st.sprites.size()) {
-                        st.activeSprite = (int)st.sprites.size() - 1;
-                    }
-                } else {
-                    st.activeSprite = 0; // لیست خالی شد
+                if (!st.sprites.empty() && st.activeSprite >= (int)st.sprites.size()) {
+                    st.activeSprite = (int)st.sprites.size() - 1;
+                } else if (st.sprites.empty()) {
+                    st.activeSprite = 0;
                 }
             }
         }
@@ -4961,29 +5041,42 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
         // ==========================================
         // پنل اطلاعات اسپرایت فعال (سمت راست پایین)
         // ==========================================
+        // ==========================================
+        // پنل اطلاعات اسپرایت فعال (سمت راست پایین)
+        // ==========================================
         if (!st.sprites.empty()) {
-            // محاسبه مختصات اسکرچ (صفر و صفر در مرکز Stage)
             int centerX = st.stageBounds.x + st.stageBounds.w / 2;
             int centerY = st.stageBounds.y + st.stageBounds.h / 2;
             int scratchX = (int)round(st.getActive().x - centerX);
-            int scratchY = (int)round(centerY - st.getActive().y); // محور Y در اسکرچ برعکس است
+            int scratchY = (int)round(centerY - st.getActive().y);
 
-            SDL_Rect infoBox = { st.stageBounds.x + 330, st.stageBounds.y + st.stageBounds.h + 10, 150, 80 };
+            SDL_Rect infoBox = { st.stageBounds.x + 330, st.stageBounds.y + st.stageBounds.h + 10, 150, 110 };
             SDL_SetRenderDrawColor(r, 40, 40, 46, 255);
             SDL_RenderFillRect(r, &infoBox);
             SDL_SetRenderDrawColor(r, 100, 100, 100, 255);
             SDL_RenderDrawRect(r, &infoBox);
 
+            // 0. دکمه و نام اسپرایت
+            SDL_Rect renameBtn = { infoBox.x + 10, infoBox.y + 10, 130, 20 };
+            SDL_SetRenderDrawColor(r, 60, 100, 180, 255);
+            SDL_RenderFillRect(r, &renameBtn);
+            SDL_SetRenderDrawColor(r, 20, 20, 20, 255);
+            SDL_RenderDrawRect(r, &renameBtn);
+
+            string spName = st.getActive().name;
+            if (spName.length() > 12) spName = spName.substr(0, 10) + "..";
+            renderTextCentered(r, st.uiFont, spName, renameBtn, 0, white);
+
             // 1. نمایش X و Y
             string xyText = "X: " + to_string(scratchX) + "  Y: " + to_string(scratchY);
-            renderText(r, st.uiFont, xyText, infoBox.x + 10, infoBox.y + 10, white);
+            renderText(r, st.uiFont, xyText, infoBox.x + 10, infoBox.y + 38, white);
 
-            // 2. نمایش جهت (Direction) و دکمه‌های چرخش
+            // 2. نمایش جهت و دکمه‌های چرخش
             string dirText = "Dir: " + to_string((int)st.getActive().dirDeg);
-            renderText(r, st.uiFont, dirText, infoBox.x + 10, infoBox.y + 35, white);
+            renderText(r, st.uiFont, dirText, infoBox.x + 10, infoBox.y + 63, white);
 
-            SDL_Rect dirLeftBtn = { infoBox.x + 90, infoBox.y + 32, 22, 22 };
-            SDL_Rect dirRightBtn = { infoBox.x + 118, infoBox.y + 32, 22, 22 };
+            SDL_Rect dirLeftBtn = { infoBox.x + 90, infoBox.y + 60, 22, 22 };
+            SDL_Rect dirRightBtn = { infoBox.x + 118, infoBox.y + 60, 22, 22 };
             SDL_SetRenderDrawColor(r, 80, 80, 90, 255);
             SDL_RenderFillRect(r, &dirLeftBtn);
             SDL_RenderFillRect(r, &dirRightBtn);
@@ -4993,15 +5086,15 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
             renderTextCentered(r, st.uiFont, "<", dirLeftBtn, 0, white);
             renderTextCentered(r, st.uiFont, ">", dirRightBtn, 0, white);
 
-            // 3. دکمه حذف اسپرایت (Delete)
-            SDL_Rect deleteBtn = { infoBox.x + 10, infoBox.y + 57, 130, 20 };
-            SDL_SetRenderDrawColor(r, 180, 60, 60, 255); // رنگ قرمز
+            // 3. دکمه حذف اسپرایت
+            SDL_Rect deleteBtn = { infoBox.x + 10, infoBox.y + 85, 130, 20 };
+            SDL_SetRenderDrawColor(r, 180, 60, 60, 255);
             SDL_RenderFillRect(r, &deleteBtn);
             SDL_SetRenderDrawColor(r, 20, 20, 20, 255);
             SDL_RenderDrawRect(r, &deleteBtn);
             renderTextCentered(r, st.uiFont, "Delete Sprite", deleteBtn, 0, white);
         }
-
+        // ==========================================
         int vy = TOP_BAR_H + 8;
         for (auto& kv : st.varVisible) {
             if (!kv.second) continue;
