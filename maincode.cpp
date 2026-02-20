@@ -549,6 +549,7 @@ struct Sprite {
     double backupSizePct = 100.0;
     double backupColorEffect = 0.0;
     int backupCostumeIndex = 0;
+    int backupZOrder = 0;
 
     // --- مشخصات مکانی و ظاهری ---
     double x = 0.0;
@@ -558,6 +559,7 @@ struct Sprite {
     double sizePct = 100.0;
     double colorEffect = 0.0;
     int costumeIndex = 0;
+    int zOrder = 0;
 
     // --- محیط برنامه‌نویسی اختصاصی ---
     Workspace ws;
@@ -2663,6 +2665,10 @@ static void rebuildPalette(AppState& st, int winW, int winH) {
     placeBtn("if on edge, bounce", "", [&]{ addTypedBlock(st, "BOUNCE_EDGE", 0.0, 0.0); });
 
     cat("Looks");
+    placeBtn("go to front layer", "", [&]{ addTypedBlock(st, "LAYER_FRONT", 0.0, 0.0); });
+    placeBtn("go to back layer", "", [&]{ addTypedBlock(st, "LAYER_BACK", 0.0, 0.0); });
+    placeBtn("go forward 1 layers", "", [&]{ addTypedBlock(st, "LAYER_FWD", 1.0, 0.0); });
+    placeBtn("go backward 1 layers", "", [&]{ addTypedBlock(st, "LAYER_BWD", 1.0, 0.0); });
     placeBtn("say \"Hello\"", "", [&]{ addTypedBlock(st, "SAY", 0.0, 0.0, "Hello"); });
     placeBtn("say \"Hi\" for 2s", "", [&]{ addTypedBlock(st, "SAY_T", 2.0, 0.0, "Hi"); });
     placeBtn("think \"...\"", "", [&]{ addTypedBlock(st, "THINK", 0.0, 0.0, "..."); });
@@ -2696,6 +2702,7 @@ static void rebuildPalette(AppState& st, int winW, int winH) {
     placeBtn("stop all (script)", "", [&]{ addTypedBlock(st, "STOP_ALL", 0.0, 0.0); });
 
     cat("Sensing");
+    placeBtn("touching [Sprite 2]?", "Shift+Click edit", [&]{ addTypedBlock(st, "TOUCH_SPRITE", 0.0, 0.0, "Sprite 2"); });
     placeBtn("touching edge?", "", [&]{ addTypedBlock(st, "TOUCH_EDGE", 0.0, 0.0); });
     placeBtn("touching mouse?", "", [&]{ addTypedBlock(st, "TOUCH_MOUSE", 0.0, 0.0); });
     placeBtn("distance to mouse", "", [&]{ addTypedBlock(st, "DIST_MOUSE", 0.0, 0.0); });
@@ -3139,6 +3146,7 @@ static void startScript(AppState& st) {
         sp.sizePct = sp.backupSizePct;
         sp.colorEffect = sp.backupColorEffect;
         sp.costumeIndex = sp.backupCostumeIndex;
+        sp.zOrder = sp.backupZOrder;
 
         // ۲. شروع مجدد اسکریپت
         // ۲. شروع مجدد اسکریپت (فقط اگر بلاک اول پرچم باشد)
@@ -3727,6 +3735,31 @@ static StepResult executeOneBlock(AppState& st, Sprite& sp) {
     }
 
     // ---- Looks
+    // ---- Looks
+    if (cmd == "LAYER_FRONT") {
+        int maxZ = sp.zOrder;
+        for (const auto& s : st.sprites) if (s.zOrder > maxZ) maxZ = s.zOrder;
+        sp.zOrder = maxZ + 1;
+        st.log.info(idx, cmd, "Front layer", "z=" + to_string(sp.zOrder));
+        sp.scriptPC++; return StepResult::Advanced;
+    }
+    if (cmd == "LAYER_BACK") {
+        int minZ = sp.zOrder;
+        for (const auto& s : st.sprites) if (s.zOrder < minZ) minZ = s.zOrder;
+        sp.zOrder = minZ - 1;
+        st.log.info(idx, cmd, "Back layer", "z=" + to_string(sp.zOrder));
+        sp.scriptPC++; return StepResult::Advanced;
+    }
+    if (cmd == "LAYER_FWD") {
+        sp.zOrder += (int)round(b.a);
+        st.log.info(idx, cmd, "Forward layer", "z=" + to_string(sp.zOrder));
+        sp.scriptPC++; return StepResult::Advanced;
+    }
+    if (cmd == "LAYER_BWD") {
+        sp.zOrder -= (int)round(b.a);
+        st.log.info(idx, cmd, "Backward layer", "z=" + to_string(sp.zOrder));
+        sp.scriptPC++; return StepResult::Advanced;
+    }
     auto setBubble = [&](bool think, const string& text, double seconds) {
         st.bubbleThink = think;
         st.bubbleText = text;
@@ -3849,6 +3882,28 @@ static StepResult executeOneBlock(AppState& st, Sprite& sp) {
     }
 
     // ---- Sensing
+    // ---- Sensing
+    if (cmd == "TOUCH_SPRITE") {
+        bool touching = false;
+        string targetName = b.s1;
+        int sizeA = (int)clampT((int)round(80.0 * (sp.sizePct / 100.0)), 10, 300);
+        SDL_Rect rA{(int)round(sp.x) - sizeA/2, (int)round(sp.y) - sizeA/2, sizeA, sizeA};
+
+        for (const auto& other : st.sprites) {
+            if (&other == &sp) continue; // با خودش برخورد نکند
+            if (other.name == targetName && other.visible) {
+                int sizeB = (int)clampT((int)round(80.0 * (other.sizePct / 100.0)), 10, 300);
+                SDL_Rect rB{(int)round(other.x) - sizeB/2, (int)round(other.y) - sizeB/2, sizeB, sizeB};
+                // بررسی تداخل دو مستطیل (برخورد)
+                if (!(rA.x + rA.w <= rB.x || rB.x + rB.w <= rA.x || rA.y + rA.h <= rB.y || rB.y + rB.h <= rA.y)) {
+                    touching = true; break;
+                }
+            }
+        }
+        st.lastValue = Value::Num(touching ? 1.0 : 0.0);
+        st.log.info(idx, cmd, "Touch Sprite?", targetName + " -> " + st.lastValue.toString());
+        sp.scriptPC++; return StepResult::Advanced;
+    }
     if (cmd == "TOUCH_EDGE") {
         bool onEdge = (sp.x <= st.stageBounds.x + 0.5) ||
                      (sp.x >= st.stageBounds.x + st.stageBounds.w - 0.5) ||
@@ -4775,6 +4830,17 @@ static void update(AppState& st, SDL_Window* window) {
         if (hit != -1) {
             Block& b = st.getActive().ws.blocks[hit];
             if (b.cmd == "FUNC_APPLY") { openFuncIOMenu(st, hit); return; }
+            if (b.cmd == "TOUCH_SPRITE") {
+                if (!st.sprites.empty()) {
+                    int idxx = -1;
+                    for (size_t k=0; k<st.sprites.size(); k++) {
+                        if (st.sprites[k].name == b.s1) { idxx = k; break; }
+                    }
+                    idxx = (idxx + 1) % st.sprites.size();
+                    b.s1 = st.sprites[idxx].name;
+                }
+                return;
+            }
             if (b.cmd == "PEN_SET_COLOR") {
                 st.penColorPickerOpen = true;
                 st.penColorPickerBlockIndex = hit;
@@ -4975,6 +5041,11 @@ static void renderBlockLabels(const AppState& st, SDL_Renderer* r) {
         string label = b.cmd;
 
         if (b.cmd == "MOVE_STEPS") label = "move " + to_string((int)round(b.a)) + " steps";
+        else if (b.cmd == "LAYER_FRONT") label = "go to front layer";
+        else if (b.cmd == "LAYER_BACK") label = "go to back layer";
+        else if (b.cmd == "LAYER_FWD") label = "go forward " + to_string((int)round(b.a)) + " layers";
+        else if (b.cmd == "LAYER_BWD") label = "go backward " + to_string((int)round(b.a)) + " layers";
+        else if (b.cmd == "TOUCH_SPRITE") label = "touching " + b.s1 + "?";
         else if (b.cmd == "TURN_R") label = "turn right " + to_string((int)round(b.a));
         else if (b.cmd == "TURN_L") label = "turn left " + to_string((int)round(b.a));
         else if (b.cmd == "GOTO_XY") label = "go to (" + to_string((int)round(b.a)) + "," + to_string((int)round(b.b)) + ")";
@@ -5085,16 +5156,19 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
         shouldDrawActor = st.getActive().scriptRunning || st.drawActorWhenStopped;
     }
 
+    // رسم تمام اسپرایت‌های اصلی به ترتیب لایه‌ها (Z-Order)
     if (shouldDrawActor) {
-        for (const auto& c : st.clones) {
-            Sprite temp;
-            temp.x = c.x; temp.y = c.y; temp.dirDeg = c.dirDeg;
-            temp.sizePct = c.sizePct; temp.visible = c.visible;
-            if(!st.sprites.empty()) temp.icon = st.getActive().icon;
-            drawSprite(r, st, temp);
-        }
+        vector<const Sprite*> sortedSprites;
         for (const auto& sp : st.sprites) {
-            drawSprite(r, st, sp);
+            sortedSprites.push_back(&sp);
+        }
+        // مرتب‌سازی اسپرایت‌ها بر اساس لایه‌ای که دارند
+        std::stable_sort(sortedSprites.begin(), sortedSprites.end(), [](const Sprite* a, const Sprite* b) {
+            return a->zOrder < b->zOrder;
+        });
+
+        for (const Sprite* pSp : sortedSprites) {
+            drawSprite(r, st, *pSp);
         }
     }
 
