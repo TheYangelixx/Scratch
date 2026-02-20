@@ -4817,12 +4817,16 @@ static void update(AppState& st, SDL_Window* window) {
         // ==========================================
         // عملکرد دکمه‌های پنل اطلاعات (چرخش، حذف و تغییر نام)
         // ==========================================
+        // ==========================================
+        // عملکرد دکمه‌های پنل اطلاعات (چرخش، حذف، تغییر نام و نمایش)
+        // ==========================================
         if (!st.sprites.empty() && st.in.mousePressed) {
-            SDL_Rect infoBox = { st.stageBounds.x + 330, st.stageBounds.y + st.stageBounds.h + 10, 150, 110 };
+            SDL_Rect infoBox = { st.stageBounds.x + 330, st.stageBounds.y + st.stageBounds.h + 10, 150, 135 }; // ارتفاع کادر بیشتر شد
             SDL_Rect renameBtn = { infoBox.x + 10, infoBox.y + 10, 130, 20 };
             SDL_Rect dirLeftBtn = { infoBox.x + 90, infoBox.y + 60, 22, 22 };
             SDL_Rect dirRightBtn = { infoBox.x + 118, infoBox.y + 60, 22, 22 };
-            SDL_Rect deleteBtn = { infoBox.x + 10, infoBox.y + 85, 130, 20 };
+            SDL_Rect visBtn = { infoBox.x + 10, infoBox.y + 85, 130, 20 }; // دکمه جدید برای چشم
+            SDL_Rect deleteBtn = { infoBox.x + 10, infoBox.y + 110, 130, 20 }; // دکمه حذف رفت پایین‌تر
 
             // 0. دکمه تغییر نام
             if (pointInRect(st.in.mx, st.in.my, renameBtn)) {
@@ -4840,7 +4844,12 @@ static void update(AppState& st, SDL_Window* window) {
                 st.getActive().dirDeg = fmod(st.getActive().dirDeg + 15.0, 360.0);
                 st.getActive().backupDirDeg = st.getActive().dirDeg;
             }
-            // 3. حذف اسپرایت
+            // 3. مخفی / ظاهر کردن اسپرایت
+            else if (pointInRect(st.in.mx, st.in.my, visBtn)) {
+                st.getActive().visible = !st.getActive().visible; // برعکس کردن حالت فعلی
+                st.getActive().backupVisible = st.getActive().visible; // تا با دکمه Run دوباره ظاهر نشه!
+            }
+            // 4. حذف اسپرایت
             else if (pointInRect(st.in.mx, st.in.my, deleteBtn)) {
                 st.sprites.erase(st.sprites.begin() + st.activeSprite);
                 if (!st.sprites.empty() && st.activeSprite >= (int)st.sprites.size()) {
@@ -5044,13 +5053,16 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
         // ==========================================
         // پنل اطلاعات اسپرایت فعال (سمت راست پایین)
         // ==========================================
+        // ==========================================
+        // پنل اطلاعات اسپرایت فعال (سمت راست پایین)
+        // ==========================================
         if (!st.sprites.empty()) {
             int centerX = st.stageBounds.x + st.stageBounds.w / 2;
             int centerY = st.stageBounds.y + st.stageBounds.h / 2;
             int scratchX = (int)round(st.getActive().x - centerX);
             int scratchY = (int)round(centerY - st.getActive().y);
 
-            SDL_Rect infoBox = { st.stageBounds.x + 330, st.stageBounds.y + st.stageBounds.h + 10, 150, 110 };
+            SDL_Rect infoBox = { st.stageBounds.x + 330, st.stageBounds.y + st.stageBounds.h + 10, 150, 135 };
             SDL_SetRenderDrawColor(r, 40, 40, 46, 255);
             SDL_RenderFillRect(r, &infoBox);
             SDL_SetRenderDrawColor(r, 100, 100, 100, 255);
@@ -5086,8 +5098,21 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
             renderTextCentered(r, st.uiFont, "<", dirLeftBtn, 0, white);
             renderTextCentered(r, st.uiFont, ">", dirRightBtn, 0, white);
 
-            // 3. دکمه حذف اسپرایت
-            SDL_Rect deleteBtn = { infoBox.x + 10, infoBox.y + 85, 130, 20 };
+            // 3. دکمه نمایش/مخفی کردن
+            SDL_Rect visBtn = { infoBox.x + 10, infoBox.y + 85, 130, 20 };
+            if (st.getActive().visible) {
+                SDL_SetRenderDrawColor(r, 60, 160, 100, 255); // رنگ سبز وقتی روشنه
+            } else {
+                SDL_SetRenderDrawColor(r, 120, 120, 120, 255); // رنگ خاکستری وقتی خاموشه
+            }
+            SDL_RenderFillRect(r, &visBtn);
+            SDL_SetRenderDrawColor(r, 20, 20, 20, 255);
+            SDL_RenderDrawRect(r, &visBtn);
+            string visText = st.getActive().visible ? "Visible: ON" : "Visible: OFF";
+            renderTextCentered(r, st.uiFont, visText, visBtn, 0, white);
+
+            // 4. دکمه حذف اسپرایت
+            SDL_Rect deleteBtn = { infoBox.x + 10, infoBox.y + 110, 130, 20 };
             SDL_SetRenderDrawColor(r, 180, 60, 60, 255);
             SDL_RenderFillRect(r, &deleteBtn);
             SDL_SetRenderDrawColor(r, 20, 20, 20, 255);
