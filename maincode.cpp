@@ -28,8 +28,6 @@
   #include <dirent.h>
 #endif
 
-
-
 using namespace std;
 
 // =========================
