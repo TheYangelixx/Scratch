@@ -345,12 +345,45 @@ struct Workspace {
                         log.log("DRAG", "Deleted block id=" + to_string(b.id) + " (dropped outside)");
                         blocks.erase(blocks.begin() + i);
                     } else {
+                        // ==========================================
+                        // جادوی آهن‌ربا (Magnetic Snap)
+                        // ==========================================
+                        int snapDist = 35; // قدرت آهن‌ربا (فاصله ۳۵ پیکسلی)
+                        for (size_t j = 0; j < blocks.size(); ++j) {
+                            if (i == (int)j) continue;
+                            const Block& other = blocks[j];
+
+                            // ۱. چسبیدن به زیر یک بلاک دیگر
+                            if (abs(b.rect.x - other.rect.x) < snapDist &&
+                                abs(b.rect.y - (other.rect.y + other.rect.h)) < snapDist) {
+                                b.rect.x = other.rect.x;
+                                b.rect.y = other.rect.y + other.rect.h; // فیکس شدن دقیق در زیر بلاک
+                                break;
+                            }
+                            // ۲. چسبیدن به بالای یک بلاک دیگر
+                            if (abs(b.rect.x - other.rect.x) < snapDist &&
+                                abs((b.rect.y + b.rect.h) - other.rect.y) < snapDist) {
+                                b.rect.x = other.rect.x;
+                                b.rect.y = other.rect.y - b.rect.h; // فیکس شدن دقیق در بالای بلاک
+                                break;
+                            }
+                        }
+                        // ==========================================
+
                         // اگر داخل کادر بود، مطمئن شو که دقیقاً سر جایش فیکس شود
                         clampIntoBounds(b);
                         log.log("DRAG", "Drop block id=" + to_string(b.id));
                     }
                 }
             }
+
+            // ==========================================
+            // ترفند مهم: مرتب‌سازی بلاک‌ها از بالا به پایین
+            // با این کار موتور اجرای کد می‌فهمد بلاک بالایی باید زودتر اجرا شود!
+            // ==========================================
+            std::stable_sort(blocks.begin(), blocks.end(), [](const Block& a1, const Block& a2) {
+                return a1.rect.y < a2.rect.y;
+            });
         }
     }
 
