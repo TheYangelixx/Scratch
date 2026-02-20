@@ -4730,6 +4730,47 @@ static void update(AppState& st, SDL_Window* window) {
             }
             cx += 50;
         }
+        // ==========================================
+        // عملکرد دکمه‌های پنل اطلاعات (چرخش و حذف)
+        // ==========================================
+        if (!st.sprites.empty() && st.in.mousePressed) {
+            // مختصات دکمه‌ها دقیقاً مشابه تابع render
+            SDL_Rect infoBox = { st.stageBounds.x + 330, st.stageBounds.y + st.stageBounds.h + 10, 150, 80 };
+            SDL_Rect dirLeftBtn = { infoBox.x + 90, infoBox.y + 32, 22, 22 };
+            SDL_Rect dirRightBtn = { infoBox.x + 118, infoBox.y + 32, 22, 22 };
+            SDL_Rect deleteBtn = { infoBox.x + 10, infoBox.y + 57, 130, 20 };
+
+            // ۱. چرخش به چپ (۱۵ درجه)
+            if (pointInRect(st.in.mx, st.in.my, dirLeftBtn)) {
+                st.getActive().dirDeg = fmod(st.getActive().dirDeg - 15.0 + 360.0, 360.0);
+                st.getActive().backupDirDeg = st.getActive().dirDeg; // ذخیره در بک‌آپ
+                st.log.info(-1, "UI", "Rotate Left", to_string(st.getActive().dirDeg));
+            }
+            // ۲. چرخش به راست (۱۵ درجه)
+            else if (pointInRect(st.in.mx, st.in.my, dirRightBtn)) {
+                st.getActive().dirDeg = fmod(st.getActive().dirDeg + 15.0, 360.0);
+                st.getActive().backupDirDeg = st.getActive().dirDeg; // ذخیره در بک‌آپ
+                st.log.info(-1, "UI", "Rotate Right", to_string(st.getActive().dirDeg));
+            }
+            // ۳. دکمه حذف اسپرایت
+            else if (pointInRect(st.in.mx, st.in.my, deleteBtn)) {
+                st.log.info(-1, "UI", "Delete Sprite", st.getActive().name);
+
+                // اسپرایت فعلی را از لیست پاک می‌کنیم
+                st.sprites.erase(st.sprites.begin() + st.activeSprite);
+
+                // برای جلوگیری از کرش، مشخص می‌کنیم حالا کدام اسپرایت انتخاب شود
+                if (!st.sprites.empty()) {
+                    // اگر اسپرایت آخری را پاک کردیم، یکی به عقب برگرد
+                    if (st.activeSprite >= (int)st.sprites.size()) {
+                        st.activeSprite = (int)st.sprites.size() - 1;
+                    }
+                } else {
+                    st.activeSprite = 0; // لیست خالی شد
+                }
+            }
+        }
+        // ==========================================
     }
 }
 
@@ -4981,11 +5022,6 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
 
     SDL_RenderPresent(r);
 }
-
-// =========================
-// Run
-// =========================
-
 
 
 static int RunApp() {
