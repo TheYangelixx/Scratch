@@ -570,13 +570,20 @@ struct Sprite {
     bool waiting = false;
 
     // --- جداول کنترل جریان (حلقه‌ها و شرط‌ها) ---
+    // --- جداول کنترل جریان (حلقه‌ها و شرط‌ها) ---
     vector<int> jumpTo;
     vector<int> jumpElse;
     vector<int> jumpEnd;
     vector<int> loopEnd;
     vector<int> loopStart;
     vector<int> repeatCounter;
+
+    // --- توابع دلخواه (My Blocks) ---
+    map<string, int> funcDefs; // نام تابع به شماره خط شروع
+    vector<int> callStack;     // پشته‌ی آدرس‌های بازگشت (Return addresses)
+    double currentParam = 0.0; // مقدار پارامتری که الان به تابع پاس داده شده
 };
+
 
 
 struct AppState {
@@ -2579,6 +2586,7 @@ static void setBlockVisual(Block& b) {
     else if (isPenCmd(b.cmd)) b.color = SDL_Color{40, 180, 90, 255};
     else if (b.cmd == "SQRT") b.color = SDL_Color{150, 90, 200, 255};
     else if (b.cmd == "LOOP") b.color = SDL_Color{220, 160, 60, 255};
+    else if (b.cmd == "DEFINE_FN" || b.cmd == "END_FN" || b.cmd == "CALL_FN" || b.cmd == "GET_PARAM") b.color = SDL_Color{255, 105, 180, 255}; // Pink My Blocks
     else b.color = SDL_Color{80, 80, 90, 255};
 }
 
@@ -2754,6 +2762,12 @@ static void rebuildPalette(AppState& st, int winW, int winH) {
     placeBtn("clear clones", "", [&]{ addTypedBlock(st, "CLONE_CLEAR", 0.0, 0.0); });
     placeBtn("clone count (to last)", "", [&]{ addTypedBlock(st, "CLONE_COUNT", 0.0, 0.0); });
 
+    // ===== Section 10: My Blocks =====
+    cat("My Blocks");
+    placeBtn("Define f(x)", "Shift+Click cycle name", [&]{ addTypedBlock(st, "DEFINE_FN", 0.0, 0.0, "myFunc", "x"); });
+    placeBtn("End Function", "", [&]{ addTypedBlock(st, "END_FN", 0.0, 0.0); });
+    placeBtn("Call f(n)", "Shift+Click cycle name", [&]{ addTypedBlock(st, "CALL_FN", 10.0, 0.0, "myFunc"); });
+    placeBtn("Get param x", "", [&]{ addTypedBlock(st, "GET_PARAM", 0.0, 0.0, "x"); });
     // Pen at end
     if (st.penExtensionEnabled) {
         cat("Pen (Extension)");
@@ -3016,9 +3030,24 @@ static void runnerPreScan(AppState& st, Sprite& sp) {
     vector<int> repeatStack;
     vector<int> foreverStack;
     vector<int> repeatUntilStack;
+    vector<int> funcStack; // <--- اینو اضافه کن برای پیدا کردن پایان توابع
 
     for (int i = 0; i < n; i++) {
         const string& c = sp.ws.blocks[i].cmd;
+
+        if (c == "DEFINE_FN") {
+            funcStack.push_back(i);
+            sp.funcDefs[sp.ws.blocks[i].s1] = i; // ذخیره شماره خطی که تابع شروع شده
+            continue;
+        }
+        if (c == "END_FN") {
+            if (!funcStack.empty()) {
+                int start = funcStack.back();
+                funcStack.pop_back();
+                sp.jumpEnd[start] = i; // بلاک Define حالا می‌دونه تابع کجا تموم میشه
+            }
+            continue;
+        }
 
         if (c == "IF" || c == "IFELSE") {
             ifStack.push_back(i);
@@ -3089,7 +3118,9 @@ static void runnerPreScan(AppState& st, Sprite& sp) {
     for (int idx : repeatStack) st.log.warn(idx, "REPEAT", "Unmatched REPEAT (missing END_REPEAT)", "");
     for (int idx : repeatUntilStack) st.log.warn(idx, "REPEAT_UNTIL", "Unmatched REPEAT_UNTIL (missing END_REPEAT)", "");
     for (int idx : foreverStack) st.log.warn(idx, "FOREVER", "Unmatched FOREVER (missing END_FOREVER)", "");
+    for (int idx : funcStack) st.log.warn(idx, "DEFINE_FN", "Unmatched DEFINE_FN (missing END_FN)", ""); // <--- این خط جدید
 }
+
 static void startScript(AppState& st) {
     st.timerStartMs = SDL_GetTicks();
     st.soundBusyUntilMs = 0;
@@ -3120,6 +3151,12 @@ static void startScript(AppState& st) {
         sp.stepRequested = false;
         sp.waiting = false;
         sp.waitUntilMs = 0;
+
+        // ریست کردن حافظه توابع
+        sp.funcDefs.clear();
+        sp.callStack.clear();
+        sp.currentParam = 0.0;
+
         runnerPreScan(st, sp);
     }
 }
@@ -3502,6 +3539,12 @@ static string cycleName3(const string& cur) {
     if (cur == "v") return "score";
     if (cur == "score") return "msg";
     return "v";
+}
+
+static string cycleFuncName(const string& cur) {
+    if (cur == "myFunc") return "drawShape";
+    if (cur == "drawShape") return "jumpUp";
+    return "myFunc";
 }
 
 static string cycleListName3(const string& cur) {
@@ -3950,6 +3993,60 @@ static StepResult executeOneBlock(AppState& st, Sprite& sp) {
         sp.scriptPC++;
         return StepResult::Advanced;
     }
+
+    // ==========================================
+    // منطق توابع دلخواه (My Blocks)
+    // ==========================================
+    if (cmd == "DEFINE_FN") {
+        // اگر جریان عادی برنامه به اینجا رسید، باید کدهای تابع را نادیده بگیرد و از روی آن بپرد
+        int endIdx = (idx >= 0 && idx < (int)sp.jumpEnd.size()) ? sp.jumpEnd[idx] : -1;
+        if (endIdx != -1) {
+            st.log.info(idx, cmd, "Skip function definition", "jump to END_FN");
+            sp.scriptPC = endIdx + 1; // پرش به خطِ بعد از پایان تابع
+        } else {
+            sp.scriptPC++;
+        }
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "CALL_FN") {
+        string fnName = b.s1.empty() ? "myFunc" : b.s1;
+        if (sp.funcDefs.count(fnName)) {
+            // ۱. ذخیره خط بعدی برای اینکه وقتی تابع تموم شد بدونه کجا برگرده
+            sp.callStack.push_back(sp.scriptPC + 1);
+            // ۲. تنظیم مقدار پارامتر ورودی
+            sp.currentParam = b.a;
+            // ۳. پرش به اولین خط داخلِ تابع
+            sp.scriptPC = sp.funcDefs[fnName] + 1;
+            st.log.info(idx, cmd, "Call function", fnName + " arg=" + to_string(b.a));
+        } else {
+            st.log.warn(idx, cmd, "Function not found", fnName);
+            sp.scriptPC++;
+        }
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "END_FN") {
+        if (!sp.callStack.empty()) {
+            // برگشت به جایی که تابع صدا زده شده بود
+            int retAddr = sp.callStack.back();
+            sp.callStack.pop_back();
+            sp.scriptPC = retAddr;
+            st.log.info(idx, cmd, "Return from function", "to line " + to_string(retAddr));
+        } else {
+            sp.scriptPC++; // اگر اشتباهی به پایان رسیدیم، فقط رد شو
+        }
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "GET_PARAM") {
+        // گرفتن پارامتری که به تابع پاس داده شده بود و ریختن آن در خروجی
+        st.lastValue = Value::Num(sp.currentParam);
+        st.log.info(idx, cmd, "Get param", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    // ==========================================
 
     // ---- Variables
     if (cmd == "VAR_SET_NUM") {
@@ -4685,6 +4782,7 @@ static void update(AppState& st, SDL_Window* window) {
             }
             if (b.cmd.rfind("VAR_", 0) == 0) { b.s1 = cycleName3(b.s1.empty() ? "v" : b.s1); return; }
             if (b.cmd.rfind("LIST_", 0) == 0) { b.s1 = cycleListName3(b.s1.empty() ? "list" : b.s1); return; }
+            if (b.cmd == "DEFINE_FN" || b.cmd == "CALL_FN") { b.s1 = cycleFuncName(b.s1.empty() ? "myFunc" : b.s1); return; }
         }
     }
 
@@ -4906,6 +5004,10 @@ static void renderBlockLabels(const AppState& st, SDL_Renderer* r) {
         else if (b.cmd == "CLONE_DELETE_LAST") label = "delete last clone";
         else if (b.cmd == "CLONE_CLEAR") label = "clear clones";
         else if (b.cmd == "CLONE_COUNT") label = "clone count";
+        else if (b.cmd == "DEFINE_FN") label = "define " + b.s1 + " (param: " + b.s2 + ")";
+        else if (b.cmd == "END_FN") label = "end function";
+        else if (b.cmd == "CALL_FN") label = "call " + b.s1 + " (arg: " + to_string((int)round(b.a)) + ")";
+        else if (b.cmd == "GET_PARAM") label = "get param " + b.s1 + " (to last)";
 
         renderText(r, st.uiFont, label, b.rect.x + 10 + 1, b.rect.y + 16 + 1, t);
         renderText(r, st.uiFont, label, b.rect.x + 10, b.rect.y + 16, w);
