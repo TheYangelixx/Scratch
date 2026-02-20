@@ -4917,6 +4917,50 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
             cx += 50;
         }
 
+        // ==========================================
+        // پنل اطلاعات اسپرایت فعال (سمت راست پایین)
+        // ==========================================
+        if (!st.sprites.empty()) {
+            // محاسبه مختصات اسکرچ (صفر و صفر در مرکز Stage)
+            int centerX = st.stageBounds.x + st.stageBounds.w / 2;
+            int centerY = st.stageBounds.y + st.stageBounds.h / 2;
+            int scratchX = (int)round(st.getActive().x - centerX);
+            int scratchY = (int)round(centerY - st.getActive().y); // محور Y در اسکرچ برعکس است
+
+            SDL_Rect infoBox = { st.stageBounds.x + 330, st.stageBounds.y + st.stageBounds.h + 10, 150, 80 };
+            SDL_SetRenderDrawColor(r, 40, 40, 46, 255);
+            SDL_RenderFillRect(r, &infoBox);
+            SDL_SetRenderDrawColor(r, 100, 100, 100, 255);
+            SDL_RenderDrawRect(r, &infoBox);
+
+            // 1. نمایش X و Y
+            string xyText = "X: " + to_string(scratchX) + "  Y: " + to_string(scratchY);
+            renderText(r, st.uiFont, xyText, infoBox.x + 10, infoBox.y + 10, white);
+
+            // 2. نمایش جهت (Direction) و دکمه‌های چرخش
+            string dirText = "Dir: " + to_string((int)st.getActive().dirDeg);
+            renderText(r, st.uiFont, dirText, infoBox.x + 10, infoBox.y + 35, white);
+
+            SDL_Rect dirLeftBtn = { infoBox.x + 90, infoBox.y + 32, 22, 22 };
+            SDL_Rect dirRightBtn = { infoBox.x + 118, infoBox.y + 32, 22, 22 };
+            SDL_SetRenderDrawColor(r, 80, 80, 90, 255);
+            SDL_RenderFillRect(r, &dirLeftBtn);
+            SDL_RenderFillRect(r, &dirRightBtn);
+            SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
+            SDL_RenderDrawRect(r, &dirLeftBtn);
+            SDL_RenderDrawRect(r, &dirRightBtn);
+            renderTextCentered(r, st.uiFont, "<", dirLeftBtn, 0, white);
+            renderTextCentered(r, st.uiFont, ">", dirRightBtn, 0, white);
+
+            // 3. دکمه حذف اسپرایت (Delete)
+            SDL_Rect deleteBtn = { infoBox.x + 10, infoBox.y + 57, 130, 20 };
+            SDL_SetRenderDrawColor(r, 180, 60, 60, 255); // رنگ قرمز
+            SDL_RenderFillRect(r, &deleteBtn);
+            SDL_SetRenderDrawColor(r, 20, 20, 20, 255);
+            SDL_RenderDrawRect(r, &deleteBtn);
+            renderTextCentered(r, st.uiFont, "Delete Sprite", deleteBtn, 0, white);
+        }
+
         int vy = TOP_BAR_H + 8;
         for (auto& kv : st.varVisible) {
             if (!kv.second) continue;
