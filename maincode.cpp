@@ -325,28 +325,29 @@ struct Workspace {
             for (size_t i = 0; i < blocks.size(); i++) {
                 Block& b = blocks[i];
                 if (!b.dragging) continue;
-                int beforeX = b.rect.x;
-                int beforeY = b.rect.y;
 
+                // حرکت دادن بلاک به صورت آزادانه (بدون گیر کردن به دیواره‌ها)
                 b.rect.x = in.mx - b.offX;
                 b.rect.y = in.my - b.offY;
-                clampIntoBounds(b);
-
-                if (b.rect.x != beforeX || b.rect.y != beforeY) {
-                    log.warn((int)i, "DRAG", "Block clamped to bounds",
-                             "id=" + to_string(b.id) +
-                             " (" + to_string(beforeX) + "," + to_string(beforeY) + ")->(" +
-                             to_string(b.rect.x) + "," + to_string(b.rect.y) + ")");
-                }
             }
         }
 
         if (in.mouseReleased) {
-            for (size_t i = 0; i < blocks.size(); i++) {
+            // برای پاک کردن درست، باید از آخر به اول بررسی کنیم
+            for (int i = (int)blocks.size() - 1; i >= 0; --i) {
                 Block& b = blocks[i];
                 if (b.dragging) {
                     b.dragging = false;
-                    log.log("DRAG", "Drop block id=" + to_string(b.id));
+
+                    // اگر موس بیرون از کادر کدنویسی (bounds) بود، حذفش کن
+                    if (!pointInRect(in.mx, in.my, bounds)) {
+                        log.log("DRAG", "Deleted block id=" + to_string(b.id) + " (dropped outside)");
+                        blocks.erase(blocks.begin() + i);
+                    } else {
+                        // اگر داخل کادر بود، مطمئن شو که دقیقاً سر جایش فیکس شود
+                        clampIntoBounds(b);
+                        log.log("DRAG", "Drop block id=" + to_string(b.id));
+                    }
                 }
             }
         }
