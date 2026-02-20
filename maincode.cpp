@@ -205,6 +205,7 @@ struct Button {
     string text;
     string sub;
     function<void()> onClick;
+    function<void()> onPress; // <--- اضافه شدن قابلیت کلیک فوری
 
     bool hovered = false;
     bool down = false;
@@ -212,7 +213,10 @@ struct Button {
     void update(const InputState& in) {
         hovered = pointInRect(in.mx, in.my, rect);
 
-        if (hovered && in.mousePressed) down = true;
+        if (hovered && in.mousePressed) {
+            down = true;
+            if (onPress) onPress(); // <--- به محض کلیک شدن روی دکمه، بلاک ساخته می‌شود
+        }
 
         if (down && in.mouseReleased) {
             down = false;
@@ -221,7 +225,6 @@ struct Button {
 
         if (!in.mouseDown) down = false;
     }
-
     void draw(SDL_Renderer* r, TTF_Font* font) const {
         SDL_Color bg = {70, 70, 70, 255};
         if (down) bg = SDL_Color{120, 120, 120, 255};
@@ -2488,7 +2491,7 @@ static Button makePaletteBtn(int x, int y, int w, const string& label, const str
     b.rect = SDL_Rect{x, y, w, 34};
     b.text = label;
     b.sub = sub;
-    b.onClick = cb;
+    b.onPress = cb; // <--- دکمه‌های منو حالا به جای onClick از onPress استفاده می‌کنند
     return b;
 }
 
@@ -2580,7 +2583,11 @@ static void setBlockVisual(Block& b) {
 }
 
 static void addTypedBlock(AppState& st, const string& cmd, double a, double bb, const string& s1 = "", const string& s2 = "", int i1 = 0) {
-    st.getActive().ws.addBlock(st.getActive().ws.bounds.x + 60, st.getActive().ws.bounds.y + 60);
+    // ۱. ساخت بلاک دقیقاً در مختصات فعلی موس
+    int spawnX = st.in.mx - 120; // 120 یعنی وسط طول بلاک
+    int spawnY = st.in.my - 26;  // 26 یعنی وسط عرض بلاک
+    st.getActive().ws.addBlock(spawnX, spawnY);
+
     if (!st.getActive().ws.blocks.empty()) {
         Block& b = st.getActive().ws.blocks.back();
         b.cmd = cmd;
@@ -2590,8 +2597,13 @@ static void addTypedBlock(AppState& st, const string& cmd, double a, double bb, 
         b.s2 = s2;
         b.i1 = i1;
         setBlockVisual(b);
-        st.log.info((int)st.getActive().ws.blocks.size() - 1, cmd, "Add block",
-                    "a=" + to_string(a) + " b=" + to_string(bb) + " s1=" + s1);
+
+        // ۲. بلافاصله حالت "کشیدن" (Dragging) را برای این بلاک روشن می‌کنیم
+        b.dragging = true;
+        b.offX = st.in.mx - b.rect.x;
+        b.offY = st.in.my - b.rect.y;
+
+        st.log.info((int)st.getActive().ws.blocks.size() - 1, cmd, "Add & Drag block", "");
     }
 }
 
@@ -2756,8 +2768,7 @@ static void rebuildPalette(AppState& st, int winW, int winH) {
             if (!st.getActive().ws.blocks.empty()) {
                 st.getActive().ws.blocks.back().pickColor = st.penRGB;
                 setBlockVisual(st.getActive().ws.blocks.back());
-                st.penColorPickerOpen = true;
-                st.penColorPickerBlockIndex = (int)st.getActive().ws.blocks.size() - 1;
+                // کاربر بعداً با Shift+Click روی بلاک می‌تونه پنجره رنگ رو باز کنه
             }
         });
     }
