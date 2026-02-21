@@ -1468,6 +1468,48 @@ void ui_render_stage(UI& ui, AppState& state) {
         );
 
         SDL_RenderFillRect(ui.renderer, &sprite_rect);
+        // === اضافه شده برای مرحله ۱: رسم حباب گفتگو ===
+        if (!sprite.speech_bubble.empty()) {
+            Uint32 now = SDL_GetTicks();
+            // بررسی اینکه زمان نمایش حباب تموم شده یا نه (0 یعنی نامحدود)
+            if (sprite.speech_end_time == 0 || now < sprite.speech_end_time) {
+                int tw = 0, th = 0;
+                TTF_SizeUTF8(ui.font, sprite.speech_bubble.c_str(), &tw, &th);
+
+                int padding = 8;
+                SDL_Rect bubble_rect = {
+                        sx + size / 2,             // کمی متمایل به راستِ اسپرایت
+                        sy - size / 2 - th - 20,   // بالای سر اسپرایت
+                        tw + padding * 2,
+                        th + padding * 2
+                };
+
+                // رسم حاشیه و پس‌زمینه حباب
+                Color borderColor = {180, 180, 180, 255};
+                Color bgColor = {255, 255, 255, 255};
+                ui_draw_rounded_rect(ui.renderer, bubble_rect, borderColor, 8);
+
+                SDL_Rect inner = {bubble_rect.x + 1, bubble_rect.y + 1, bubble_rect.w - 2, bubble_rect.h - 2};
+                ui_draw_rounded_rect(ui.renderer, inner, bgColor, 7);
+
+                // رسم دمِ حباب
+                SDL_SetRenderDrawColor(ui.renderer, 180, 180, 180, 255);
+                if (sprite.speech_is_think) {
+                    // برای فکر کردن (یه نقطه زیر حباب)
+                    SDL_Rect dot = {sx + size / 2 + 5, sy - size / 2 - 8, 6, 6};
+                    ui_draw_rounded_rect(ui.renderer, dot, borderColor, 3);
+                } else {
+                    // برای حرف زدن (یه خط ساده وصل به اسپرایت)
+                    SDL_RenderDrawLine(ui.renderer, bubble_rect.x + 10, bubble_rect.y + bubble_rect.h, sx + size / 2, sy - size / 2);
+                }
+
+                // چاپ متن (رنگ متن تیره روی حباب سفید)
+                ui_draw_text(ui.renderer, ui.font, sprite.speech_bubble, bubble_rect.x + padding, bubble_rect.y + padding, CLR_TEXT_DARK);
+            } else {
+                // اگر زمانش تموم شده بود، خالیش می‌کنیم تا دیگه رندر نشه
+                sprite.speech_bubble = "";
+            }
+        }
     }
 }
 
