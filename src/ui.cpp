@@ -1482,15 +1482,25 @@ void ui_render_stage(UI& ui, AppState& state) {
                              ? CLR_SPRITE_SELECTED
                              : CLR_SPRITE;
 
-        SDL_SetRenderDrawColor(
-                ui.renderer,
-                sprite_color.r,
-                sprite_color.g,
-                sprite_color.b,
-                sprite_color.a
-        );
+        // === رسم اسپرایت (عکس یا مربع رنگی) ===
+        bool image_drawn = false;
+        if (sprite.current_costume >= 0 && sprite.current_costume < (int)sprite.costumes.size()) {
+            SDL_Texture* tex = sprite.costumes[sprite.current_costume].texture;
+            if (tex) {
+                // زاویه چرخش در SDL (منهای ۹۰ می‌کنیم تا با سیستم زاویه اسکرچ مچ بشه)
+                double angle = sprite.direction - 90.0;
 
-        SDL_RenderFillRect(ui.renderer, &sprite_rect);
+                // رسم عکس با قابلیت چرخش
+                SDL_RenderCopyEx(ui.renderer, tex, nullptr, &sprite_rect, angle, nullptr, SDL_FLIP_NONE);
+                image_drawn = true;
+            }
+        }
+
+        // اگر عکسی پیدا نشد یا ارور داشت، همون مربع رنگی رو به عنوان پشتیبان بکش
+        if (!image_drawn) {
+            SDL_SetRenderDrawColor(ui.renderer, sprite_color.r, sprite_color.g, sprite_color.b, sprite_color.a);
+            SDL_RenderFillRect(ui.renderer, &sprite_rect);
+        }
         // === اضافه شده برای مرحله ۱: رسم حباب گفتگو ===
         if (!sprite.speech_bubble.empty()) {
             Uint32 now = SDL_GetTicks();

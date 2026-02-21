@@ -3,6 +3,7 @@
 #include "engine.h"
 #include "logger.h"
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 
 int main(int argc, char* argv[]) {
     log_init("myscratch.log");
@@ -18,6 +19,23 @@ int main(int argc, char* argv[]) {
         log_error("Failed to initialize UI. Exiting.");
         log_shutdown();
         return 1;
+    }
+
+    // === اضافه کردن عکس پیش‌فرض به اسپرایت اول ===
+    if (!state.sprites.empty()) {
+        Costume cost;
+        cost.name = "cat";
+        cost.file_path = "assets/cat.png"; // همون عکسی که تو پوشه assets گذاشتی
+        cost.texture = IMG_LoadTexture(ui.renderer, cost.file_path.c_str());
+
+        if (cost.texture) {
+            SDL_QueryTexture(cost.texture, NULL, NULL, &cost.width, &cost.height);
+            state.sprites[0].costumes.push_back(cost);
+            state.sprites[0].current_costume = 0;
+            log_info("Loaded costume: " + cost.file_path);
+        } else {
+            log_error("Failed to load costume: " + std::string(IMG_GetError()));
+        }
     }
     // راه‌اندازی بوم قلم با ابعاد Stage
     pen_canvas_init(state.pen, ui.renderer, STAGE_WIDTH, STAGE_HEIGHT);
