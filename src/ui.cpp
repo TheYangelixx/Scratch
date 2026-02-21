@@ -260,36 +260,68 @@ void ui_handle_event(UI* ui, AppState* state, SDL_Event* event)
         ui->script_scroll.dragging = false;
 
         if (ui->drag.active && event->button.button == SDL_BUTTON_LEFT) {
-            // رها کردن درگ در ناحیه اسکریپت = اضافه کردن بلوک
             if (ui_point_in_rect(mx, my, ui->rect_scripts)) {
                 Sprite* sprite = app_state_current_sprite(*state);
                 if (sprite) {
-                    // ساخت بلوک جدید از prototype
-                    Block new_block = ui->drag.dragged_block;
-                    new_block.id = -1; // به block_create واگذار می‌شه
-                    Block created = block_create(new_block.opcode, new_block.text,
-                                                 new_block.category, new_block.block_type);
-                    created.fields = new_block.fields;
-                    created.width  = new_block.width;
-                    created.height = new_block.height;
-                    // موقعیت در ناحیه اسکریپت
-                    created.x = 0;
-                    created.y = 0;
+                    if (ui->drag.from_palette) {
+                        // ۱. رها کردن از پالت: ساخت بلوک جدید روی صفحه
+                        Block new_block = ui->drag.dragged_block;
+                        new_block.id = -1;
+                        Block created = block_create(new_block.opcode, new_block.text,
+                                                     new_block.category, new_block.block_type);
+                        created.fields = new_block.fields;
+                        created.width  = new_block.width;
+                        created.height = new_block.height;
+                        created.x = 0;
+                        created.y = 0;
 
-                    int placed_id = state->block_manager.add(created);
+                        int placed_id = state->block_manager.add(created);
 
-                    // اضافه کردن به اسکریپت جدید یا موجود
-                    Script new_script;
-                    new_script.x = mx - ui->rect_scripts.x + ui->script_scroll.offset_x - ui->drag.offset_x;
-                    new_script.y = my - ui->rect_scripts.y + ui->script_scroll.offset_y - ui->drag.offset_y;
-                    new_script.block_ids.push_back(placed_id);
-                    sprite->scripts.push_back(new_script);
+                        Script new_script;
+                        new_script.x = mx - ui->rect_scripts.x + ui->script_scroll.offset_x - ui->drag.offset_x;
+                        new_script.y = my - ui->rect_scripts.y + ui->script_scroll.offset_y - ui->drag.offset_y;
+                        new_script.block_ids.push_back(placed_id);
+                        sprite->scripts.push_back(new_script);
 
-                    app_state_push_undo(*state, "Add block: " + created.opcode);
-                    log_info("UI: Block dropped -> " + created.opcode);
+                        app_state_push_undo(*state, "Add block: " + created.opcode);
+                        log_info("UI: Block dropped from palette -> " + created.opcode);
+                    } else {
+                        // ۲. رها کردن از خود اسکریپت‌ها: جابه‌جایی بلوک (حل مشکل کپی شدن)
+                        for (auto& script : sprite->scripts) {
+                            bool found = false;
+                            for (int bid : script.block_ids) {
+                                if (bid == ui->drag.block_id) { found = true; break; }
+                            }
+                            if (found) {
+                                script.x = mx - ui->rect_scripts.x + ui->script_scroll.offset_x - ui->drag.offset_x;
+                                script.y = my - ui->rect_scripts.y + ui->script_scroll.offset_y - ui->drag.offset_y;
+                                break;
+                            }
+                        }
+                    }
+                }
+            } else {
+                // ۳. رها کردن بیرون از صفحه (مثلاً روی پالت): حذف بلوک از صفحه
+                if (!ui->drag.from_palette) {
+                    Sprite* sprite = app_state_current_sprite(*state);
+                    if (sprite) {
+                        for (auto it = sprite->scripts.begin(); it != sprite->scripts.end(); ++it) {
+                            bool found = false;
+                            for (int bid : it->block_ids) {
+                                if (bid == ui->drag.block_id) { found = true; break; }
+                            }
+                            if (found) {
+                                for (int bid : it->block_ids) state->block_manager.remove(bid);
+                                sprite->scripts.erase(it);
+                                log_info("UI: Script deleted.");
+                                break;
+                            }
+                        }
+                    }
                 }
             }
-            // رها کردن در پالت یا جای دیگه = حذف (اگر از اسکریپت آمده)
+
+            // پایان وضعیت درگ
             ui->drag.active = false;
             ui->drag.snap_valid = false;
             ui->drag.block_id = -1;
