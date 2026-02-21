@@ -7,6 +7,7 @@
 #include <vector>
 #include <functional>
 #include "pen.h"
+#include "sound_manager.h"
 
 // ============================================================
 //  وضعیت عمومی برنامه
@@ -22,6 +23,7 @@ struct UndoEntry {
 struct AppState {
 
     PenCanvas pen;
+    SoundManager sound_manager;
     // --- اسپرایت‌ها ---
     std::vector<Sprite> sprites;
     int current_sprite_index = 0;

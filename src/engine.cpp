@@ -126,6 +126,14 @@ void engine_execute_block(AppState& state, Sprite& sprite, int block_id) {
     else if (op == "control_stop_all") {
         app_state_stop(state);
     }
+        // --- Sound ---
+    else if (op == "sound_play") {
+        // پخش صدای پیش‌فرض
+        sound_play(state.sound_manager, "meow");
+    }
+    else if (op == "sound_stop_all") {
+        sound_stop_all(state.sound_manager);
+    }
         // --- Events ---
         // event ها معمولاً فقط trigger هستند و کد اجرایی ندارند
     else {

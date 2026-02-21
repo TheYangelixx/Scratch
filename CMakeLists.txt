@@ -29,6 +29,7 @@ set(SOURCES
         src/engine.cpp
         src/project_io.cpp
         src/pen.cpp
+        src/sound_manager.cpp
 )
 
 # --- Create executable ---

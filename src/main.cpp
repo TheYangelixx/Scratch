@@ -4,6 +4,7 @@
 #include "logger.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include "sound_manager.h"
 
 int main(int argc, char* argv[]) {
     log_init("myscratch.log");
@@ -11,6 +12,9 @@ int main(int argc, char* argv[]) {
 
     AppState state;
     app_state_init(state);
+    // راه‌اندازی سیستم صدا و لود کردن صدای پیش‌فرض
+    sound_manager_init(state.sound_manager);
+    sound_load(state.sound_manager, "meow", "assets/meow.wav");
 
     engine_init(state);
 
@@ -79,6 +83,7 @@ int main(int argc, char* argv[]) {
     engine_shutdown(state);
     log_info("=== MyScratch Exiting ===");
     log_shutdown();
+    sound_manager_shutdown(state.sound_manager);
 
     return 0;
 }
