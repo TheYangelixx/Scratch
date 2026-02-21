@@ -94,10 +94,50 @@ void ui_handle_event(UI* ui, AppState* state, SDL_Event* event)
             item.hovered = ui_point_in_rect(mx, my, abs_rect);
         }
 
-        // حرکت درگ
+        // حرکت درگ و تشخیص Snap
         if (ui->drag.active) {
             ui->drag.mouse_x = mx;
             ui->drag.mouse_y = my;
+            ui->drag.snap_valid = false;
+
+            if (ui_point_in_rect(mx, my, ui->rect_scripts)) {
+                Sprite* sprite = app_state_current_sprite(*state);
+                if (sprite) {
+                    int drag_x = mx - ui->drag.offset_x;
+                    int drag_y = my - ui->drag.offset_y;
+
+                    for (int s_idx = 0; s_idx < (int)sprite->scripts.size(); s_idx++) {
+                        auto& script = sprite->scripts[s_idx];
+                        int current_y = ui->rect_scripts.y + script.y - ui->script_scroll.offset_y;
+                        int base_x = ui->rect_scripts.x + script.x - ui->script_scroll.offset_x;
+
+                        for (int i = 0; i < (int)script.block_ids.size(); i++) {
+                            int bid = script.block_ids[i];
+                            if (bid == ui->drag.block_id) continue;
+
+                            Block* b = state->block_manager.get(bid);
+                            if (!b) continue;
+
+                            int target_x = base_x;
+                            int target_y = current_y + b->height; // پایین بلوک هدف
+
+                            // اگر فاصله کمتر از 30 پیکسل بود (آهن‌ربا فعال می‌شه)
+                            if (std::abs(drag_x - target_x) < 30 && std::abs(drag_y - target_y) < 30) {
+                                ui->drag.snap_valid = true;
+                                ui->drag.snap_script_idx = s_idx;
+                                ui->drag.snap_position = i + 1; // اضافه شدن بعد از این بلوک
+
+                                // شیفت دادن موس به نقطه اتصال برای حس آهن‌ربایی
+                                ui->drag.mouse_x = target_x + ui->drag.offset_x;
+                                ui->drag.mouse_y = target_y + ui->drag.offset_y;
+                                break;
+                            }
+                            current_y += b->height + 2; // +2 همون فاصله بین بلوک‌هاست
+                        }
+                        if (ui->drag.snap_valid) break;
+                    }
+                }
+            }
         }
     }
 
@@ -263,8 +303,10 @@ void ui_handle_event(UI* ui, AppState* state, SDL_Event* event)
             if (ui_point_in_rect(mx, my, ui->rect_scripts)) {
                 Sprite* sprite = app_state_current_sprite(*state);
                 if (sprite) {
+                    int placed_id = ui->drag.block_id;
+
+                    // ۱. اگر از پالت آمده، اول یک بلوک جدید بسازیم
                     if (ui->drag.from_palette) {
-                        // ۱. رها کردن از پالت: ساخت بلوک جدید روی صفحه
                         Block new_block = ui->drag.dragged_block;
                         new_block.id = -1;
                         Block created = block_create(new_block.opcode, new_block.text,
@@ -272,48 +314,50 @@ void ui_handle_event(UI* ui, AppState* state, SDL_Event* event)
                         created.fields = new_block.fields;
                         created.width  = new_block.width;
                         created.height = new_block.height;
-                        created.x = 0;
-                        created.y = 0;
+                        created.x = 0; created.y = 0;
+                        placed_id = state->block_manager.add(created);
+                    }
+                        // ۲. اگر از روی صفحه برداشتیم، اول از اسکریپت قبلی پاکش کنیم
+                    else {
+                        for (auto it = sprite->scripts.begin(); it != sprite->scripts.end(); ++it) {
+                            auto& ids = it->block_ids;
+                            auto pos = std::find(ids.begin(), ids.end(), placed_id);
+                            if (pos != ids.end()) {
+                                ids.erase(pos);
+                                if (ids.empty()) sprite->scripts.erase(it);
+                                break; // پیدا شد و حذف شد
+                            }
+                        }
+                    }
 
-                        int placed_id = state->block_manager.add(created);
-
+                    // ۳. بررسی کنیم آیا باید به بلوک دیگری بچسبد؟
+                    if (ui->drag.snap_valid && ui->drag.snap_script_idx < (int)sprite->scripts.size()) {
+                        auto& target_script = sprite->scripts[ui->drag.snap_script_idx];
+                        int pos = ui->drag.snap_position;
+                        if (pos > (int)target_script.block_ids.size()) pos = (int)target_script.block_ids.size();
+                        target_script.block_ids.insert(target_script.block_ids.begin() + pos, placed_id);
+                    }
+                        // ۴. اگر اسنپ نشده، یک اسکریپت مستقل جدید بسازیم
+                    else {
                         Script new_script;
                         new_script.x = mx - ui->rect_scripts.x + ui->script_scroll.offset_x - ui->drag.offset_x;
                         new_script.y = my - ui->rect_scripts.y + ui->script_scroll.offset_y - ui->drag.offset_y;
                         new_script.block_ids.push_back(placed_id);
                         sprite->scripts.push_back(new_script);
-
-                        app_state_push_undo(*state, "Add block: " + created.opcode);
-                        log_info("UI: Block dropped from palette -> " + created.opcode);
-                    } else {
-                        // ۲. رها کردن از خود اسکریپت‌ها: جابه‌جایی بلوک (حل مشکل کپی شدن)
-                        for (auto& script : sprite->scripts) {
-                            bool found = false;
-                            for (int bid : script.block_ids) {
-                                if (bid == ui->drag.block_id) { found = true; break; }
-                            }
-                            if (found) {
-                                script.x = mx - ui->rect_scripts.x + ui->script_scroll.offset_x - ui->drag.offset_x;
-                                script.y = my - ui->rect_scripts.y + ui->script_scroll.offset_y - ui->drag.offset_y;
-                                break;
-                            }
-                        }
                     }
                 }
             } else {
-                // ۳. رها کردن بیرون از صفحه (مثلاً روی پالت): حذف بلوک از صفحه
+                // ۵. رها کردن بیرون از ناحیه اسکریپت (سطل آشغال - حذف بلوک)
                 if (!ui->drag.from_palette) {
                     Sprite* sprite = app_state_current_sprite(*state);
                     if (sprite) {
                         for (auto it = sprite->scripts.begin(); it != sprite->scripts.end(); ++it) {
-                            bool found = false;
-                            for (int bid : it->block_ids) {
-                                if (bid == ui->drag.block_id) { found = true; break; }
-                            }
-                            if (found) {
-                                for (int bid : it->block_ids) state->block_manager.remove(bid);
-                                sprite->scripts.erase(it);
-                                log_info("UI: Script deleted.");
+                            auto& ids = it->block_ids;
+                            auto pos = std::find(ids.begin(), ids.end(), ui->drag.block_id);
+                            if (pos != ids.end()) {
+                                state->block_manager.remove(ui->drag.block_id);
+                                ids.erase(pos);
+                                if (ids.empty()) sprite->scripts.erase(it);
                                 break;
                             }
                         }
