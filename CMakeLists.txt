@@ -28,6 +28,7 @@ set(SOURCES
         src/logger.cpp
         src/engine.cpp
         src/project_io.cpp
+        src/pen.cpp
 )
 
 # --- Create executable ---

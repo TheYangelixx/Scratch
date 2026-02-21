@@ -35,8 +35,27 @@ void engine_execute_block(AppState& state, Sprite& sprite, int block_id) {
 
     // --- Motion ---
     if (op == "motion_move") {
+        float old_x = sprite.x;
+        float old_y = sprite.y;
+
         float steps = block_get_field_float(*b, 0, 10.0f);
         sprite_move_steps(sprite, steps);
+
+        // اگر قلم پایین بود، از جای قبلی تا جای جدید یه خط به بوم اضافه کن
+        if (sprite.pen_down) {
+            pen_draw_line(state.pen, old_x, old_y, sprite.x, sprite.y,
+                          sprite.pen_r, sprite.pen_g, sprite.pen_b, sprite.pen_a, sprite.pen_size);
+        }
+    }
+        // هندل کردن بلوک‌های خود قلم (اینها رو زیر همون بخش قبلی اضافه کن)
+    else if (op == "pen_clear") {
+        pen_canvas_clear(state.pen);
+    }
+    else if (op == "pen_penDown") {
+        sprite.pen_down = true;
+    }
+    else if (op == "pen_penUp") {
+        sprite.pen_down = false;
     }
     else if (op == "motion_turn_right") {
         float deg = block_get_field_float(*b, 0, 15.0f);

@@ -75,10 +75,11 @@ struct Sprite {
     // اسکریپت‌ها
     std::vector<Script> scripts;
 
-    // قلم (Pen)
-    bool  pen_down   = false;
-    int   pen_color_r = 0, pen_color_g = 0, pen_color_b = 255;
-    float pen_size   = 1.0f;
+
+    // وضعیت قلم
+    bool pen_down = false;
+    int pen_r = 0, pen_g = 0, pen_b = 255, pen_a = 255; // رنگ پیش‌فرض: آبی
+    float pen_size = 2.0f;
 
     // حباب گفتار
     std::string speech_bubble;

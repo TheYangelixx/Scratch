@@ -19,6 +19,8 @@ int main(int argc, char* argv[]) {
         log_shutdown();
         return 1;
     }
+    // راه‌اندازی بوم قلم با ابعاد Stage
+    pen_canvas_init(state.pen, ui.renderer, STAGE_WIDTH, STAGE_HEIGHT);
 
     bool quit = false;
     SDL_Event event;

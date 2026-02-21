@@ -1432,6 +1432,29 @@ void ui_render_stage(UI& ui, AppState& state) {
     int cx = ui.rect_stage.x + ui.rect_stage.w / 2;
     int cy = ui.rect_stage.y + ui.rect_stage.h / 2;
 
+    // === رسم خطوط قلم (مرحله ۳) ===
+    // تبدیل مختصات (مرکز صفحه به عنوان نقطه 0,0 در نظر گرفته میشه)
+    int center_x = ui.rect_stage.x + ui.rect_stage.w / 2;
+    int center_y = ui.rect_stage.y + ui.rect_stage.h / 2;
+
+    for (const auto& line : state.pen.lines) {
+        SDL_SetRenderDrawColor(ui.renderer, line.r, line.g, line.b, line.a);
+
+        // تبدیل مختصات اسکرچ به مختصات صفحه ویندوز (محور Y برعکسه)
+        int px1 = center_x + (int)line.x1;
+        int py1 = center_y - (int)line.y1;
+        int px2 = center_x + (int)line.x2;
+        int py2 = center_y - (int)line.y2;
+
+        SDL_RenderDrawLine(ui.renderer, px1, py1, px2, py2);
+
+        // یه حقه ساده برای ضخیم‌تر کردن خطوط
+        if (line.thickness > 1.0f) {
+            SDL_RenderDrawLine(ui.renderer, px1+1, py1, px2+1, py2);
+            SDL_RenderDrawLine(ui.renderer, px1, py1+1, px2, py2+1);
+        }
+    }
+
     // رسم اسپرایت‌ها
     for (auto& sprite : state.sprites) {
         if (!sprite.visible) continue;
@@ -1510,6 +1533,30 @@ void ui_render_stage(UI& ui, AppState& state) {
                 sprite.speech_bubble = "";
             }
         }
+        // === اضافه شده برای مرحله ۲: رسم نشانگر جهت (چرخش) ===
+        // ۱. پیدا کردن نقطه مرکز مربع اسپرایت
+        int cx = sx + size / 2;
+        int cy = sy + size / 2;
+
+        // ۲. تبدیل زاویه اسکرچ به رادیان (دقیقاً طبق منطق sprite_move_steps خودتون)
+        float rad = (sprite.direction - 90.0f) * M_PI / 180.0f;
+
+        // ۳. محاسبه مختصات سر خط (شعاع خط = نصف طول مربع)
+        int line_length = size / 2;
+        int end_x = cx + (int)(cos(rad) * line_length);
+        int end_y = cy + (int)(sin(rad) * line_length);
+
+        // ۴. رسم خط (عقربه) با رنگ مشکی
+        SDL_SetRenderDrawColor(ui.renderer, 0, 0, 0, 255);
+        SDL_RenderDrawLine(ui.renderer, cx, cy, end_x, end_y);
+
+        // ضخیم‌تر کردن خط با رسم خطوط موازی (چون SDL_RenderDrawLine پیش‌فرض ۱ پیکسله)
+        SDL_RenderDrawLine(ui.renderer, cx+1, cy, end_x+1, end_y);
+        SDL_RenderDrawLine(ui.renderer, cx, cy+1, end_x, end_y+1);
+
+        // ۵. رسم یه نقطه کوچیک تو مرکز برای قشنگی کار
+        SDL_Rect center_dot = {cx - 3, cy - 3, 6, 6};
+        SDL_RenderFillRect(ui.renderer, &center_dot);
     }
 }
 

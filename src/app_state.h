@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include "pen.h"
 
 // ============================================================
 //  وضعیت عمومی برنامه
@@ -19,6 +20,8 @@ struct UndoEntry {
 };
 
 struct AppState {
+
+    PenCanvas pen;
     // --- اسپرایت‌ها ---
     std::vector<Sprite> sprites;
     int current_sprite_index = 0;
