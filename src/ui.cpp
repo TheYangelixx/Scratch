@@ -159,11 +159,11 @@ void ui_handle_event(UI* ui, AppState* state, SDL_Event* event)
             }
                 // --- دسته‌بندی‌ها ---
             else if (ui_point_in_rect(mx, my, ui->rect_categories)) {
-                for (int i = 0; i < (int)ui->categories.size(); i++) {
-                    auto& cat = ui->categories[i];
+                for (int i = 0; i < (int) ui->categories.size(); i++) {
+                    auto &cat = ui->categories[i];
 
                     if (ui_point_in_rect(mx, my, cat.rect)) {
-                        for (auto& c : ui->categories) c.selected = false;
+                        for (auto &c: ui->categories) c.selected = false;
                         cat.selected = true;
                         ui->selected_category = i;
                         ui_populate_palette(*ui, i);
