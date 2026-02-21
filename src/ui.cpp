@@ -153,15 +153,14 @@ void ui_handle_event(UI* ui, AppState* state, SDL_Event* event)
             // --- دکمه اجرا (پرچم سبز) ---
             if (ui_point_in_rect(mx, my, ui->btn_green_flag.rect)) {
                 ui->btn_green_flag.pressed = true;
-                if (!state->running) {
-                    app_state_start(*state);
-                    // اجرای اسکریپت‌های green_flag برای همه اسپرایت‌ها
-                    for (auto& sprite : state->sprites) {
-                        for (auto& script : sprite.scripts) {
-                            if (!script.block_ids.empty()) {
-                                script.running = true;
-                                script.current_step = 0;
-                            }
+
+                // همیشه موتور رو ری‌استارت می‌کنیم (حذف شرط if (!state->running))
+                app_state_start(*state);
+                for (auto& sprite : state->sprites) {
+                    for (auto& script : sprite.scripts) {
+                        if (!script.block_ids.empty()) {
+                            script.running = true;
+                            script.current_step = 0;
                         }
                     }
                 }
@@ -1304,6 +1303,7 @@ void ui_render_toolbar(UI& ui, AppState& state) {
     fps_str << std::fixed << std::setprecision(1) << ui.fps << " FPS";
     ui_draw_text(ui.renderer, ui.font_small, fps_str.str(),
                  WINDOW_WIDTH - 80, 14, {180, 180, 180, 255});
+
 }
 
 // ============================================================
@@ -1463,15 +1463,34 @@ void ui_render_stage(UI& ui, AppState& state) {
         int sx = cx + (int)sprite.x;
         int sy = cy - (int)sprite.y;  // Y معکوس در Scratch
 
-        // اندازه اسپرایت
+        // === محاسبه اندازه واقعی عکس ===
         int size = (int)(40 * sprite.size / 100.0f);
+        int size_y = size;
+
+        // اگر اسپرایت کاستوم (عکس) داره، ابعاد رو از روی عکس برداریم
+        if (sprite.current_costume >= 0 && sprite.current_costume < (int)sprite.costumes.size()) {
+            int orig_w = sprite.costumes[sprite.current_costume].width;
+            int orig_h = sprite.costumes[sprite.current_costume].height;
+
+            // جلوگیری از تقسیم بر صفر در صورت خراب بودن عکس
+            if (orig_w > 0) {
+                // عکس رو به صورت پایه روی عرض 80 پیکسل تنظیم می‌کنیم تا تو صفحه جا بشه
+                float scale_factor = 80.0f / (float)orig_w;
+
+                size = (int)(orig_w * scale_factor * (sprite.size / 100.0f));
+                size_y = (int)(orig_h * scale_factor * (sprite.size / 100.0f));
+            }
+        }
+
+        // جلوگیری از ناپدید شدن (خیلی کوچیک شدن)
         if (size < 5) size = 5;
+        if (size_y < 5) size_y = 5;
 
         SDL_Rect sprite_rect = {
                 sx - size / 2,
-                sy - size / 2,
+                sy - size_y / 2,
                 size,
-                size
+                size_y
         };
 
 //        Color sprite_color = (app_state_current_sprite(state) && &sprite == app_state_current_sprite(state))
@@ -1544,29 +1563,6 @@ void ui_render_stage(UI& ui, AppState& state) {
             }
         }
         // === اضافه شده برای مرحله ۲: رسم نشانگر جهت (چرخش) ===
-        // ۱. پیدا کردن نقطه مرکز مربع اسپرایت
-        int cx = sx + size / 2;
-        int cy = sy + size / 2;
-
-        // ۲. تبدیل زاویه اسکرچ به رادیان (دقیقاً طبق منطق sprite_move_steps خودتون)
-        float rad = (sprite.direction - 90.0f) * M_PI / 180.0f;
-
-        // ۳. محاسبه مختصات سر خط (شعاع خط = نصف طول مربع)
-        int line_length = size / 2;
-        int end_x = cx + (int)(cos(rad) * line_length);
-        int end_y = cy + (int)(sin(rad) * line_length);
-
-        // ۴. رسم خط (عقربه) با رنگ مشکی
-        SDL_SetRenderDrawColor(ui.renderer, 0, 0, 0, 255);
-        SDL_RenderDrawLine(ui.renderer, cx, cy, end_x, end_y);
-
-        // ضخیم‌تر کردن خط با رسم خطوط موازی (چون SDL_RenderDrawLine پیش‌فرض ۱ پیکسله)
-        SDL_RenderDrawLine(ui.renderer, cx+1, cy, end_x+1, end_y);
-        SDL_RenderDrawLine(ui.renderer, cx, cy+1, end_x, end_y+1);
-
-        // ۵. رسم یه نقطه کوچیک تو مرکز برای قشنگی کار
-        SDL_Rect center_dot = {cx - 3, cy - 3, 6, 6};
-        SDL_RenderFillRect(ui.renderer, &center_dot);
     }
 }
 
