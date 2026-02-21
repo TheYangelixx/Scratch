@@ -1443,6 +1443,13 @@ void ui_render(UI& ui, AppState& state) {
     ui_render_stage(ui, state);
     ui_render_sprite_list(ui, state);
 
+    // ---> رسم بلوکی که به موس چسبیده (در حال درگ) <---
+    if (ui.drag.active) {
+        int draw_x = ui.drag.mouse_x - ui.drag.offset_x;
+        int draw_y = ui.drag.mouse_y - ui.drag.offset_y;
+        ui_render_block(ui, ui.drag.dragged_block, draw_x, draw_y, false);
+    }
+
     SDL_RenderPresent(ui.renderer);
 
     Uint32 now = SDL_GetTicks();
