@@ -55,7 +55,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "c:/Users/ECA 09338368732/CLionProjects/YKP/cmake-build-debug"
+			"value" : "c:/Users/ECA 09338368732/CLionProjects/finalCode/cmake-build-debug"
 		},
 		{
 			"name" : "CMAKE_CACHE_MAJOR_VERSION",
@@ -591,7 +591,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "C:/Users/ECA 09338368732/CLionProjects/YKP/cmake-build-debug/CMakeFiles/pkgRedirects"
+			"value" : "C:/Users/ECA 09338368732/CLionProjects/finalCode/cmake-build-debug/CMakeFiles/pkgRedirects"
 		},
 		{
 			"name" : "CMAKE_GENERATOR",
@@ -663,7 +663,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "C:/Users/ECA 09338368732/CLionProjects/YKP"
+			"value" : "C:/Users/ECA 09338368732/CLionProjects/finalCode"
 		},
 		{
 			"name" : "CMAKE_INSTALL_PREFIX",
@@ -1307,7 +1307,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "C:/Users/ECA 09338368732/CLionProjects/YKP/cmake-build-debug"
+			"value" : "C:/Users/ECA 09338368732/CLionProjects/finalCode/cmake-build-debug"
 		},
 		{
 			"name" : "YKP_IS_TOP_LEVEL",
@@ -1331,7 +1331,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "C:/Users/ECA 09338368732/CLionProjects/YKP"
+			"value" : "C:/Users/ECA 09338368732/CLionProjects/finalCode"
 		}
 	],
 	"kind" : "cache",

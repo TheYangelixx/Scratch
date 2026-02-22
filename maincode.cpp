@@ -1789,7 +1789,7 @@ static void renderDialogs(const AppState& st, SDL_Renderer* r, int winW, int win
         renderTextCentered(r, st.uiFont, "Cancel", canBtn, -6, white);
         renderTextCentered(r, st.uiFont, "Esc", canBtn, +10, white);
     }
-if (st.renameDialogOpen) {
+    if (st.renameDialogOpen) {
         SDL_Rect modal = {winW/2 - 220, winH/2 - 90, 440, 180};
         SDL_SetRenderDrawColor(r, 40, 40, 46, 255);
         SDL_RenderFillRect(r, &modal);
@@ -2119,7 +2119,7 @@ static void renderExtensionLibrary(const AppState& st, SDL_Renderer* r, int w, i
     SDL_RenderFillRect(r, &penItem);
     SDL_SetRenderDrawColor(r, 15,15,15,255);
     SDL_RenderDrawRect(r, &penItem);
-string penLabel = "Pen";
+    string penLabel = "Pen";
     string penState = st.penExtensionEnabled ? "Installed" : "Click to enable";
     renderText(r, st.uiFont, penLabel, penItem.x + 16, penItem.y + 10, white);
     renderText(r, st.uiFont, penState, penItem.x + 16, penItem.y + 30, white);
@@ -2160,9 +2160,9 @@ static bool handlePenColorPickerEvent(AppState& st, const SDL_Event& e, int w, i
         }
 
         SDL_Color presets[12] = {
-            {255,0,0,255},{255,128,0,255},{255,255,0,255},{128,255,0,255},
-            {0,255,0,255},{0,255,128,255},{0,255,255,255},{0,128,255,255},
-            {0,0,255,255},{128,0,255,255},{255,0,255,255},{255,255,255,255}
+                {255,0,0,255},{255,128,0,255},{255,255,0,255},{128,255,0,255},
+                {0,255,0,255},{0,255,128,255},{0,255,255,255},{0,128,255,255},
+                {0,0,255,255},{128,0,255,255},{255,0,255,255},{255,255,255,255}
         };
 
         int gridX = box.x + 40;
@@ -2190,8 +2190,8 @@ static bool handlePenColorPickerEvent(AppState& st, const SDL_Event& e, int w, i
                 st.penColorPickerBlockIndex = -1;
                 st.log.info(-1, "PEN", "Pick color",
                             "rgb=(" + to_string((int)chosen.r) + "," +
-                                    to_string((int)chosen.g) + "," +
-                                    to_string((int)chosen.b) + ")");
+                            to_string((int)chosen.g) + "," +
+                            to_string((int)chosen.b) + ")");
                 return true;
             }
         }
@@ -2220,9 +2220,9 @@ static void renderPenColorPicker(const AppState& st, SDL_Renderer* r, int w, int
     renderText(r, st.uiFont, "Click a color:", box.x + 20, box.y + 44, white);
 
     SDL_Color presets[12] = {
-        {255,0,0,255},{255,128,0,255},{255,255,0,255},{128,255,0,255},
-        {0,255,0,255},{0,255,128,255},{0,255,255,255},{0,128,255,255},
-        {0,0,255,255},{128,0,255,255},{255,0,255,255},{255,255,255,255}
+            {255,0,0,255},{255,128,0,255},{255,255,0,255},{128,255,0,255},
+            {0,255,0,255},{0,255,128,255},{0,255,255,255},{0,128,255,255},
+            {0,0,255,255},{128,0,255,255},{255,0,255,255},{255,255,255,255}
     };
 
     int gridX = box.x + 40;
@@ -2616,3 +2616,265 @@ static void rebuildPalette(AppState& st, int winW, int winH) {
     placeBtn("set color effect 30", "", [&]{ addTypedBlock(st, "FX_COLOR_SET", 30.0, 0.0); });
     placeBtn("change color effect 10", "", [&]{ addTypedBlock(st, "FX_COLOR_CHANGE", 10.0, 0.0); });
     placeBtn("clear effects", "", [&]{ addTypedBlock(st, "FX_CLEAR", 0.0, 0.0); });
+
+    cat("Sound (minimal)");
+    placeBtn("play sound (pop)", "", [&]{ addTypedBlock(st, "SOUND_PLAY", 0.0, 0.0, "pop"); });
+    placeBtn("play sound until done", "", [&]{ addTypedBlock(st, "SOUND_PLAY_UNTIL", 0.0, 0.0, "pop"); });
+    placeBtn("stop all sounds", "", [&]{ addTypedBlock(st, "SOUND_STOP_ALL", 0.0, 0.0); });
+    placeBtn("set volume 80", "", [&]{ addTypedBlock(st, "SOUND_SET_VOL", 80.0, 0.0); });
+    placeBtn("change volume -10", "", [&]{ addTypedBlock(st, "SOUND_CHANGE_VOL", -10.0, 0.0); });
+
+    cat("Control");
+    placeBtn("wait 0.5s", "", [&]{ addTypedBlock(st, "WAIT", 0.5, 0.0); });
+    placeBtn("repeat 5", "", [&]{ addTypedBlock(st, "REPEAT", 5.0, 0.0); });
+    placeBtn("end repeat", "", [&]{ addTypedBlock(st, "END_REPEAT", 0.0, 0.0); });
+    placeBtn("forever", "", [&]{ addTypedBlock(st, "FOREVER", 0.0, 0.0); });
+    placeBtn("end forever", "", [&]{ addTypedBlock(st, "END_FOREVER", 0.0, 0.0); });
+    placeBtn("if (uses last op)", "", [&]{ addTypedBlock(st, "IF", 0.0, 0.0); });
+    placeBtn("if/else (uses last op)", "", [&]{ addTypedBlock(st, "IFELSE", 0.0, 0.0); });
+    placeBtn("else", "", [&]{ addTypedBlock(st, "ELSE", 0.0, 0.0); });
+    placeBtn("end if", "", [&]{ addTypedBlock(st, "END_IF", 0.0, 0.0); });
+    placeBtn("wait until (last op)", "", [&]{ addTypedBlock(st, "WAIT_UNTIL", 0.0, 0.0); });
+    placeBtn("repeat until (last op)", "", [&]{ addTypedBlock(st, "REPEAT_UNTIL", 0.0, 0.0); });
+    placeBtn("stop all (script)", "", [&]{ addTypedBlock(st, "STOP_ALL", 0.0, 0.0); });
+
+    cat("Sensing");
+    placeBtn("touching [Sprite 2]?", "Shift+Click edit", [&]{ addTypedBlock(st, "TOUCH_SPRITE", 0.0, 0.0, "Sprite 2"); });
+    placeBtn("touching edge?", "", [&]{ addTypedBlock(st, "TOUCH_EDGE", 0.0, 0.0); });
+    placeBtn("touching mouse?", "", [&]{ addTypedBlock(st, "TOUCH_MOUSE", 0.0, 0.0); });
+    placeBtn("distance to mouse", "", [&]{ addTypedBlock(st, "DIST_MOUSE", 0.0, 0.0); });
+    placeBtn("key (Space) pressed?", "", [&]{ addTypedBlock(st, "KEY_PRESSED", 0.0, 0.0, "", "", (int)SDL_SCANCODE_SPACE); });
+    placeBtn("mouse down?", "", [&]{ addTypedBlock(st, "MOUSE_DOWN", 0.0, 0.0); });
+    placeBtn("mouse x", "", [&]{ addTypedBlock(st, "MOUSE_X", 0.0, 0.0); });
+    placeBtn("mouse y", "", [&]{ addTypedBlock(st, "MOUSE_Y", 0.0, 0.0); });
+    placeBtn("ask \"Name?\"", "", [&]{ addTypedBlock(st, "ASK", 0.0, 0.0, "Name?"); });
+    placeBtn("answer", "", [&]{ addTypedBlock(st, "ANSWER", 0.0, 0.0); });
+    placeBtn("timer", "", [&]{ addTypedBlock(st, "TIMER", 0.0, 0.0); });
+    placeBtn("reset timer", "", [&]{ addTypedBlock(st, "RESET_TIMER", 0.0, 0.0); });
+
+    cat("Operators");
+    placeBtn("add (3+4)", "", [&]{ addTypedBlock(st, "OP_ADD", 3.0, 4.0); });
+    placeBtn("sub (10-2)", "", [&]{ addTypedBlock(st, "OP_SUB", 10.0, 2.0); });
+    placeBtn("mul (6*7)", "", [&]{ addTypedBlock(st, "OP_MUL", 6.0, 7.0); });
+    placeBtn("div (10/2)", "", [&]{ addTypedBlock(st, "DIV", 10.0, 2.0); });
+    placeBtn("eq (5==5)", "", [&]{ addTypedBlock(st, "OP_EQ", 5.0, 5.0); });
+    placeBtn("lt (3<9)", "", [&]{ addTypedBlock(st, "OP_LT", 3.0, 9.0); });
+    placeBtn("gt (9>3)", "", [&]{ addTypedBlock(st, "OP_GT", 9.0, 3.0); });
+    placeBtn("and (1 and 0)", "", [&]{ addTypedBlock(st, "OP_AND", 1.0, 0.0); });
+    placeBtn("or (0 or 1)", "", [&]{ addTypedBlock(st, "OP_OR", 0.0, 1.0); });
+    placeBtn("not (0)", "", [&]{ addTypedBlock(st, "OP_NOT", 0.0, 0.0); });
+    placeBtn("len(\"abc\")", "", [&]{ addTypedBlock(st, "OP_STRLEN", 0.0, 0.0, "abc"); });
+    placeBtn("letter 2 of \"abc\"", "", [&]{ addTypedBlock(st, "OP_LETTER", 2.0, 0.0, "abc"); });
+    placeBtn("join \"a\" \"b\"", "", [&]{ addTypedBlock(st, "OP_JOIN", 0.0, 0.0, "a", "b"); });
+
+    cat("Functions");
+    placeBtn("apply function (sqrt)", "Shift+Click edit I/O", [&]{
+        addTypedBlock(st, "FUNC_APPLY", 0.0, 0.0, "sqrt");
+        if (!st.getActive().ws.blocks.empty()) {
+            Block& b = st.getActive().ws.blocks.back();
+            b.inSel = "last";
+            b.outSel = "last";
+            setBlockVisual(b);
+        }
+    });
+
+    cat("Variables");
+    placeBtn("set v = 10", "Shift+Click cycle name", [&]{ addTypedBlock(st, "VAR_SET_NUM", 10.0, 0.0, "v"); });
+    placeBtn("set msg = \"hi\"", "Shift+Click cycle name", [&]{ addTypedBlock(st, "VAR_SET_STR", 0.0, 0.0, "msg", "hi"); });
+    placeBtn("change v by 1", "Shift+Click cycle name", [&]{ addTypedBlock(st, "VAR_CHANGE", 1.0, 0.0, "v"); });
+    placeBtn("show v", "", [&]{ addTypedBlock(st, "VAR_SHOW", 0.0, 0.0, "v"); });
+    placeBtn("hide v", "", [&]{ addTypedBlock(st, "VAR_HIDE", 0.0, 0.0, "v"); });
+    placeBtn("get v (to last)", "Shift+Click cycle name", [&]{ addTypedBlock(st, "VAR_GET", 0.0, 0.0, "v"); });
+
+    cat("Lists");
+    placeBtn("add \"hi\" to list", "Shift+Click cycle name", [&]{ addTypedBlock(st, "LIST_ADD", 0.0, 0.0, "list", "hi"); });
+    placeBtn("add 1 to list", "Shift+Click cycle name", [&]{ addTypedBlock(st, "LIST_ADD", 1.0, 0.0, "list", ""); });
+    placeBtn("delete 1 of list", "Shift+Click cycle name", [&]{ addTypedBlock(st, "LIST_DELETE", 1.0, 0.0, "list"); });
+    placeBtn("clear list", "Shift+Click cycle name", [&]{ addTypedBlock(st, "LIST_CLEAR", 0.0, 0.0, "list"); });
+    placeBtn("length of list (to last)", "Shift+Click cycle name", [&]{ addTypedBlock(st, "LIST_LENGTH", 0.0, 0.0, "list"); });
+    placeBtn("item 1 of list (to last)", "Shift+Click cycle name", [&]{ addTypedBlock(st, "LIST_ITEM", 1.0, 0.0, "list"); });
+    placeBtn("list contains \"hi\"? (to last)", "Shift+Click cycle name", [&]{ addTypedBlock(st, "LIST_CONTAINS", 0.0, 0.0, "list", "hi"); });
+    placeBtn("show list", "Shift+Click cycle name", [&]{ addTypedBlock(st, "LIST_SHOW", 0.0, 0.0, "list"); });
+    placeBtn("hide list", "Shift+Click cycle name", [&]{ addTypedBlock(st, "LIST_HIDE", 0.0, 0.0, "list"); });
+
+    cat("Clones");
+    placeBtn("create clone", "", [&]{ addTypedBlock(st, "CLONE_CREATE", 0.0, 0.0); });
+    placeBtn("delete last clone", "", [&]{ addTypedBlock(st, "CLONE_DELETE_LAST", 0.0, 0.0); });
+    placeBtn("clear clones", "", [&]{ addTypedBlock(st, "CLONE_CLEAR", 0.0, 0.0); });
+    placeBtn("clone count (to last)", "", [&]{ addTypedBlock(st, "CLONE_COUNT", 0.0, 0.0); });
+
+
+    cat("My Blocks");
+    placeBtn("Define f(x)", "Shift+Click cycle name", [&]{ addTypedBlock(st, "DEFINE_FN", 0.0, 0.0, "myFunc", "x"); });
+    placeBtn("End Function", "", [&]{ addTypedBlock(st, "END_FN", 0.0, 0.0); });
+    placeBtn("Call f(n)", "Shift+Click cycle name", [&]{ addTypedBlock(st, "CALL_FN", 10.0, 0.0, "myFunc"); });
+    placeBtn("Get param x", "", [&]{ addTypedBlock(st, "GET_PARAM", 0.0, 0.0, "x"); });
+    // Pen at end
+    if (st.penExtensionEnabled) {
+        cat("Pen (Extension)");
+        placeBtn("PEN Down", "", [&]{ addTypedBlock(st, "PEN_DOWN", 0.0, 0.0); });
+        placeBtn("PEN Up", "", [&]{ addTypedBlock(st, "PEN_UP", 0.0, 0.0); });
+        placeBtn("Stamp", "", [&]{ addTypedBlock(st, "PEN_STAMP", 0.0, 0.0); });
+        placeBtn("All Erase", "", [&]{ addTypedBlock(st, "PEN_ERASE_ALL", 0.0, 0.0); });
+        placeBtn("Set Size (3)", "", [&]{ addTypedBlock(st, "PEN_SET_SIZE", 3.0, 0.0); });
+        placeBtn("Change Size (+1)", "", [&]{ addTypedBlock(st, "PEN_CHANGE_SIZE", 1.0, 0.0); });
+        placeBtn("Set Color (picker)", "Shift+Click edit", [&]{
+            addTypedBlock(st, "PEN_SET_COLOR", 0.0, 0.0);
+            if (!st.getActive().ws.blocks.empty()) {
+                st.getActive().ws.blocks.back().pickColor = st.penRGB;
+                setBlockVisual(st.getActive().ws.blocks.back());
+            }
+        });
+    }
+    int visibleH = (winH - TOP_BAR_H) - 10;
+    int contentEnd = contentY + 10;
+    st.paletteMaxScroll = max(0, contentEnd - (TOP_BAR_H + visibleH));
+    st.paletteScroll = clampT(st.paletteScroll, 0, st.paletteMaxScroll);
+
+    st.paletteDirty = false;
+}
+static void renderPaletteHeader(const AppState& st, SDL_Renderer* r) {
+    SDL_Color white{240,240,240,255};
+    renderText(r, st.uiFont, "Code", 12, TOP_BAR_H + 6, white);
+    if (st.penExtensionEnabled) renderText(r, st.uiFont, "Pen: enabled", 12, TOP_BAR_H + 28, SDL_Color{40,180,90,255});
+    else                       renderText(r, st.uiFont, "Pen: Extensions (E)", 12, TOP_BAR_H + 28, SDL_Color{160,160,160,255});
+
+    renderText(r, st.uiFont, "Scroll wheel", 12, TOP_BAR_H + 46, SDL_Color{120,120,120,255});
+}
+
+static void renderPaletteCats(const AppState& st, SDL_Renderer* r) {
+    SDL_Color c{210,210,210,255};
+    for (auto& it : st.paletteCats) {
+        int y = it.first - st.paletteScroll;
+        if (y < TOP_BAR_H + 55 || y > st.getActive().ws.bounds.y + st.getActive().ws.bounds.h) continue;
+        renderText(r, st.uiFont, it.second, 12, y, c);
+    }
+}
+static SDL_Rect helpMenuRect(const AppState& st) {
+    SDL_Rect r;
+    r.x = st.helpButtonRect.x;
+    r.y = TOP_BAR_H - 2;
+    r.w = 260;
+    r.h = 32 * 3 + 10;
+    return r;
+}
+
+static SDL_Rect helpMenuItemRect(const SDL_Rect& menu, int i) {
+    SDL_Rect r = {menu.x + 5, menu.y + 5 + i * 32, menu.w - 10, 28};
+    return r;
+}
+static bool updateHelpMenu(AppState& st) {
+    if (!st.helpMenuOpen) return false;
+
+    SDL_Rect menu = helpMenuRect(st);
+
+    if (st.in.mousePressed) {
+        if (!pointInRect(st.in.mx, st.in.my, menu)) {
+            st.helpMenuOpen = false;
+            st.log.info(-1, "HELP", "Close menu", "");
+            return true;
+        }
+
+        SDL_Rect i0 = helpMenuItemRect(menu, 0);
+        SDL_Rect i1 = helpMenuItemRect(menu, 1);
+        SDL_Rect i2 = helpMenuItemRect(menu, 2);
+
+        if (pointInRect(st.in.mx, st.in.my, i0)) {
+            st.showLogsPanel = !st.showLogsPanel;
+            st.logsScroll = 0;
+            st.helpMenuOpen = false;
+            st.log.info(-1, "HELP", "Show Logs", st.showLogsPanel ? "ON" : "OFF");
+            return true;
+        }
+        if (pointInRect(st.in.mx, st.in.my, i1)) {
+            st.log.clear();
+            st.helpMenuOpen = false;
+            st.log.info(-1, "HELP", "Clear Logs", "done");
+            return true;
+        }
+        if (pointInRect(st.in.mx, st.in.my, i2)) {
+            st.debugStepMode = !st.debugStepMode;
+            st.helpMenuOpen = false;
+            st.log.info(-1, "HELP", "Toggle Step-by-Step", st.debugStepMode ? "ON" : "OFF");
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static void renderHelpMenu(const AppState& st, SDL_Renderer* r) {
+    if (!st.helpMenuOpen) return;
+
+    SDL_Rect menu = helpMenuRect(st);
+
+    SDL_SetRenderDrawColor(r, 44, 44, 50, 255);
+    SDL_RenderFillRect(r, &menu);
+    SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
+    SDL_RenderDrawRect(r, &menu);
+
+    SDL_Color white = {240, 240, 240, 255};
+
+    SDL_Rect i0 = helpMenuItemRect(menu, 0);
+    SDL_Rect i1 = helpMenuItemRect(menu, 1);
+    SDL_Rect i2 = helpMenuItemRect(menu, 2);
+
+    SDL_SetRenderDrawColor(r, 35, 35, 40, 255);
+    SDL_RenderFillRect(r, &i0);
+    SDL_RenderFillRect(r, &i1);
+    SDL_RenderFillRect(r, &i2);
+
+    SDL_SetRenderDrawColor(r, 15, 15, 15, 255);
+    SDL_RenderDrawRect(r, &i0);
+    SDL_RenderDrawRect(r, &i1);
+    SDL_RenderDrawRect(r, &i2);
+
+    string s0 = string("Show Logs  ") + (st.showLogsPanel ? "[ON]" : "[OFF]");
+    string s1 = "Clear Logs";
+    string s2 = string("Toggle Step-by-Step  ") + (st.debugStepMode ? "[ON]" : "[OFF]");
+
+    renderText(r, st.uiFont, s0, i0.x + 10, i0.y + 5, white);
+    renderText(r, st.uiFont, s1, i1.x + 10, i1.y + 5, white);
+    renderText(r, st.uiFont, s2, i2.x + 10, i2.y + 5, white);
+}
+
+static void updateLogsPanel(AppState& st) {
+    if (!st.showLogsPanel) return;
+}
+
+static void renderLogsPanel(const AppState& st, SDL_Renderer* r, int winW, int winH) {
+    if (!st.showLogsPanel) return;
+
+    SDL_SetRenderDrawColor(r, 0, 0, 0, 160);
+    SDL_Rect full = {0, 0, winW, winH};
+    SDL_RenderFillRect(r, &full);
+
+    SDL_Rect box = {winW/2 - 420, winH/2 - 240, 840, 480};
+    SDL_SetRenderDrawColor(r, 40, 40, 46, 255);
+    SDL_RenderFillRect(r, &box);
+    SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
+    SDL_RenderDrawRect(r, &box);
+
+    SDL_Color white = {240, 240, 240, 255};
+    renderText(r, st.uiFont, "Logs (Esc to close)", box.x + 16, box.y + 12, white);
+
+    SDL_Rect area = {box.x + 16, box.y + 44, box.w - 32, box.h - 60};
+    SDL_SetRenderDrawColor(r, 25, 25, 28, 255);
+    SDL_RenderFillRect(r, &area);
+    SDL_SetRenderDrawColor(r, 120, 120, 120, 255);
+    SDL_RenderDrawRect(r, &area);
+
+    const vector<string>& lines = st.log.lines();
+    const int lineH = 18;
+    int visible = area.h / lineH;
+
+    int end = (int)lines.size();
+    int start = max(0, end - visible);
+
+    int y = area.y + 6;
+    for (int i = start; i < end; i++) {
+        renderText(r, st.uiFont, lines[i], area.x + 8, y, white);
+        y += lineH;
+        if (y > area.y + area.h - lineH) break;
+    }
+}
