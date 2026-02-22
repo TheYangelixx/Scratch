@@ -1903,3 +1903,70 @@ if (st.renameDialogOpen) {
         }
     }
 }
+static SDL_Color hsvToRgb(double h, double s, double v) {
+    s = clampT(s, 0.0, 100.0) / 100.0;
+    v = clampT(v, 0.0, 100.0) / 100.0;
+    h = fmod(h, 360.0);
+    if (h < 0) h += 360.0;
+
+    double c = v * s;
+    double x = c * (1.0 - fabs(fmod(h / 60.0, 2.0) - 1.0));
+    double m = v - c;
+
+    double r=0,g=0,b=0;
+    if      (h < 60)  { r=c; g=x; b=0; }
+    else if (h < 120) { r=x; g=c; b=0; }
+    else if (h < 180) { r=0; g=c; b=x; }
+    else if (h < 240) { r=0; g=x; b=c; }
+    else if (h < 300) { r=x; g=0; b=c; }
+    else              { r=c; g=0; b=x; }
+
+    Uint8 R = (Uint8)clampT((int)round((r + m) * 255.0), 0, 255);
+    Uint8 G = (Uint8)clampT((int)round((g + m) * 255.0), 0, 255);
+    Uint8 B = (Uint8)clampT((int)round((b + m) * 255.0), 0, 255);
+    return SDL_Color{R,G,B,255};
+}
+
+static void rgbToHsv(const SDL_Color& c, double& outH, double& outS, double& outV) {
+    double r = c.r / 255.0;
+    double g = c.g / 255.0;
+    double b = c.b / 255.0;
+
+    double mx = max(r, max(g,b));
+    double mn = min(r, min(g,b));
+    double d = mx - mn;
+
+    double h = 0.0;
+    if (d == 0.0) h = 0.0;
+    else if (mx == r) h = 60.0 * fmod(((g - b) / d), 6.0);
+    else if (mx == g) h = 60.0 * (((b - r) / d) + 2.0);
+    else              h = 60.0 * (((r - g) / d) + 4.0);
+
+    if (h < 0) h += 360.0;
+
+    double s = (mx == 0.0) ? 0.0 : (d / mx);
+    double v = mx;
+
+    outH = h;
+    outS = s * 100.0;
+    outV = v * 100.0;
+}
+
+static bool isPenCmd(const string& cmd) {
+    return cmd.rfind("PEN_", 0) == 0;
+}
+
+static void penSyncRGB(AppState& st) {
+    st.penRGB = hsvToRgb(st.penHue, st.penSat, st.penBri);
+}
+
+static string penNextAttr(const string& cur) {
+    if (cur == "COLOR") return "SAT";
+    if (cur == "SAT")   return "BRI";
+    return "COLOR";
+}
+
+static void penClearAll(AppState& st) {
+    st.penSegs.clear();
+    st.penStamps.clear();
+}
