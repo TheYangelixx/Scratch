@@ -1,0 +1,5 @@
+ToolSet: 3.20 (local)@C:\SDL\MinGW
+Ninja: 1.12.1@C:\Users\Asus\Desktop\CLion 2025.2.3\bin\ninja\win\x64\ninja.exe
+Options: 
+
+Options:
