@@ -61,8 +61,8 @@ events:
     checks:
       - "Detecting C compiler ABI info"
     directories:
-      source: "C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-jflibw"
-      binary: "C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-jflibw"
+      source: "C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-sja72f"
+      binary: "C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-sja72f"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
@@ -71,21 +71,21 @@ events:
       variable: "CMAKE_C_ABI_COMPILED"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-jflibw'
+        Change Dir: 'C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-sja72f'
         
-        Run Build Command(s): "C:/Users/Asus/Desktop/CLion 2025.2.3/bin/cmake/win/x64/bin/cmake.exe" -E env VERBOSE=1 C:/SDL/MinGW/bin/mingw32-make.exe -f Makefile cmTC_fc0dd/fast
-        C:/SDL/MinGW/bin/mingw32-make.exe  -f CMakeFiles\\cmTC_fc0dd.dir\\build.make CMakeFiles/cmTC_fc0dd.dir/build
-        mingw32-make.exe[1]: Entering directory 'C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-jflibw'
-        Building C object CMakeFiles/cmTC_fc0dd.dir/CMakeCCompilerABI.c.obj
-        C:\\SDL\\MinGW\\bin\\gcc.exe   -fdiagnostics-color=always   -v -o CMakeFiles\\cmTC_fc0dd.dir\\CMakeCCompilerABI.c.obj -c "C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\share\\cmake-4.0\\Modules\\CMakeCCompilerABI.c"
+        Run Build Command(s): "C:/Users/Asus/Desktop/CLion 2025.2.3/bin/cmake/win/x64/bin/cmake.exe" -E env VERBOSE=1 C:/SDL/MinGW/bin/mingw32-make.exe -f Makefile cmTC_c30da/fast
+        C:/SDL/MinGW/bin/mingw32-make.exe  -f CMakeFiles\\cmTC_c30da.dir\\build.make CMakeFiles/cmTC_c30da.dir/build
+        mingw32-make.exe[1]: Entering directory 'C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-sja72f'
+        Building C object CMakeFiles/cmTC_c30da.dir/CMakeCCompilerABI.c.obj
+        C:\\SDL\\MinGW\\bin\\gcc.exe   -fdiagnostics-color=always   -v -o CMakeFiles\\cmTC_c30da.dir\\CMakeCCompilerABI.c.obj -c "C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\share\\cmake-4.0\\Modules\\CMakeCCompilerABI.c"
         Using built-in specs.
         COLLECT_GCC=C:\\SDL\\MinGW\\bin\\gcc.exe
         Target: mingw32
         Configured with: ../../../src/gcc-5.1.0/configure --build=mingw32 --enable-languages=ada,c,c++,fortran,lto,objc,obj-c++ --enable-libgomp --enable-lto --enable-graphite --enable-libstdcxx-debug --enable-threads=posix --enable-version-specific-runtime-libs --enable-fully-dynamic-string --enable-libstdcxx-threads --enable-libstdcxx-time --with-gnu-ld --disable-werror --disable-nls --disable-win32-registry --disable-symvers --enable-cxx-flags='-fno-function-sections -fno-data-sections -DWINPTHREAD_STATIC' --prefix=/mingw32tdm --with-local-prefix=/mingw32tdm --with-pkgversion=tdm-1 --enable-sjlj-exceptions --with-bugurl=http://tdm-gcc.tdragon.net/bugs
         Thread model: posix
         gcc version 5.1.0 (tdm-1) 
-        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_fc0dd.dir\\CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=pentiumpro'
-         C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/cc1.exe -quiet -v -iprefix C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/ -D_REENTRANT C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\share\\cmake-4.0\\Modules\\CMakeCCompilerABI.c -quiet -dumpbase CMakeCCompilerABI.c -mtune=generic -march=pentiumpro -auxbase-strip CMakeFiles\\cmTC_fc0dd.dir\\CMakeCCompilerABI.c.obj -version -fdiagnostics-color=always -o C:\\Users\\Asus\\AppData\\Local\\Temp\\ccBGBim2.s
+        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_c30da.dir\\CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=pentiumpro'
+         C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/cc1.exe -quiet -v -iprefix C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/ -D_REENTRANT C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\share\\cmake-4.0\\Modules\\CMakeCCompilerABI.c -quiet -dumpbase CMakeCCompilerABI.c -mtune=generic -march=pentiumpro -auxbase-strip CMakeFiles\\cmTC_c30da.dir\\CMakeCCompilerABI.c.obj -version -fdiagnostics-color=always -o C:\\Users\\Asus\\AppData\\Local\\Temp\\ccYsyM1q.s
         GNU C11 (tdm-1) version 5.1.0 (mingw32)
         	compiled by GNU C version 5.1.0, GMP version 4.3.2, MPFR version 2.4.2, MPC version 0.8.2
         GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072
@@ -104,17 +104,17 @@ events:
         	compiled by GNU C version 5.1.0, GMP version 4.3.2, MPFR version 2.4.2, MPC version 0.8.2
         GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072
         Compiler executable checksum: 2682432a7094ac8df846b6a707cdc762
-        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_fc0dd.dir\\CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=pentiumpro'
-         C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/bin/as.exe -v -o CMakeFiles\\cmTC_fc0dd.dir\\CMakeCCompilerABI.c.obj C:\\Users\\Asus\\AppData\\Local\\Temp\\ccBGBim2.s
+        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_c30da.dir\\CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=pentiumpro'
+         C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/bin/as.exe -v -o CMakeFiles\\cmTC_c30da.dir\\CMakeCCompilerABI.c.obj C:\\Users\\Asus\\AppData\\Local\\Temp\\ccYsyM1q.s
         GNU assembler version 2.24 (mingw32) using BFD version (GNU Binutils) 2.24
         COMPILER_PATH=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/;C:/SDL/MinGW/bin/../libexec/gcc/;C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/bin/
         LIBRARY_PATH=C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/;C:/SDL/MinGW/bin/../lib/gcc/;C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib/;C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../
-        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_fc0dd.dir\\CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=pentiumpro'
-        Linking C executable cmTC_fc0dd.exe
-        "C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\bin\\cmake.exe" -E cmake_link_script CMakeFiles\\cmTC_fc0dd.dir\\link.txt --verbose=1
-        "C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\bin\\cmake.exe" -E rm -f CMakeFiles\\cmTC_fc0dd.dir/objects.a
-        C:\\SDL\\MinGW\\bin\\ar.exe qc CMakeFiles\\cmTC_fc0dd.dir/objects.a @CMakeFiles\\cmTC_fc0dd.dir\\objects1.rsp
-        C:\\SDL\\MinGW\\bin\\gcc.exe  -v -Wl,-v -Wl,--whole-archive CMakeFiles\\cmTC_fc0dd.dir/objects.a -Wl,--no-whole-archive -o cmTC_fc0dd.exe -Wl,--out-implib,libcmTC_fc0dd.dll.a -Wl,--major-image-version,0,--minor-image-version,0
+        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_c30da.dir\\CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=pentiumpro'
+        Linking C executable cmTC_c30da.exe
+        "C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\bin\\cmake.exe" -E cmake_link_script CMakeFiles\\cmTC_c30da.dir\\link.txt --verbose=1
+        "C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\bin\\cmake.exe" -E rm -f CMakeFiles\\cmTC_c30da.dir/objects.a
+        C:\\SDL\\MinGW\\bin\\ar.exe qc CMakeFiles\\cmTC_c30da.dir/objects.a @CMakeFiles\\cmTC_c30da.dir\\objects1.rsp
+        C:\\SDL\\MinGW\\bin\\gcc.exe  -v -Wl,-v -Wl,--whole-archive CMakeFiles\\cmTC_c30da.dir/objects.a -Wl,--no-whole-archive -o cmTC_c30da.exe -Wl,--out-implib,libcmTC_c30da.dll.a -Wl,--major-image-version,0,--minor-image-version,0
         Using built-in specs.
         COLLECT_GCC=C:\\SDL\\MinGW\\bin\\gcc.exe
         COLLECT_LTO_WRAPPER=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/lto-wrapper.exe
@@ -124,12 +124,12 @@ events:
         gcc version 5.1.0 (tdm-1) 
         COMPILER_PATH=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/;C:/SDL/MinGW/bin/../libexec/gcc/;C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/bin/
         LIBRARY_PATH=C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/;C:/SDL/MinGW/bin/../lib/gcc/;C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib/;C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../
-        COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_fc0dd.exe' '-mtune=generic' '-march=pentiumpro'
-         C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/collect2.exe -plugin C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/liblto_plugin-0.dll -plugin-opt=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\Asus\\AppData\\Local\\Temp\\ccE5rAtd.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt --exclude-libs=libpthread.a -Bdynamic -o cmTC_fc0dd.exe C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../crt2.o C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtbegin.o -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0 -LC:/SDL/MinGW/bin/../lib/gcc -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../.. -v --whole-archive CMakeFiles\\cmTC_fc0dd.dir/objects.a --no-whole-archive --out-implib libcmTC_fc0dd.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtend.o
+        COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_c30da.exe' '-mtune=generic' '-march=pentiumpro'
+         C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/collect2.exe -plugin C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/liblto_plugin-0.dll -plugin-opt=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\Asus\\AppData\\Local\\Temp\\ccggqATR.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt --exclude-libs=libpthread.a -Bdynamic -o cmTC_c30da.exe C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../crt2.o C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtbegin.o -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0 -LC:/SDL/MinGW/bin/../lib/gcc -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../.. -v --whole-archive CMakeFiles\\cmTC_c30da.dir/objects.a --no-whole-archive --out-implib libcmTC_c30da.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtend.o
         collect2 version 5.1.0
-        C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/bin/ld.exe -plugin C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/liblto_plugin-0.dll -plugin-opt=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\Asus\\AppData\\Local\\Temp\\ccE5rAtd.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt --exclude-libs=libpthread.a -Bdynamic -o cmTC_fc0dd.exe C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../crt2.o C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtbegin.o -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0 -LC:/SDL/MinGW/bin/../lib/gcc -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../.. -v --whole-archive CMakeFiles\\cmTC_fc0dd.dir/objects.a --no-whole-archive --out-implib libcmTC_fc0dd.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtend.o
+        C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/bin/ld.exe -plugin C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/liblto_plugin-0.dll -plugin-opt=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\Asus\\AppData\\Local\\Temp\\ccggqATR.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt --exclude-libs=libpthread.a -Bdynamic -o cmTC_c30da.exe C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../crt2.o C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtbegin.o -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0 -LC:/SDL/MinGW/bin/../lib/gcc -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../.. -v --whole-archive CMakeFiles\\cmTC_c30da.dir/objects.a --no-whole-archive --out-implib libcmTC_c30da.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtend.o
         GNU ld (GNU Binutils) 2.24
-        mingw32-make.exe[1]: Leaving directory 'C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-jflibw'
+        mingw32-make.exe[1]: Leaving directory 'C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-sja72f'
         
       exitCode: 0
   -
@@ -162,21 +162,21 @@ events:
       Parsed C implicit link information:
         link line regex: [^( *|.*[/\\])(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
         linker tool regex: [^[ 	]*(->|")?[ 	]*(([^"]*[/\\])?(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)))("|,| |$)]
-        ignore line: [Change Dir: 'C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-jflibw']
+        ignore line: [Change Dir: 'C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-sja72f']
         ignore line: []
-        ignore line: [Run Build Command(s): "C:/Users/Asus/Desktop/CLion 2025.2.3/bin/cmake/win/x64/bin/cmake.exe" -E env VERBOSE=1 C:/SDL/MinGW/bin/mingw32-make.exe -f Makefile cmTC_fc0dd/fast]
-        ignore line: [C:/SDL/MinGW/bin/mingw32-make.exe  -f CMakeFiles\\cmTC_fc0dd.dir\\build.make CMakeFiles/cmTC_fc0dd.dir/build]
-        ignore line: [mingw32-make.exe[1]: Entering directory 'C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-jflibw']
-        ignore line: [Building C object CMakeFiles/cmTC_fc0dd.dir/CMakeCCompilerABI.c.obj]
-        ignore line: [C:\\SDL\\MinGW\\bin\\gcc.exe   -fdiagnostics-color=always   -v -o CMakeFiles\\cmTC_fc0dd.dir\\CMakeCCompilerABI.c.obj -c "C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\share\\cmake-4.0\\Modules\\CMakeCCompilerABI.c"]
+        ignore line: [Run Build Command(s): "C:/Users/Asus/Desktop/CLion 2025.2.3/bin/cmake/win/x64/bin/cmake.exe" -E env VERBOSE=1 C:/SDL/MinGW/bin/mingw32-make.exe -f Makefile cmTC_c30da/fast]
+        ignore line: [C:/SDL/MinGW/bin/mingw32-make.exe  -f CMakeFiles\\cmTC_c30da.dir\\build.make CMakeFiles/cmTC_c30da.dir/build]
+        ignore line: [mingw32-make.exe[1]: Entering directory 'C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-sja72f']
+        ignore line: [Building C object CMakeFiles/cmTC_c30da.dir/CMakeCCompilerABI.c.obj]
+        ignore line: [C:\\SDL\\MinGW\\bin\\gcc.exe   -fdiagnostics-color=always   -v -o CMakeFiles\\cmTC_c30da.dir\\CMakeCCompilerABI.c.obj -c "C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\share\\cmake-4.0\\Modules\\CMakeCCompilerABI.c"]
         ignore line: [Using built-in specs.]
         ignore line: [COLLECT_GCC=C:\\SDL\\MinGW\\bin\\gcc.exe]
         ignore line: [Target: mingw32]
         ignore line: [Configured with: ../../../src/gcc-5.1.0/configure --build=mingw32 --enable-languages=ada,c,c++,fortran,lto,objc,obj-c++ --enable-libgomp --enable-lto --enable-graphite --enable-libstdcxx-debug --enable-threads=posix --enable-version-specific-runtime-libs --enable-fully-dynamic-string --enable-libstdcxx-threads --enable-libstdcxx-time --with-gnu-ld --disable-werror --disable-nls --disable-win32-registry --disable-symvers --enable-cxx-flags='-fno-function-sections -fno-data-sections -DWINPTHREAD_STATIC' --prefix=/mingw32tdm --with-local-prefix=/mingw32tdm --with-pkgversion=tdm-1 --enable-sjlj-exceptions --with-bugurl=http://tdm-gcc.tdragon.net/bugs]
         ignore line: [Thread model: posix]
         ignore line: [gcc version 5.1.0 (tdm-1) ]
-        ignore line: [COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_fc0dd.dir\\CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=pentiumpro']
-        ignore line: [ C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/cc1.exe -quiet -v -iprefix C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/ -D_REENTRANT C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\share\\cmake-4.0\\Modules\\CMakeCCompilerABI.c -quiet -dumpbase CMakeCCompilerABI.c -mtune=generic -march=pentiumpro -auxbase-strip CMakeFiles\\cmTC_fc0dd.dir\\CMakeCCompilerABI.c.obj -version -fdiagnostics-color=always -o C:\\Users\\Asus\\AppData\\Local\\Temp\\ccBGBim2.s]
+        ignore line: [COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_c30da.dir\\CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=pentiumpro']
+        ignore line: [ C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/cc1.exe -quiet -v -iprefix C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/ -D_REENTRANT C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\share\\cmake-4.0\\Modules\\CMakeCCompilerABI.c -quiet -dumpbase CMakeCCompilerABI.c -mtune=generic -march=pentiumpro -auxbase-strip CMakeFiles\\cmTC_c30da.dir\\CMakeCCompilerABI.c.obj -version -fdiagnostics-color=always -o C:\\Users\\Asus\\AppData\\Local\\Temp\\ccYsyM1q.s]
         ignore line: [GNU C11 (tdm-1) version 5.1.0 (mingw32)]
         ignore line: [	compiled by GNU C version 5.1.0  GMP version 4.3.2  MPFR version 2.4.2  MPC version 0.8.2]
         ignore line: [GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072]
@@ -195,8 +195,8 @@ events:
         ignore line: [	compiled by GNU C version 5.1.0  GMP version 4.3.2  MPFR version 2.4.2  MPC version 0.8.2]
         ignore line: [GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072]
         ignore line: [Compiler executable checksum: 2682432a7094ac8df846b6a707cdc762]
-        ignore line: [COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_fc0dd.dir\\CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=pentiumpro']
-        ignore line: [ C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/bin/as.exe -v -o CMakeFiles\\cmTC_fc0dd.dir\\CMakeCCompilerABI.c.obj C:\\Users\\Asus\\AppData\\Local\\Temp\\ccBGBim2.s]
+        ignore line: [COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_c30da.dir\\CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=pentiumpro']
+        ignore line: [ C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/bin/as.exe -v -o CMakeFiles\\cmTC_c30da.dir\\CMakeCCompilerABI.c.obj C:\\Users\\Asus\\AppData\\Local\\Temp\\ccYsyM1q.s]
         ignore line: [GNU assembler version 2.24 (mingw32) using BFD version (GNU Binutils) 2.24]
         ignore line: [COMPILER_PATH=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/]
         ignore line: [C:/SDL/MinGW/bin/../libexec/gcc/]
@@ -205,12 +205,12 @@ events:
         ignore line: [C:/SDL/MinGW/bin/../lib/gcc/]
         ignore line: [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib/]
         ignore line: [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../]
-        ignore line: [COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_fc0dd.dir\\CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=pentiumpro']
-        ignore line: [Linking C executable cmTC_fc0dd.exe]
-        ignore line: ["C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\bin\\cmake.exe" -E cmake_link_script CMakeFiles\\cmTC_fc0dd.dir\\link.txt --verbose=1]
-        ignore line: ["C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\bin\\cmake.exe" -E rm -f CMakeFiles\\cmTC_fc0dd.dir/objects.a]
-        ignore line: [C:\\SDL\\MinGW\\bin\\ar.exe qc CMakeFiles\\cmTC_fc0dd.dir/objects.a @CMakeFiles\\cmTC_fc0dd.dir\\objects1.rsp]
-        ignore line: [C:\\SDL\\MinGW\\bin\\gcc.exe  -v -Wl -v -Wl --whole-archive CMakeFiles\\cmTC_fc0dd.dir/objects.a -Wl --no-whole-archive -o cmTC_fc0dd.exe -Wl --out-implib libcmTC_fc0dd.dll.a -Wl --major-image-version 0 --minor-image-version 0]
+        ignore line: [COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_c30da.dir\\CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=pentiumpro']
+        ignore line: [Linking C executable cmTC_c30da.exe]
+        ignore line: ["C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\bin\\cmake.exe" -E cmake_link_script CMakeFiles\\cmTC_c30da.dir\\link.txt --verbose=1]
+        ignore line: ["C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\bin\\cmake.exe" -E rm -f CMakeFiles\\cmTC_c30da.dir/objects.a]
+        ignore line: [C:\\SDL\\MinGW\\bin\\ar.exe qc CMakeFiles\\cmTC_c30da.dir/objects.a @CMakeFiles\\cmTC_c30da.dir\\objects1.rsp]
+        ignore line: [C:\\SDL\\MinGW\\bin\\gcc.exe  -v -Wl -v -Wl --whole-archive CMakeFiles\\cmTC_c30da.dir/objects.a -Wl --no-whole-archive -o cmTC_c30da.exe -Wl --out-implib libcmTC_c30da.dll.a -Wl --major-image-version 0 --minor-image-version 0]
         ignore line: [Using built-in specs.]
         ignore line: [COLLECT_GCC=C:\\SDL\\MinGW\\bin\\gcc.exe]
         ignore line: [COLLECT_LTO_WRAPPER=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/lto-wrapper.exe]
@@ -225,13 +225,13 @@ events:
         ignore line: [C:/SDL/MinGW/bin/../lib/gcc/]
         ignore line: [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib/]
         ignore line: [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../]
-        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_fc0dd.exe' '-mtune=generic' '-march=pentiumpro']
-        link line: [ C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/collect2.exe -plugin C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/liblto_plugin-0.dll -plugin-opt=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\Asus\\AppData\\Local\\Temp\\ccE5rAtd.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt --exclude-libs=libpthread.a -Bdynamic -o cmTC_fc0dd.exe C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../crt2.o C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtbegin.o -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0 -LC:/SDL/MinGW/bin/../lib/gcc -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../.. -v --whole-archive CMakeFiles\\cmTC_fc0dd.dir/objects.a --no-whole-archive --out-implib libcmTC_fc0dd.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtend.o]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_c30da.exe' '-mtune=generic' '-march=pentiumpro']
+        link line: [ C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/collect2.exe -plugin C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/liblto_plugin-0.dll -plugin-opt=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\Asus\\AppData\\Local\\Temp\\ccggqATR.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt --exclude-libs=libpthread.a -Bdynamic -o cmTC_c30da.exe C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../crt2.o C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtbegin.o -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0 -LC:/SDL/MinGW/bin/../lib/gcc -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../.. -v --whole-archive CMakeFiles\\cmTC_c30da.dir/objects.a --no-whole-archive --out-implib libcmTC_c30da.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtend.o]
           arg [C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/collect2.exe] ==> ignore
           arg [-plugin] ==> ignore
           arg [C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/liblto_plugin-0.dll] ==> ignore
           arg [-plugin-opt=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/lto-wrapper.exe] ==> ignore
-          arg [-plugin-opt=-fresolution=C:\\Users\\Asus\\AppData\\Local\\Temp\\ccE5rAtd.res] ==> ignore
+          arg [-plugin-opt=-fresolution=C:\\Users\\Asus\\AppData\\Local\\Temp\\ccggqATR.res] ==> ignore
           arg [-plugin-opt=-pass-through=-lmingw32] ==> ignore
           arg [-plugin-opt=-pass-through=-lgcc] ==> ignore
           arg [-plugin-opt=-pass-through=-lmoldname] ==> ignore
@@ -250,7 +250,7 @@ events:
           arg [--exclude-libs=libpthread.a] ==> ignore
           arg [-Bdynamic] ==> search dynamic
           arg [-o] ==> ignore
-          arg [cmTC_fc0dd.exe] ==> ignore
+          arg [cmTC_c30da.exe] ==> ignore
           arg [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../crt2.o] ==> obj [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../crt2.o]
           arg [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtbegin.o] ==> obj [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtbegin.o]
           arg [-LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0] ==> dir [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0]
@@ -259,10 +259,10 @@ events:
           arg [-LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../..] ==> dir [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../..]
           arg [-v] ==> ignore
           arg [--whole-archive] ==> ignore
-          arg [CMakeFiles\\cmTC_fc0dd.dir/objects.a] ==> ignore
+          arg [CMakeFiles\\cmTC_c30da.dir/objects.a] ==> ignore
           arg [--no-whole-archive] ==> ignore
           arg [--out-implib] ==> ignore
-          arg [libcmTC_fc0dd.dll.a] ==> ignore
+          arg [libcmTC_c30da.dll.a] ==> ignore
           arg [--major-image-version] ==> ignore
           arg [0] ==> ignore
           arg [--minor-image-version] ==> ignore
@@ -284,7 +284,7 @@ events:
           arg [-lmsvcrt] ==> lib [msvcrt]
           arg [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtend.o] ==> obj [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtend.o]
         ignore line: [collect2 version 5.1.0]
-        ignore line: [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/bin/ld.exe -plugin C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/liblto_plugin-0.dll -plugin-opt=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\Asus\\AppData\\Local\\Temp\\ccE5rAtd.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt --exclude-libs=libpthread.a -Bdynamic -o cmTC_fc0dd.exe C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../crt2.o C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtbegin.o -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0 -LC:/SDL/MinGW/bin/../lib/gcc -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../.. -v --whole-archive CMakeFiles\\cmTC_fc0dd.dir/objects.a --no-whole-archive --out-implib libcmTC_fc0dd.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtend.o]
+        ignore line: [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/bin/ld.exe -plugin C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/liblto_plugin-0.dll -plugin-opt=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\Asus\\AppData\\Local\\Temp\\ccggqATR.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt --exclude-libs=libpthread.a -Bdynamic -o cmTC_c30da.exe C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../crt2.o C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtbegin.o -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0 -LC:/SDL/MinGW/bin/../lib/gcc -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../.. -v --whole-archive CMakeFiles\\cmTC_c30da.dir/objects.a --no-whole-archive --out-implib libcmTC_c30da.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtend.o]
         linker tool for 'C': C:/SDL/MinGW/mingw32/bin/ld.exe
         remove lib [msvcrt]
         remove lib [msvcrt]
@@ -320,8 +320,8 @@ events:
     checks:
       - "Detecting CXX compiler ABI info"
     directories:
-      source: "C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-m2hvlw"
-      binary: "C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-m2hvlw"
+      source: "C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-9h1zz2"
+      binary: "C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-9h1zz2"
     cmakeVariables:
       CMAKE_CXX_FLAGS: ""
       CMAKE_CXX_FLAGS_DEBUG: "-g"
@@ -331,21 +331,21 @@ events:
       variable: "CMAKE_CXX_ABI_COMPILED"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-m2hvlw'
+        Change Dir: 'C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-9h1zz2'
         
-        Run Build Command(s): "C:/Users/Asus/Desktop/CLion 2025.2.3/bin/cmake/win/x64/bin/cmake.exe" -E env VERBOSE=1 C:/SDL/MinGW/bin/mingw32-make.exe -f Makefile cmTC_dfaba/fast
-        C:/SDL/MinGW/bin/mingw32-make.exe  -f CMakeFiles\\cmTC_dfaba.dir\\build.make CMakeFiles/cmTC_dfaba.dir/build
-        mingw32-make.exe[1]: Entering directory 'C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-m2hvlw'
-        Building CXX object CMakeFiles/cmTC_dfaba.dir/CMakeCXXCompilerABI.cpp.obj
-        C:\\SDL\\MinGW\\bin\\c++.exe   -fdiagnostics-color=always   -v -o CMakeFiles\\cmTC_dfaba.dir\\CMakeCXXCompilerABI.cpp.obj -c "C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\share\\cmake-4.0\\Modules\\CMakeCXXCompilerABI.cpp"
+        Run Build Command(s): "C:/Users/Asus/Desktop/CLion 2025.2.3/bin/cmake/win/x64/bin/cmake.exe" -E env VERBOSE=1 C:/SDL/MinGW/bin/mingw32-make.exe -f Makefile cmTC_f3ada/fast
+        C:/SDL/MinGW/bin/mingw32-make.exe  -f CMakeFiles\\cmTC_f3ada.dir\\build.make CMakeFiles/cmTC_f3ada.dir/build
+        mingw32-make.exe[1]: Entering directory 'C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-9h1zz2'
+        Building CXX object CMakeFiles/cmTC_f3ada.dir/CMakeCXXCompilerABI.cpp.obj
+        C:\\SDL\\MinGW\\bin\\c++.exe   -fdiagnostics-color=always   -v -o CMakeFiles\\cmTC_f3ada.dir\\CMakeCXXCompilerABI.cpp.obj -c "C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\share\\cmake-4.0\\Modules\\CMakeCXXCompilerABI.cpp"
         Using built-in specs.
         COLLECT_GCC=C:\\SDL\\MinGW\\bin\\c++.exe
         Target: mingw32
         Configured with: ../../../src/gcc-5.1.0/configure --build=mingw32 --enable-languages=ada,c,c++,fortran,lto,objc,obj-c++ --enable-libgomp --enable-lto --enable-graphite --enable-libstdcxx-debug --enable-threads=posix --enable-version-specific-runtime-libs --enable-fully-dynamic-string --enable-libstdcxx-threads --enable-libstdcxx-time --with-gnu-ld --disable-werror --disable-nls --disable-win32-registry --disable-symvers --enable-cxx-flags='-fno-function-sections -fno-data-sections -DWINPTHREAD_STATIC' --prefix=/mingw32tdm --with-local-prefix=/mingw32tdm --with-pkgversion=tdm-1 --enable-sjlj-exceptions --with-bugurl=http://tdm-gcc.tdragon.net/bugs
         Thread model: posix
         gcc version 5.1.0 (tdm-1) 
-        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_dfaba.dir\\CMakeCXXCompilerABI.cpp.obj' '-c' '-mtune=generic' '-march=pentiumpro'
-         C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/cc1plus.exe -quiet -v -iprefix C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/ -D_REENTRANT C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\share\\cmake-4.0\\Modules\\CMakeCXXCompilerABI.cpp -quiet -dumpbase CMakeCXXCompilerABI.cpp -mtune=generic -march=pentiumpro -auxbase-strip CMakeFiles\\cmTC_dfaba.dir\\CMakeCXXCompilerABI.cpp.obj -version -fdiagnostics-color=always -o C:\\Users\\Asus\\AppData\\Local\\Temp\\cckzYbLU.s
+        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_f3ada.dir\\CMakeCXXCompilerABI.cpp.obj' '-c' '-mtune=generic' '-march=pentiumpro'
+         C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/cc1plus.exe -quiet -v -iprefix C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/ -D_REENTRANT C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\share\\cmake-4.0\\Modules\\CMakeCXXCompilerABI.cpp -quiet -dumpbase CMakeCXXCompilerABI.cpp -mtune=generic -march=pentiumpro -auxbase-strip CMakeFiles\\cmTC_f3ada.dir\\CMakeCXXCompilerABI.cpp.obj -version -fdiagnostics-color=always -o C:\\Users\\Asus\\AppData\\Local\\Temp\\ccnFuCmm.s
         GNU C++ (tdm-1) version 5.1.0 (mingw32)
         	compiled by GNU C version 5.1.0, GMP version 4.3.2, MPFR version 2.4.2, MPC version 0.8.2
         GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072
@@ -370,17 +370,17 @@ events:
         	compiled by GNU C version 5.1.0, GMP version 4.3.2, MPFR version 2.4.2, MPC version 0.8.2
         GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072
         Compiler executable checksum: 2e47d181020f054da881eda9fc3e9f75
-        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_dfaba.dir\\CMakeCXXCompilerABI.cpp.obj' '-c' '-mtune=generic' '-march=pentiumpro'
-         C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/bin/as.exe -v -o CMakeFiles\\cmTC_dfaba.dir\\CMakeCXXCompilerABI.cpp.obj C:\\Users\\Asus\\AppData\\Local\\Temp\\cckzYbLU.s
+        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_f3ada.dir\\CMakeCXXCompilerABI.cpp.obj' '-c' '-mtune=generic' '-march=pentiumpro'
+         C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/bin/as.exe -v -o CMakeFiles\\cmTC_f3ada.dir\\CMakeCXXCompilerABI.cpp.obj C:\\Users\\Asus\\AppData\\Local\\Temp\\ccnFuCmm.s
         GNU assembler version 2.24 (mingw32) using BFD version (GNU Binutils) 2.24
         COMPILER_PATH=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/;C:/SDL/MinGW/bin/../libexec/gcc/;C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/bin/
         LIBRARY_PATH=C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/;C:/SDL/MinGW/bin/../lib/gcc/;C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib/;C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../
-        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_dfaba.dir\\CMakeCXXCompilerABI.cpp.obj' '-c' '-mtune=generic' '-march=pentiumpro'
-        Linking CXX executable cmTC_dfaba.exe
-        "C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\bin\\cmake.exe" -E cmake_link_script CMakeFiles\\cmTC_dfaba.dir\\link.txt --verbose=1
-        "C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\bin\\cmake.exe" -E rm -f CMakeFiles\\cmTC_dfaba.dir/objects.a
-        C:\\SDL\\MinGW\\bin\\ar.exe qc CMakeFiles\\cmTC_dfaba.dir/objects.a @CMakeFiles\\cmTC_dfaba.dir\\objects1.rsp
-        C:\\SDL\\MinGW\\bin\\c++.exe  -v -Wl,-v -Wl,--whole-archive CMakeFiles\\cmTC_dfaba.dir/objects.a -Wl,--no-whole-archive -o cmTC_dfaba.exe -Wl,--out-implib,libcmTC_dfaba.dll.a -Wl,--major-image-version,0,--minor-image-version,0
+        COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_f3ada.dir\\CMakeCXXCompilerABI.cpp.obj' '-c' '-mtune=generic' '-march=pentiumpro'
+        Linking CXX executable cmTC_f3ada.exe
+        "C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\bin\\cmake.exe" -E cmake_link_script CMakeFiles\\cmTC_f3ada.dir\\link.txt --verbose=1
+        "C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\bin\\cmake.exe" -E rm -f CMakeFiles\\cmTC_f3ada.dir/objects.a
+        C:\\SDL\\MinGW\\bin\\ar.exe qc CMakeFiles\\cmTC_f3ada.dir/objects.a @CMakeFiles\\cmTC_f3ada.dir\\objects1.rsp
+        C:\\SDL\\MinGW\\bin\\c++.exe  -v -Wl,-v -Wl,--whole-archive CMakeFiles\\cmTC_f3ada.dir/objects.a -Wl,--no-whole-archive -o cmTC_f3ada.exe -Wl,--out-implib,libcmTC_f3ada.dll.a -Wl,--major-image-version,0,--minor-image-version,0
         Using built-in specs.
         COLLECT_GCC=C:\\SDL\\MinGW\\bin\\c++.exe
         COLLECT_LTO_WRAPPER=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/lto-wrapper.exe
@@ -390,12 +390,12 @@ events:
         gcc version 5.1.0 (tdm-1) 
         COMPILER_PATH=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/;C:/SDL/MinGW/bin/../libexec/gcc/;C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/bin/
         LIBRARY_PATH=C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/;C:/SDL/MinGW/bin/../lib/gcc/;C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib/;C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../
-        COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_dfaba.exe' '-mtune=generic' '-march=pentiumpro'
-         C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/collect2.exe -plugin C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/liblto_plugin-0.dll -plugin-opt=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\Asus\\AppData\\Local\\Temp\\ccsBOtAe.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt --exclude-libs=libpthread.a -Bdynamic -o cmTC_dfaba.exe C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../crt2.o C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtbegin.o -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0 -LC:/SDL/MinGW/bin/../lib/gcc -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../.. -v --whole-archive CMakeFiles\\cmTC_dfaba.dir/objects.a --no-whole-archive --out-implib libcmTC_dfaba.dll.a --major-image-version 0 --minor-image-version 0 -Bstatic -lstdc++ -Bdynamic -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtend.o
+        COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_f3ada.exe' '-mtune=generic' '-march=pentiumpro'
+         C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/collect2.exe -plugin C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/liblto_plugin-0.dll -plugin-opt=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\Asus\\AppData\\Local\\Temp\\ccjpQ96O.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt --exclude-libs=libpthread.a -Bdynamic -o cmTC_f3ada.exe C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../crt2.o C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtbegin.o -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0 -LC:/SDL/MinGW/bin/../lib/gcc -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../.. -v --whole-archive CMakeFiles\\cmTC_f3ada.dir/objects.a --no-whole-archive --out-implib libcmTC_f3ada.dll.a --major-image-version 0 --minor-image-version 0 -Bstatic -lstdc++ -Bdynamic -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtend.o
         collect2 version 5.1.0
-        C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/bin/ld.exe -plugin C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/liblto_plugin-0.dll -plugin-opt=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\Asus\\AppData\\Local\\Temp\\ccsBOtAe.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt --exclude-libs=libpthread.a -Bdynamic -o cmTC_dfaba.exe C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../crt2.o C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtbegin.o -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0 -LC:/SDL/MinGW/bin/../lib/gcc -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../.. -v --whole-archive CMakeFiles\\cmTC_dfaba.dir/objects.a --no-whole-archive --out-implib libcmTC_dfaba.dll.a --major-image-version 0 --minor-image-version 0 -Bstatic -lstdc++ -Bdynamic -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtend.o
+        C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/bin/ld.exe -plugin C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/liblto_plugin-0.dll -plugin-opt=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\Asus\\AppData\\Local\\Temp\\ccjpQ96O.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt --exclude-libs=libpthread.a -Bdynamic -o cmTC_f3ada.exe C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../crt2.o C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtbegin.o -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0 -LC:/SDL/MinGW/bin/../lib/gcc -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../.. -v --whole-archive CMakeFiles\\cmTC_f3ada.dir/objects.a --no-whole-archive --out-implib libcmTC_f3ada.dll.a --major-image-version 0 --minor-image-version 0 -Bstatic -lstdc++ -Bdynamic -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtend.o
         GNU ld (GNU Binutils) 2.24
-        mingw32-make.exe[1]: Leaving directory 'C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-m2hvlw'
+        mingw32-make.exe[1]: Leaving directory 'C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-9h1zz2'
         
       exitCode: 0
   -
@@ -434,21 +434,21 @@ events:
       Parsed CXX implicit link information:
         link line regex: [^( *|.*[/\\])(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
         linker tool regex: [^[ 	]*(->|")?[ 	]*(([^"]*[/\\])?(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)))("|,| |$)]
-        ignore line: [Change Dir: 'C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-m2hvlw']
+        ignore line: [Change Dir: 'C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-9h1zz2']
         ignore line: []
-        ignore line: [Run Build Command(s): "C:/Users/Asus/Desktop/CLion 2025.2.3/bin/cmake/win/x64/bin/cmake.exe" -E env VERBOSE=1 C:/SDL/MinGW/bin/mingw32-make.exe -f Makefile cmTC_dfaba/fast]
-        ignore line: [C:/SDL/MinGW/bin/mingw32-make.exe  -f CMakeFiles\\cmTC_dfaba.dir\\build.make CMakeFiles/cmTC_dfaba.dir/build]
-        ignore line: [mingw32-make.exe[1]: Entering directory 'C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-m2hvlw']
-        ignore line: [Building CXX object CMakeFiles/cmTC_dfaba.dir/CMakeCXXCompilerABI.cpp.obj]
-        ignore line: [C:\\SDL\\MinGW\\bin\\c++.exe   -fdiagnostics-color=always   -v -o CMakeFiles\\cmTC_dfaba.dir\\CMakeCXXCompilerABI.cpp.obj -c "C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\share\\cmake-4.0\\Modules\\CMakeCXXCompilerABI.cpp"]
+        ignore line: [Run Build Command(s): "C:/Users/Asus/Desktop/CLion 2025.2.3/bin/cmake/win/x64/bin/cmake.exe" -E env VERBOSE=1 C:/SDL/MinGW/bin/mingw32-make.exe -f Makefile cmTC_f3ada/fast]
+        ignore line: [C:/SDL/MinGW/bin/mingw32-make.exe  -f CMakeFiles\\cmTC_f3ada.dir\\build.make CMakeFiles/cmTC_f3ada.dir/build]
+        ignore line: [mingw32-make.exe[1]: Entering directory 'C:/Users/Asus/Desktop/finalCode/cmake-build-debug/CMakeFiles/CMakeScratch/TryCompile-9h1zz2']
+        ignore line: [Building CXX object CMakeFiles/cmTC_f3ada.dir/CMakeCXXCompilerABI.cpp.obj]
+        ignore line: [C:\\SDL\\MinGW\\bin\\c++.exe   -fdiagnostics-color=always   -v -o CMakeFiles\\cmTC_f3ada.dir\\CMakeCXXCompilerABI.cpp.obj -c "C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\share\\cmake-4.0\\Modules\\CMakeCXXCompilerABI.cpp"]
         ignore line: [Using built-in specs.]
         ignore line: [COLLECT_GCC=C:\\SDL\\MinGW\\bin\\c++.exe]
         ignore line: [Target: mingw32]
         ignore line: [Configured with: ../../../src/gcc-5.1.0/configure --build=mingw32 --enable-languages=ada,c,c++,fortran,lto,objc,obj-c++ --enable-libgomp --enable-lto --enable-graphite --enable-libstdcxx-debug --enable-threads=posix --enable-version-specific-runtime-libs --enable-fully-dynamic-string --enable-libstdcxx-threads --enable-libstdcxx-time --with-gnu-ld --disable-werror --disable-nls --disable-win32-registry --disable-symvers --enable-cxx-flags='-fno-function-sections -fno-data-sections -DWINPTHREAD_STATIC' --prefix=/mingw32tdm --with-local-prefix=/mingw32tdm --with-pkgversion=tdm-1 --enable-sjlj-exceptions --with-bugurl=http://tdm-gcc.tdragon.net/bugs]
         ignore line: [Thread model: posix]
         ignore line: [gcc version 5.1.0 (tdm-1) ]
-        ignore line: [COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_dfaba.dir\\CMakeCXXCompilerABI.cpp.obj' '-c' '-mtune=generic' '-march=pentiumpro']
-        ignore line: [ C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/cc1plus.exe -quiet -v -iprefix C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/ -D_REENTRANT C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\share\\cmake-4.0\\Modules\\CMakeCXXCompilerABI.cpp -quiet -dumpbase CMakeCXXCompilerABI.cpp -mtune=generic -march=pentiumpro -auxbase-strip CMakeFiles\\cmTC_dfaba.dir\\CMakeCXXCompilerABI.cpp.obj -version -fdiagnostics-color=always -o C:\\Users\\Asus\\AppData\\Local\\Temp\\cckzYbLU.s]
+        ignore line: [COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_f3ada.dir\\CMakeCXXCompilerABI.cpp.obj' '-c' '-mtune=generic' '-march=pentiumpro']
+        ignore line: [ C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/cc1plus.exe -quiet -v -iprefix C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/ -D_REENTRANT C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\share\\cmake-4.0\\Modules\\CMakeCXXCompilerABI.cpp -quiet -dumpbase CMakeCXXCompilerABI.cpp -mtune=generic -march=pentiumpro -auxbase-strip CMakeFiles\\cmTC_f3ada.dir\\CMakeCXXCompilerABI.cpp.obj -version -fdiagnostics-color=always -o C:\\Users\\Asus\\AppData\\Local\\Temp\\ccnFuCmm.s]
         ignore line: [GNU C++ (tdm-1) version 5.1.0 (mingw32)]
         ignore line: [	compiled by GNU C version 5.1.0  GMP version 4.3.2  MPFR version 2.4.2  MPC version 0.8.2]
         ignore line: [GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072]
@@ -473,8 +473,8 @@ events:
         ignore line: [	compiled by GNU C version 5.1.0  GMP version 4.3.2  MPFR version 2.4.2  MPC version 0.8.2]
         ignore line: [GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072]
         ignore line: [Compiler executable checksum: 2e47d181020f054da881eda9fc3e9f75]
-        ignore line: [COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_dfaba.dir\\CMakeCXXCompilerABI.cpp.obj' '-c' '-mtune=generic' '-march=pentiumpro']
-        ignore line: [ C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/bin/as.exe -v -o CMakeFiles\\cmTC_dfaba.dir\\CMakeCXXCompilerABI.cpp.obj C:\\Users\\Asus\\AppData\\Local\\Temp\\cckzYbLU.s]
+        ignore line: [COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_f3ada.dir\\CMakeCXXCompilerABI.cpp.obj' '-c' '-mtune=generic' '-march=pentiumpro']
+        ignore line: [ C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/bin/as.exe -v -o CMakeFiles\\cmTC_f3ada.dir\\CMakeCXXCompilerABI.cpp.obj C:\\Users\\Asus\\AppData\\Local\\Temp\\ccnFuCmm.s]
         ignore line: [GNU assembler version 2.24 (mingw32) using BFD version (GNU Binutils) 2.24]
         ignore line: [COMPILER_PATH=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/]
         ignore line: [C:/SDL/MinGW/bin/../libexec/gcc/]
@@ -483,12 +483,12 @@ events:
         ignore line: [C:/SDL/MinGW/bin/../lib/gcc/]
         ignore line: [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib/]
         ignore line: [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../]
-        ignore line: [COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_dfaba.dir\\CMakeCXXCompilerABI.cpp.obj' '-c' '-mtune=generic' '-march=pentiumpro']
-        ignore line: [Linking CXX executable cmTC_dfaba.exe]
-        ignore line: ["C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\bin\\cmake.exe" -E cmake_link_script CMakeFiles\\cmTC_dfaba.dir\\link.txt --verbose=1]
-        ignore line: ["C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\bin\\cmake.exe" -E rm -f CMakeFiles\\cmTC_dfaba.dir/objects.a]
-        ignore line: [C:\\SDL\\MinGW\\bin\\ar.exe qc CMakeFiles\\cmTC_dfaba.dir/objects.a @CMakeFiles\\cmTC_dfaba.dir\\objects1.rsp]
-        ignore line: [C:\\SDL\\MinGW\\bin\\c++.exe  -v -Wl -v -Wl --whole-archive CMakeFiles\\cmTC_dfaba.dir/objects.a -Wl --no-whole-archive -o cmTC_dfaba.exe -Wl --out-implib libcmTC_dfaba.dll.a -Wl --major-image-version 0 --minor-image-version 0]
+        ignore line: [COLLECT_GCC_OPTIONS='-fdiagnostics-color=always' '-v' '-o' 'CMakeFiles\\cmTC_f3ada.dir\\CMakeCXXCompilerABI.cpp.obj' '-c' '-mtune=generic' '-march=pentiumpro']
+        ignore line: [Linking CXX executable cmTC_f3ada.exe]
+        ignore line: ["C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\bin\\cmake.exe" -E cmake_link_script CMakeFiles\\cmTC_f3ada.dir\\link.txt --verbose=1]
+        ignore line: ["C:\\Users\\Asus\\Desktop\\CLion 2025.2.3\\bin\\cmake\\win\\x64\\bin\\cmake.exe" -E rm -f CMakeFiles\\cmTC_f3ada.dir/objects.a]
+        ignore line: [C:\\SDL\\MinGW\\bin\\ar.exe qc CMakeFiles\\cmTC_f3ada.dir/objects.a @CMakeFiles\\cmTC_f3ada.dir\\objects1.rsp]
+        ignore line: [C:\\SDL\\MinGW\\bin\\c++.exe  -v -Wl -v -Wl --whole-archive CMakeFiles\\cmTC_f3ada.dir/objects.a -Wl --no-whole-archive -o cmTC_f3ada.exe -Wl --out-implib libcmTC_f3ada.dll.a -Wl --major-image-version 0 --minor-image-version 0]
         ignore line: [Using built-in specs.]
         ignore line: [COLLECT_GCC=C:\\SDL\\MinGW\\bin\\c++.exe]
         ignore line: [COLLECT_LTO_WRAPPER=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/lto-wrapper.exe]
@@ -503,13 +503,13 @@ events:
         ignore line: [C:/SDL/MinGW/bin/../lib/gcc/]
         ignore line: [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib/]
         ignore line: [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../]
-        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_dfaba.exe' '-mtune=generic' '-march=pentiumpro']
-        link line: [ C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/collect2.exe -plugin C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/liblto_plugin-0.dll -plugin-opt=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\Asus\\AppData\\Local\\Temp\\ccsBOtAe.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt --exclude-libs=libpthread.a -Bdynamic -o cmTC_dfaba.exe C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../crt2.o C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtbegin.o -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0 -LC:/SDL/MinGW/bin/../lib/gcc -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../.. -v --whole-archive CMakeFiles\\cmTC_dfaba.dir/objects.a --no-whole-archive --out-implib libcmTC_dfaba.dll.a --major-image-version 0 --minor-image-version 0 -Bstatic -lstdc++ -Bdynamic -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtend.o]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_f3ada.exe' '-mtune=generic' '-march=pentiumpro']
+        link line: [ C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/collect2.exe -plugin C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/liblto_plugin-0.dll -plugin-opt=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\Asus\\AppData\\Local\\Temp\\ccjpQ96O.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt --exclude-libs=libpthread.a -Bdynamic -o cmTC_f3ada.exe C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../crt2.o C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtbegin.o -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0 -LC:/SDL/MinGW/bin/../lib/gcc -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../.. -v --whole-archive CMakeFiles\\cmTC_f3ada.dir/objects.a --no-whole-archive --out-implib libcmTC_f3ada.dll.a --major-image-version 0 --minor-image-version 0 -Bstatic -lstdc++ -Bdynamic -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtend.o]
           arg [C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/collect2.exe] ==> ignore
           arg [-plugin] ==> ignore
           arg [C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/liblto_plugin-0.dll] ==> ignore
           arg [-plugin-opt=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/lto-wrapper.exe] ==> ignore
-          arg [-plugin-opt=-fresolution=C:\\Users\\Asus\\AppData\\Local\\Temp\\ccsBOtAe.res] ==> ignore
+          arg [-plugin-opt=-fresolution=C:\\Users\\Asus\\AppData\\Local\\Temp\\ccjpQ96O.res] ==> ignore
           arg [-plugin-opt=-pass-through=-lmingw32] ==> ignore
           arg [-plugin-opt=-pass-through=-lgcc] ==> ignore
           arg [-plugin-opt=-pass-through=-lmoldname] ==> ignore
@@ -528,7 +528,7 @@ events:
           arg [--exclude-libs=libpthread.a] ==> ignore
           arg [-Bdynamic] ==> search dynamic
           arg [-o] ==> ignore
-          arg [cmTC_dfaba.exe] ==> ignore
+          arg [cmTC_f3ada.exe] ==> ignore
           arg [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../crt2.o] ==> obj [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../crt2.o]
           arg [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtbegin.o] ==> obj [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtbegin.o]
           arg [-LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0] ==> dir [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0]
@@ -537,10 +537,10 @@ events:
           arg [-LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../..] ==> dir [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../..]
           arg [-v] ==> ignore
           arg [--whole-archive] ==> ignore
-          arg [CMakeFiles\\cmTC_dfaba.dir/objects.a] ==> ignore
+          arg [CMakeFiles\\cmTC_f3ada.dir/objects.a] ==> ignore
           arg [--no-whole-archive] ==> ignore
           arg [--out-implib] ==> ignore
-          arg [libcmTC_dfaba.dll.a] ==> ignore
+          arg [libcmTC_f3ada.dll.a] ==> ignore
           arg [--major-image-version] ==> ignore
           arg [0] ==> ignore
           arg [--minor-image-version] ==> ignore
@@ -565,7 +565,7 @@ events:
           arg [-lmsvcrt] ==> lib [msvcrt]
           arg [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtend.o] ==> obj [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtend.o]
         ignore line: [collect2 version 5.1.0]
-        ignore line: [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/bin/ld.exe -plugin C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/liblto_plugin-0.dll -plugin-opt=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\Asus\\AppData\\Local\\Temp\\ccsBOtAe.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt --exclude-libs=libpthread.a -Bdynamic -o cmTC_dfaba.exe C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../crt2.o C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtbegin.o -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0 -LC:/SDL/MinGW/bin/../lib/gcc -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../.. -v --whole-archive CMakeFiles\\cmTC_dfaba.dir/objects.a --no-whole-archive --out-implib libcmTC_dfaba.dll.a --major-image-version 0 --minor-image-version 0 -Bstatic -lstdc++ -Bdynamic -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtend.o]
+        ignore line: [C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/bin/ld.exe -plugin C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/liblto_plugin-0.dll -plugin-opt=C:/SDL/MinGW/bin/../libexec/gcc/mingw32/5.1.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\Asus\\AppData\\Local\\Temp\\ccjpQ96O.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmoldname -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt --exclude-libs=libpthread.a -Bdynamic -o cmTC_f3ada.exe C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../crt2.o C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtbegin.o -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0 -LC:/SDL/MinGW/bin/../lib/gcc -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../../../mingw32/lib -LC:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/../../.. -v --whole-archive CMakeFiles\\cmTC_f3ada.dir/objects.a --no-whole-archive --out-implib libcmTC_f3ada.dll.a --major-image-version 0 --minor-image-version 0 -Bstatic -lstdc++ -Bdynamic -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lmoldname -lmingwex -lmsvcrt C:/SDL/MinGW/bin/../lib/gcc/mingw32/5.1.0/crtend.o]
         linker tool for 'CXX': C:/SDL/MinGW/mingw32/bin/ld.exe
         search lib [SEARCH_STATIC:stdc++] ==> [C:/SDL/MinGW/lib/gcc/mingw32/5.1.0/libstdc++.a]
         remove lib [msvcrt]

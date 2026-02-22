@@ -11,6 +11,6 @@
 -- Check for working CXX compiler: C:/SDL/MinGW/bin/c++.exe - skipped
 -- Detecting CXX compile features
 -- Detecting CXX compile features - done
--- Configuring done (2.5s)
+-- Configuring done (2.7s)
 -- Generating done (0.0s)
 -- Build files have been written to: C:/Users/Asus/Desktop/finalCode/cmake-build-debug
