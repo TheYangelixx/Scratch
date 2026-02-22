@@ -491,3 +491,44 @@ static vector<string> listSaveStems() {
     out.erase(unique(out.begin(), out.end()), out.end());
     return out;
 }
+
+
+struct Value {
+    bool isNum = true;
+    double num = 0.0;
+    string str;
+
+    static Value Num(double v) { Value x; x.isNum = true; x.num = v; return x; }
+    static Value Str(const string& s) { Value x; x.isNum = false; x.str = s; return x; }
+
+    string toString() const {
+        if (isNum) {
+            ostringstream ss;
+            ss << num;
+            return ss.str();
+        }
+        return str;
+    }
+
+    bool truthy() const {
+        if (isNum) return num != 0.0;
+        return !str.empty();
+    }
+};
+
+static double asNum(const Value& v) {
+    if (v.isNum) return v.num;
+    char* endp = nullptr;
+    double x = strtod(v.str.c_str(), &endp);
+    if (endp && endp != v.str.c_str()) return x;
+    return 0.0;
+}
+
+
+struct Sprite {
+    string name = "Sprite";
+    TextureAsset icon; 
+
+    bool isDragging = false;
+    double dragOffX = 0.0;
+    double dragOffY = 0.0;
