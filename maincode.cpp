@@ -2612,3 +2612,31 @@ static void initAssets(AppState& st, SDL_Renderer* r) {
 
     st.backdrops.clear();
 }
+
+static void shutdownAssets(AppState& st) {
+    destroyTextureAsset(st.actorIcon);
+
+    for (auto& t : st.costumes) destroyTextureAsset(t);
+    st.costumes.clear();
+
+    for (auto& t : st.backdrops) destroyTextureAsset(t);
+    st.backdrops.clear();
+}
+
+
+static uint32_t computeAudioMs(const SDL_AudioSpec& spec, uint32_t lenBytes) {
+    int bytesPerSample = (SDL_AUDIO_BITSIZE(spec.format) / 8) * (int)spec.channels;
+    if (bytesPerSample <= 0 || spec.freq <= 0) return 0;
+    double samples = (double)lenBytes / (double)bytesPerSample;
+    double sec = samples / (double)spec.freq;
+    if (sec < 0) sec = 0;
+    return (uint32_t)llround(sec * 1000.0);
+}
+
+static bool initAudioSystem(AppState& st) {
+    SDL_AudioSpec want{};
+    want.freq = 44100;
+    want.format = AUDIO_S16SYS;
+    want.channels = 2;
+    want.samples = 4096;
+    want.callback = nullptr;
