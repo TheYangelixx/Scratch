@@ -1789,3 +1789,117 @@ static void renderDialogs(const AppState& st, SDL_Renderer* r, int winW, int win
         renderTextCentered(r, st.uiFont, "Cancel", canBtn, -6, white);
         renderTextCentered(r, st.uiFont, "Esc", canBtn, +10, white);
     }
+if (st.renameDialogOpen) {
+        SDL_Rect modal = {winW/2 - 220, winH/2 - 90, 440, 180};
+        SDL_SetRenderDrawColor(r, 40, 40, 46, 255);
+        SDL_RenderFillRect(r, &modal);
+        SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
+        SDL_RenderDrawRect(r, &modal);
+
+        renderText(r, st.uiFont, "Rename Sprite", modal.x + 20, modal.y + 14, white);
+
+        SDL_Rect field = {modal.x + 20, modal.y + 55, modal.w - 40, 40};
+        SDL_SetRenderDrawColor(r, 25, 25, 28, 255);
+        SDL_RenderFillRect(r, &field);
+        SDL_SetRenderDrawColor(r, 120, 120, 120, 255);
+        SDL_RenderDrawRect(r, &field);
+
+        string shown = st.renameInput.empty() ? "type new name..." : st.renameInput;
+        renderText(r, st.uiFont, shown, field.x + 10, field.y + 8, white);
+
+        SDL_Rect okBtn  = {modal.x + 260, modal.y + 120, 140, 40};
+        SDL_Rect canBtn = {modal.x +  40, modal.y + 120, 140, 40};
+
+        SDL_SetRenderDrawColor(r, 60, 140, 70, 255);
+        SDL_RenderFillRect(r, &okBtn);
+        SDL_SetRenderDrawColor(r, 140, 60, 60, 255);
+        SDL_RenderFillRect(r, &canBtn);
+
+        SDL_SetRenderDrawColor(r, 20, 20, 20, 255);
+        SDL_RenderDrawRect(r, &okBtn);
+        SDL_RenderDrawRect(r, &canBtn);
+
+        renderTextCentered(r, st.uiFont, "OK", okBtn, -6, white);
+        renderTextCentered(r, st.uiFont, "Enter", okBtn, +10, white);
+        renderTextCentered(r, st.uiFont, "Cancel", canBtn, -6, white);
+        renderTextCentered(r, st.uiFont, "Esc", canBtn, +10, white);
+    }
+
+    if (st.saveDialogOpen) {
+        SDL_Rect modal = {winW/2 - 220, winH/2 - 90, 440, 180};
+        SDL_SetRenderDrawColor(r, 40, 40, 46, 255);
+        SDL_RenderFillRect(r, &modal);
+        SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
+        SDL_RenderDrawRect(r, &modal);
+
+        renderText(r, st.uiFont, "Save Project", modal.x + 20, modal.y + 14, white);
+
+        SDL_Rect field = {modal.x + 20, modal.y + 55, modal.w - 40, 40};
+        SDL_SetRenderDrawColor(r, 25, 25, 28, 255);
+        SDL_RenderFillRect(r, &field);
+        SDL_SetRenderDrawColor(r, 120, 120, 120, 255);
+        SDL_RenderDrawRect(r, &field);
+
+        string shown = st.saveNameInput.empty() ? "type a name..." : st.saveNameInput;
+        renderText(r, st.uiFont, shown, field.x + 10, field.y + 8, white);
+
+        SDL_Rect okBtn  = {modal.x + 260, modal.y + 120, 140, 40};
+        SDL_Rect canBtn = {modal.x +  40, modal.y + 120, 140, 40};
+
+        SDL_SetRenderDrawColor(r, 60, 140, 70, 255);
+        SDL_RenderFillRect(r, &okBtn);
+        SDL_SetRenderDrawColor(r, 140, 60, 60, 255);
+        SDL_RenderFillRect(r, &canBtn);
+
+        SDL_SetRenderDrawColor(r, 20, 20, 20, 255);
+        SDL_RenderDrawRect(r, &okBtn);
+        SDL_RenderDrawRect(r, &canBtn);
+
+        renderTextCentered(r, st.uiFont, "OK", okBtn, -6, white);
+        renderTextCentered(r, st.uiFont, "Enter", okBtn, +10, white);
+
+        renderTextCentered(r, st.uiFont, "Cancel", canBtn, -6, white);
+        renderTextCentered(r, st.uiFont, "Esc", canBtn, +10, white);
+    }
+
+    if (st.loadDialogOpen) {
+        SDL_Rect modal{}, listArea{};
+        modalRects(winW, winH, modal, listArea);
+
+        SDL_SetRenderDrawColor(r, 40, 40, 46, 255);
+        SDL_RenderFillRect(r, &modal);
+        SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
+        SDL_RenderDrawRect(r, &modal);
+
+        renderText(r, st.uiFont, "Load Project", modal.x + 20, modal.y + 14, white);
+        renderText(r, st.uiFont, "Click a save to load. (Esc to close)", modal.x + 20, modal.y + 34, white);
+
+        SDL_SetRenderDrawColor(r, 25, 25, 28, 255);
+        SDL_RenderFillRect(r, &listArea);
+        SDL_SetRenderDrawColor(r, 120, 120, 120, 255);
+        SDL_RenderDrawRect(r, &listArea);
+
+        const int rowH = 28;
+        int visible = listArea.h / rowH;
+        int start = st.loadScroll;
+        int end = min((int)st.saveList.size(), start + visible);
+
+        for (int i = start; i < end; i++) {
+            int y = listArea.y + (i - start) * rowH;
+            SDL_Rect row = {listArea.x, y, listArea.w, rowH};
+
+            bool hover = (i == st.loadHoverIndex);
+
+            if (hover) SDL_SetRenderDrawColor(r, 60, 60, 70, 255);
+            else       SDL_SetRenderDrawColor(r, ((i % 2) ? 34 : 30), ((i % 2) ? 34 : 30), ((i % 2) ? 38 : 34), 255);
+
+            SDL_RenderFillRect(r, &row);
+
+            renderText(r, st.uiFont, st.saveList[i], row.x + 10, row.y + 4, white);
+        }
+
+        if (st.saveList.empty()) {
+            renderText(r, st.uiFont, "No saves found in SMemory.", listArea.x + 10, listArea.y + 10, white);
+        }
+    }
+}
