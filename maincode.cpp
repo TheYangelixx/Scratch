@@ -1970,3 +1970,40 @@ static void penClearAll(AppState& st) {
     st.penSegs.clear();
     st.penStamps.clear();
 }
+
+static void penAddSegment(AppState& st, double x1, double y1, double x2, double y2) {
+    PenSegment seg;
+    seg.x1 = x1; seg.y1 = y1; seg.x2 = x2; seg.y2 = y2;
+    seg.c = st.penRGB;
+    seg.size = st.penSize;
+    st.penSegs.push_back(seg);
+}
+
+static void penAddStamp(AppState& st) {
+    PenStamp s;
+    s.x = st.getActive().x;
+    s.y = st.getActive().y;
+    s.costumeIndex = st.getActive().costumeIndex;
+    s.dirDeg = st.getActive().dirDeg;
+    s.sizePct = st.getActive().sizePct;
+    st.penStamps.push_back(s);
+}
+
+
+static void drawThickLine(SDL_Renderer* r, double x1, double y1, double x2, double y2, SDL_Color c, int size) {
+    size = clampT(size, 1, 30);
+    double dx = x2 - x1;
+    double dy = y2 - y1;
+    double steps = max(fabs(dx), fabs(dy));
+    if (steps < 1.0) steps = 1.0;
+
+    SDL_SetRenderDrawColor(r, c.r, c.g, c.b, c.a);
+
+    for (int i = 0; i <= (int)steps; i++) {
+        double t = (double)i / steps;
+        int px = (int)round(x1 + dx * t);
+        int py = (int)round(y1 + dy * t);
+        SDL_Rect dot{px - size/2, py - size/2, size, size};
+        SDL_RenderFillRect(r, &dot);
+    }
+}
