@@ -2007,3 +2007,115 @@ static void drawThickLine(SDL_Renderer* r, double x1, double y1, double x2, doub
         SDL_RenderFillRect(r, &dot);
     }
 }
+static void renderPenLayer(const AppState& st, SDL_Renderer* r) {
+
+    for (const auto& seg : st.penSegs) {
+        drawThickLine(r, seg.x1, seg.y1, seg.x2, seg.y2, seg.c, seg.size);
+    }
+
+    for (const auto& sp : st.penStamps) {
+
+        SDL_Texture* useTex = nullptr;
+
+        if (!st.costumes.empty()) {
+            int ci = sp.costumeIndex;
+            if (ci < 0) ci = 0;
+            ci %= (int)st.costumes.size();
+            if (st.costumes[ci].tex) useTex = st.costumes[ci].tex;
+        }
+        if (!useTex && st.actorIcon.tex) useTex = st.actorIcon.tex;
+
+        int sizePx = (int)clampT((int)round(80.0 * (sp.sizePct / 100.0)), 10, 300);
+        SDL_Rect dst{(int)round(sp.x) - sizePx/2, (int)round(sp.y) - sizePx/2, sizePx, sizePx};
+
+        if (useTex) {
+
+            double angle = sp.dirDeg - 90.0;
+            SDL_RenderCopyEx(r, useTex, nullptr, &dst, angle, nullptr, SDL_FLIP_NONE);
+            SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
+            SDL_RenderDrawRect(r, &dst);
+        } else {
+            SDL_SetRenderDrawColor(r, 240, 240, 240, 255);
+            SDL_RenderFillRect(r, &dst);
+            SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
+            SDL_RenderDrawRect(r, &dst);
+        }
+    }
+}
+
+static void openExtensionLibrary(AppState& st) {
+    st.extensionLibraryOpen = true;
+    st.helpMenuOpen = false;
+    st.showLogsPanel = false;
+    st.penColorPickerOpen = false;
+    st.funcIOMenuOpen = false;
+    st.funcIOMenuBlockIndex = -1;
+    st.log.info(-1, "EXT", "Open library", "");
+}
+
+static SDL_Rect extensionLibraryRect(int w, int h) {
+    return SDL_Rect{w/2 - 320, h/2 - 220, 640, 440};
+}
+
+static SDL_Rect extensionItemRect(const SDL_Rect& box, int i) {
+    return SDL_Rect{box.x + 30, box.y + 90 + i*70, box.w - 60, 56};
+}
+
+static bool handleExtensionLibraryEvent(AppState& st, const SDL_Event& e, int w, int h) {
+    if (!st.extensionLibraryOpen) return false;
+
+    if (e.type == SDL_KEYDOWN && !e.key.repeat) {
+        if (e.key.keysym.sym == SDLK_ESCAPE) {
+            st.extensionLibraryOpen = false;
+            st.log.info(-1, "EXT", "Close library (Esc)", "");
+            return true;
+        }
+    }
+
+    if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+        int mx = e.button.x, my = e.button.y;
+        SDL_Rect box = extensionLibraryRect(w,h);
+
+        if (!pointInRect(mx, my, box)) {
+            st.extensionLibraryOpen = false;
+            st.log.info(-1, "EXT", "Close library (outside click)", "");
+            return true;
+        }
+
+        SDL_Rect penItem = extensionItemRect(box, 0);
+        if (pointInRect(mx, my, penItem)) {
+            st.penExtensionEnabled = true;
+            st.extensionLibraryOpen = false;
+            st.paletteDirty = true;
+            st.log.info(-1, "EXT", "Enable Pen", "installed=1");
+            return true;
+        }
+
+        return true;
+    }
+
+    return true;
+}
+
+static void renderExtensionLibrary(const AppState& st, SDL_Renderer* r, int w, int h) {
+    if (!st.extensionLibraryOpen) return;
+
+    SDL_SetRenderDrawColor(r, 0,0,0,170);
+    SDL_Rect full{0,0,w,h};
+    SDL_RenderFillRect(r, &full);
+
+    SDL_Rect box = extensionLibraryRect(w,h);
+    SDL_SetRenderDrawColor(r, 40,40,46,255);
+    SDL_RenderFillRect(r, &box);
+    SDL_SetRenderDrawColor(r, 200,200,200,255);
+    SDL_RenderDrawRect(r, &box);
+
+    SDL_Color white{240,240,240,255};
+    renderText(r, st.uiFont, "Extension Library (Esc to close)", box.x + 20, box.y + 18, white);
+    renderText(r, st.uiFont, "Click an extension to enable it:", box.x + 20, box.y + 44, white);
+
+    SDL_Rect penItem = extensionItemRect(box, 0);
+    SDL_SetRenderDrawColor(r, 30,30,34,255);
+    SDL_RenderFillRect(r, &penItem);
+    SDL_SetRenderDrawColor(r, 15,15,15,255);
+    SDL_RenderDrawRect(r, &penItem);
