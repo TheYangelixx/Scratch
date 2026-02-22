@@ -2878,3 +2878,55 @@ static void renderLogsPanel(const AppState& st, SDL_Renderer* r, int winW, int w
         if (y > area.y + area.h - lineH) break;
     }
 }
+static void stopScript(AppState& st, Sprite& sp, const string& reason, const string& level = "WARNING") {
+    if (!sp.scriptRunning) return;
+    sp.scriptRunning = false;
+    sp.waiting = false;
+    sp.waitUntilMs = 0;
+    st.soundBusyUntilMs = 0;
+    if (level == "ERROR") st.log.error(sp.scriptPC, "RUN", "Stop script", reason);
+    else                  st.log.warn(sp.scriptPC, "RUN", "Stop script", reason);
+}
+
+static bool safeDiv(AppState& st, int blockIndex, double a, double b, double& out) {
+    if (b == 0.0) {
+        st.log.error(blockIndex, "DIV", "Divide by zero prevented",
+                     "a=" + to_string(a) + " b=" + to_string(b));
+        fatalBox("Math Error", "Division by zero prevented.");
+        return false;
+    }
+    out = a / b;
+    return true;
+}
+
+static bool safeSqrt(AppState& st, int blockIndex, double v, double& out) {
+    if (v < 0.0) {
+        st.log.error(blockIndex, "SQRT", "sqrt(negative) prevented",
+                     "v=" + to_string(v));
+        fatalBox("Math Error", "sqrt of negative prevented.");
+        return false;
+    }
+    out = std::sqrt(v);
+    return true;
+}
+
+static void clampActorPos(AppState& st, int blockIndex, const string& cmd, double beforeX, double beforeY, Sprite& sp) {
+    double minX = st.stageBounds.x;
+    double maxX = st.stageBounds.x + st.stageBounds.w;
+    double minY = st.stageBounds.y;
+    double maxY = st.stageBounds.y + st.stageBounds.h;
+
+    double ox = sp.x, oy = sp.y;
+
+    if (sp.x < minX) sp.x = minX;
+    if (sp.x > maxX) sp.x = maxX;
+    if (sp.y < minY) sp.y = minY;
+    if (sp.y > maxY) sp.y = maxY;
+
+    bool clamped = (sp.x != ox) || (sp.y != oy);
+    if (clamped) {
+        st.log.warn(blockIndex, cmd, "Boundary clamp",
+                    "pos(" + to_string(beforeX) + "," + to_string(beforeY) + ")->(" +
+                    to_string(sp.x) + "," + to_string(sp.y) + ")");
+    }
+}
