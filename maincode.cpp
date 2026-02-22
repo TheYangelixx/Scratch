@@ -2721,3 +2721,787 @@ static uint32_t playWavOneShot(AppState& st, const string& wavFile) {
         st.log.info(-1, "AUDIO", "Muted/zero volume", wavFile);
         return 0;
     }
+ 
+    SDL_ClearQueuedAudio(st.audioDev);
+
+    Uint8* mixBuf = (Uint8*)SDL_malloc(len);
+    if (!mixBuf) {
+        SDL_FreeWAV(srcBuf);
+        if (cvtBuf) SDL_free(cvtBuf);
+        st.log.warn(-1, "AUDIO", "malloc failed", "len=" + to_string(len));
+        return 0;
+    }
+    SDL_memset(mixBuf, 0, len);
+
+    int sdlVol = (int)llround((vol / 100.0) * SDL_MIX_MAXVOLUME); // 0..128
+    SDL_MixAudioFormat(mixBuf, buf, st.audioSpec.format, len, sdlVol);
+    SDL_QueueAudio(st.audioDev, mixBuf, len);
+
+    uint32_t ms = computeAudioMs(st.audioSpec, len);
+    st.log.info(-1, "AUDIO", "Play WAV", wavFile + " ms=" + to_string(ms));
+
+    SDL_free(mixBuf);
+    SDL_FreeWAV(srcBuf);
+    if (cvtBuf) SDL_free(cvtBuf);
+
+    return ms;
+}
+
+
+static vector<Value>& getList(AppState& st, const string& name) {
+    return st.lists[name]; // auto-create if missing
+}
+
+static Value listItemFromBlock(const Block& b) {
+    if (!b.s2.empty()) return Value::Str(b.s2);
+    return Value::Num(b.a);
+}
+
+static bool listIndexOk1(int idx1, int n) {
+    return (idx1 >= 1 && idx1 <= n);
+}
+
+
+static void cloneCreateFromActor(AppState& st) {
+    CloneSprite c;
+    c.x = st.getActive().x;
+    c.y = st.getActive().y;
+    c.dirDeg = st.getActive().dirDeg;
+    c.visible = st.getActive().visible;
+    c.sizePct = st.getActive().sizePct;
+    st.clones.push_back(c);
+}
+
+static void cloneDeleteLast(AppState& st) {
+    if (!st.clones.empty()) st.clones.pop_back();
+}
+
+static void cloneClearAll(AppState& st) {
+    st.clones.clear();
+}
+
+
+static void drawSprite(SDL_Renderer* r, const AppState& st, const Sprite& sp) {
+    if (!sp.visible) return;
+
+    int sizePx = (int)clampT((int)round(80.0 * (sp.sizePct / 100.0)), 10, 300);
+    SDL_Rect dst{(int)round(sp.x) - sizePx/2, (int)round(sp.y) - sizePx/2, sizePx, sizePx};
+
+    SDL_Texture* useTex = sp.icon.tex;
+    if (useTex) {
+        double angle = scratchToSDLAangle(sp.dirDeg);
+        SDL_Color mod = applyLookEffect(SDL_Color{255,255,255,255}, sp.colorEffect);
+        SDL_SetTextureColorMod(useTex, mod.r, mod.g, mod.b);
+        SDL_RenderCopyEx(r, useTex, nullptr, &dst, angle, nullptr, SDL_FLIP_NONE);
+        SDL_SetTextureColorMod(useTex, 255, 255, 255);
+
+        SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
+        SDL_RenderDrawRect(r, &dst);
+    } else {
+        SDL_SetRenderDrawColor(r, 240, 240, 240, 255);
+        SDL_RenderFillRect(r, &dst);
+        SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
+        SDL_RenderDrawRect(r, &dst);
+    }
+
+
+    double rad = scratchRad(sp.dirDeg);
+    int x2 = (int)round(sp.x + cos(rad) * (sizePx/2 + 10));
+    int y2 = (int)round(sp.y - sin(rad) * (sizePx/2 + 10));
+    SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
+    SDL_RenderDrawLine(r, (int)round(sp.x), (int)round(sp.y), x2, y2);
+}
+
+
+static double funcReadInput(AppState& st, const string& inSel) {
+    if (inSel == "last") return asNum(st.lastValue);
+    if (inSel == "mouseX") return (double)st.in.mx;
+    if (inSel == "mouseY") return (double)st.in.my;
+    if (inSel == "timer")  return (SDL_GetTicks() - st.timerStartMs) / 1000.0;
+    if (inSel == "answer") {
+        char* endp = nullptr;
+        double x = strtod(st.lastAnswer.c_str(), &endp);
+        if (endp && endp != st.lastAnswer.c_str()) return x;
+        return 0.0;
+    }
+    if (inSel == "actorX") return st.getActive().x;
+    if (inSel == "actorY") return st.getActive().y;
+    if (inSel == "dir")    return st.getActive().dirDeg;
+
+
+    if (st.vars.count(inSel)) return asNum(st.vars[inSel]);
+    return 0.0;
+}
+
+static void funcWriteOutput(AppState& st, const string& outSel, double v) {
+    if (outSel == "last") {
+        st.lastValue = Value::Num(v);
+        return;
+    }
+    if (outSel == "msg") {
+        ostringstream ss; ss << v;
+        st.vars["msg"] = Value::Str(ss.str());
+        return;
+    }
+
+    st.vars[outSel] = Value::Num(v);
+}
+
+static bool funcApplyBuiltin(AppState& st, int blockIndex, const string& fn, double x, double& out) {
+    if (fn == "sqrt") {
+        return safeSqrt(st, blockIndex, x, out);
+    }
+    if (fn == "abs") {
+        out = fabs(x);
+        return true;
+    }
+    if (fn == "sin") {
+        out = sin(degToRad(x));
+        return true;
+    }
+    if (fn == "cos") {
+        out = cos(degToRad(x));
+        return true;
+    }
+    if (fn == "tan") {
+        out = tan(degToRad(x));
+        return true;
+    }
+    if (fn == "round") {
+        out = (double)llround(x);
+        return true;
+    }
+    if (fn == "floor") {
+        out = floor(x);
+        return true;
+    }
+    if (fn == "ceil") {
+        out = ceil(x);
+        return true;
+    }
+
+
+    out = x;
+    return true;
+}
+
+static string cycleName3(const string& cur) {
+    if (cur == "v") return "score";
+    if (cur == "score") return "msg";
+    return "v";
+}
+
+static string cycleFuncName(const string& cur) {
+    if (cur == "myFunc") return "drawShape";
+    if (cur == "drawShape") return "jumpUp";
+    return "myFunc";
+}
+
+static string cycleListName3(const string& cur) {
+    if (cur == "list") return "list2";
+    if (cur == "list2") return "list3";
+    return "list";
+}
+
+enum class StepResult { Advanced, Yielded, Stopped };
+
+static StepResult executeOneBlock(AppState& st, Sprite& sp) {
+    if (!sp.scriptRunning) return StepResult::Stopped;
+    if (st.askDialogOpen)  return StepResult::Yielded;
+
+
+    if (sp.waiting) {
+        if (SDL_GetTicks() < sp.waitUntilMs) return StepResult::Yielded;
+        sp.waiting = false;
+        sp.waitUntilMs = 0;
+    }
+
+    if (sp.scriptPC < 0 || sp.scriptPC >= (int)sp.ws.blocks.size()) {
+        stopScript(st, sp, "Reached end", "WARNING");
+        return StepResult::Stopped;
+    }
+
+    Block& b = sp.ws.blocks[sp.scriptPC];
+    int idx = sp.scriptPC;
+    string cmd = b.cmd;
+
+
+    if (cmd == "EVENT_FLAG" || cmd == "EVENT_KEY" || cmd == "EVENT_CLICK") {
+        st.log.info(idx, cmd, "Event block", "pass");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "BROADCAST") {
+        st.lastBroadcast = b.s1.empty() ? "msg" : b.s1;
+        st.log.info(idx, cmd, "Broadcast", "msg=" + st.lastBroadcast);
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "WHEN_RECEIVE") {
+        st.log.info(idx, cmd, "When receive", "msg=" + b.s1);
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "MOVE") {
+        double bx = sp.x, by = sp.y;
+        sp.x += b.a;
+        clampActorPos(st, idx, cmd, bx, by, sp);
+
+        if (st.penExtensionEnabled && st.penDown) penAddSegment(st, bx, by, sp.x, sp.y);
+
+        st.log.info(idx, cmd, "Change X", "x:" + to_string(bx) + "->" + to_string(sp.x));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "MOVE_STEPS") {
+        double bx = sp.x, by = sp.y;
+        double rad = scratchRad(sp.dirDeg);
+        sp.x += cos(rad) * b.a;
+        sp.y -= sin(rad) * b.a;
+        clampActorPos(st, idx, cmd, bx, by, sp);
+
+        if (st.penExtensionEnabled && st.penDown) penAddSegment(st, bx, by, sp.x, sp.y);
+
+        st.log.info(idx, cmd, "Move steps",
+                    "pos(" + to_string(bx) + "," + to_string(by) + ")->(" +
+                    to_string(sp.x) + "," + to_string(sp.y) + ")");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "TURN_R" || cmd == "TURN_L") {
+        double before = sp.dirDeg;
+        double delta = (cmd == "TURN_R") ? b.a : -b.a;
+        sp.dirDeg = fmod(sp.dirDeg + delta, 360.0);
+        if (sp.dirDeg < 0) sp.dirDeg += 360.0;
+        st.log.info(idx, cmd, "Turn", "dir:" + to_string(before) + "->" + to_string(sp.dirDeg));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "SET_DIR") {
+        double before = sp.dirDeg;
+        sp.dirDeg = fmod(b.a, 360.0);
+        if (sp.dirDeg < 0) sp.dirDeg += 360.0;
+        st.log.info(idx, cmd, "Set direction", "dir:" + to_string(before) + "->" + to_string(sp.dirDeg));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "GOTO_XY") {
+        double bx = sp.x, by = sp.y;
+        sp.x = b.a;
+        sp.y = b.b;
+        clampActorPos(st, idx, cmd, bx, by, sp);
+
+        if (st.penExtensionEnabled && st.penDown) penAddSegment(st, bx, by, sp.x, sp.y);
+
+        st.log.info(idx, cmd, "Go to",
+                    "pos(" + to_string(bx) + "," + to_string(by) + ")->(" +
+                    to_string(sp.x) + "," + to_string(sp.y) + ")");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "CHANGE_X") {
+        double bx = sp.x, by = sp.y;
+        sp.x += b.a;
+        clampActorPos(st, idx, cmd, bx, by, sp);
+        if (st.penExtensionEnabled && st.penDown) penAddSegment(st, bx, by, sp.x, sp.y);
+
+        st.log.info(idx, cmd, "Change X", "x:" + to_string(bx) + "->" + to_string(sp.x));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "CHANGE_Y") {
+        double bx = sp.x, by = sp.y;
+        sp.y += b.a;
+        clampActorPos(st, idx, cmd, bx, by, sp);
+        if (st.penExtensionEnabled && st.penDown) penAddSegment(st, bx, by, sp.x, sp.y);
+
+        st.log.info(idx, cmd, "Change Y", "y:" + to_string(by) + "->" + to_string(sp.y));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "GOTO_RANDOM") {
+        double bx = sp.x, by = sp.y;
+        double minX = st.stageBounds.x;
+        double maxX = st.stageBounds.x + st.stageBounds.w;
+        double minY = st.stageBounds.y;
+        double maxY = st.stageBounds.y + st.stageBounds.h;
+
+        sp.x = minX + (rand() / (double)RAND_MAX) * (maxX - minX);
+        sp.y = minY + (rand() / (double)RAND_MAX) * (maxY - minY);
+
+        if (st.penExtensionEnabled && st.penDown) penAddSegment(st, bx, by, sp.x, sp.y);
+        st.log.info(idx, cmd, "Go random", "pos(" + to_string(sp.x) + "," + to_string(sp.y) + ")");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "GOTO_MOUSE") {
+        double bx = sp.x, by = sp.y;
+        sp.x = st.in.mx;
+        sp.y = st.in.my;
+        clampActorPos(st, idx, cmd, bx, by, sp);
+
+        if (st.penExtensionEnabled && st.penDown) penAddSegment(st, bx, by, sp.x, sp.y);
+
+        st.log.info(idx, cmd, "Go mouse", "pos(" + to_string(sp.x) + "," + to_string(sp.y) + ")");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "BOUNCE_EDGE") {
+        bool onEdge = (sp.x <= st.stageBounds.x + 0.5) ||
+                      (sp.x >= st.stageBounds.x + st.stageBounds.w - 0.5) ||
+                      (sp.y <= st.stageBounds.y + 0.5) ||
+                      (sp.y >= st.stageBounds.y + st.stageBounds.h - 0.5);
+
+        if (onEdge) {
+            double before = sp.dirDeg;
+            sp.dirDeg = fmod(180.0 - sp.dirDeg, 360.0);
+            if (sp.dirDeg < 0) sp.dirDeg += 360.0;
+            st.log.warn(idx, cmd, "Bounce", "dir:" + to_string(before) + "->" + to_string(sp.dirDeg));
+        } else {
+            st.log.info(idx, cmd, "Bounce", "not on edge");
+        }
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "LAYER_FRONT") {
+        int maxZ = sp.zOrder;
+        for (const auto& s : st.sprites) if (s.zOrder > maxZ) maxZ = s.zOrder;
+        sp.zOrder = maxZ + 1;
+        st.log.info(idx, cmd, "Front layer", "z=" + to_string(sp.zOrder));
+        sp.scriptPC++; return StepResult::Advanced;
+    }
+    if (cmd == "LAYER_BACK") {
+        int minZ = sp.zOrder;
+        for (const auto& s : st.sprites) if (s.zOrder < minZ) minZ = s.zOrder;
+        sp.zOrder = minZ - 1;
+        st.log.info(idx, cmd, "Back layer", "z=" + to_string(sp.zOrder));
+        sp.scriptPC++; return StepResult::Advanced;
+    }
+    if (cmd == "LAYER_FWD") {
+        sp.zOrder += (int)round(b.a);
+        st.log.info(idx, cmd, "Forward layer", "z=" + to_string(sp.zOrder));
+        sp.scriptPC++; return StepResult::Advanced;
+    }
+    if (cmd == "LAYER_BWD") {
+        sp.zOrder -= (int)round(b.a);
+        st.log.info(idx, cmd, "Backward layer", "z=" + to_string(sp.zOrder));
+        sp.scriptPC++; return StepResult::Advanced;
+    }
+    auto setBubble = [&](bool think, const string& text, double seconds) {
+        st.bubbleThink = think;
+        st.bubbleText = text;
+        if (seconds <= 0.0) st.bubbleUntilMs = 0;
+        else st.bubbleUntilMs = SDL_GetTicks() + (uint32_t)max(0.0, seconds * 1000.0);
+    };
+
+    if (cmd == "SAY")      { setBubble(false, b.s1, 0.0); st.log.info(idx, cmd, "Say", "text=" + b.s1); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "SAY_T")    { setBubble(false, b.s1, b.a); st.log.info(idx, cmd, "Say for", "t=" + to_string(b.a) + " text=" + b.s1); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "THINK")    { setBubble(true,  b.s1, 0.0); st.log.info(idx, cmd, "Think", "text=" + b.s1); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "THINK_T")  { setBubble(true,  b.s1, b.a); st.log.info(idx, cmd, "Think for", "t=" + to_string(b.a) + " text=" + b.s1); sp.scriptPC++; return StepResult::Advanced; }
+
+    if (cmd == "SHOW") { sp.visible = true;  st.log.info(idx, cmd, "Show", ""); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "HIDE") { sp.visible = false; st.log.info(idx, cmd, "Hide", ""); sp.scriptPC++; return StepResult::Advanced; }
+
+    if (cmd == "SIZE_SET") {
+        double before = sp.sizePct;
+        sp.sizePct = clampT(b.a, 0.0, 300.0);
+        st.log.info(idx, cmd, "Set size", "size:" + to_string(before) + "->" + to_string(sp.sizePct));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "SIZE_CHANGE") {
+        double before = sp.sizePct;
+        sp.sizePct = clampT(sp.sizePct + b.a, 0.0, 300.0);
+        st.log.info(idx, cmd, "Change size", "size:" + to_string(before) + "->" + to_string(sp.sizePct));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "FX_COLOR_SET") {
+        double before = sp.colorEffect;
+        sp.colorEffect = fmod(b.a, 360.0);
+        if (sp.colorEffect < 0) sp.colorEffect += 360.0;
+        st.log.info(idx, cmd, "Set color effect", "h:" + to_string(before) + "->" + to_string(sp.colorEffect));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "FX_COLOR_CHANGE") {
+        double before = sp.colorEffect;
+        sp.colorEffect = fmod(sp.colorEffect + b.a, 360.0);
+        if (sp.colorEffect < 0) sp.colorEffect += 360.0;
+        st.log.info(idx, cmd, "Change color effect", "h:" + to_string(before) + "->" + to_string(sp.colorEffect));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "FX_CLEAR") {
+        sp.colorEffect = 0.0;
+        st.log.info(idx, cmd, "Clear effects", "");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "COSTUME_SET")  { sp.costumeIndex = (int)round(b.a); st.log.info(idx, cmd, "Set costume", "idx=" + to_string(sp.costumeIndex)); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "COSTUME_NEXT") { sp.costumeIndex++;                 st.log.info(idx, cmd, "Next costume", "idx=" + to_string(sp.costumeIndex)); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "BACKDROP_SET") { st.backdropIndex = (int)round(b.a); st.log.info(idx, cmd, "Set backdrop", "idx=" + to_string(st.backdropIndex)); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "BACKDROP_NEXT"){ st.backdropIndex++;                 st.log.info(idx, cmd, "Next backdrop", "idx=" + to_string(st.backdropIndex)); sp.scriptPC++; return StepResult::Advanced; }
+
+
+    if (cmd == "SOUND_PLAY") {
+        string name = b.s1.empty() ? "pop" : b.s1;
+        string wav = name + ".wav";
+        uint32_t ms = playWavOneShot(st, wav);
+        st.soundBusyUntilMs = (ms > 0) ? (SDL_GetTicks() + ms) : 0;
+        st.log.info(idx, cmd, "Play sound", "file=" + wav);
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "SOUND_PLAY_UNTIL") {
+        string name = b.s1.empty() ? "pop" : b.s1;
+        string wav = name + ".wav";
+        uint32_t now = SDL_GetTicks();
+
+
+        if (st.soundBusyUntilMs != 0 && now < st.soundBusyUntilMs) {
+            return StepResult::Yielded;
+        }
+
+
+        st.soundBusyUntilMs = 0;
+        uint32_t ms = playWavOneShot(st, wav);
+        st.soundBusyUntilMs = (ms > 0) ? (SDL_GetTicks() + ms) : 0;
+
+        st.log.info(idx, cmd, "Play until done", "file=" + wav);
+
+        if (st.soundBusyUntilMs != 0 && SDL_GetTicks() < st.soundBusyUntilMs) {
+            return StepResult::Yielded;
+        }
+
+
+        st.soundBusyUntilMs = 0;
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "SOUND_STOP_ALL") {
+        if (st.audioReady && st.audioDev) SDL_ClearQueuedAudio(st.audioDev);
+        st.soundBusyUntilMs = 0;
+        st.log.info(idx, cmd, "Stop all sounds", "");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "SOUND_SET_VOL") {
+        int before = st.soundVolume;
+        st.soundVolume = clampT((int)round(b.a), 0, 100);
+        st.log.info(idx, cmd, "Set volume", "vol:" + to_string(before) + "->" + to_string(st.soundVolume));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "SOUND_CHANGE_VOL") {
+        int before = st.soundVolume;
+        st.soundVolume = clampT((int)round(st.soundVolume + b.a), 0, 100);
+        st.log.info(idx, cmd, "Change volume", "vol:" + to_string(before) + "->" + to_string(st.soundVolume));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+
+    if (cmd == "TOUCH_SPRITE") {
+        bool touching = false;
+        string targetName = b.s1;
+        int sizeA = (int)clampT((int)round(80.0 * (sp.sizePct / 100.0)), 10, 300);
+        SDL_Rect rA{(int)round(sp.x) - sizeA/2, (int)round(sp.y) - sizeA/2, sizeA, sizeA};
+
+        for (const auto& other : st.sprites) {
+            if (&other == &sp) continue; // با خودش برخورد نکند
+            if (other.name == targetName && other.visible) {
+                int sizeB = (int)clampT((int)round(80.0 * (other.sizePct / 100.0)), 10, 300);
+                SDL_Rect rB{(int)round(other.x) - sizeB/2, (int)round(other.y) - sizeB/2, sizeB, sizeB};
+                // بررسی تداخل دو مستطیل (برخورد)
+                if (!(rA.x + rA.w <= rB.x || rB.x + rB.w <= rA.x || rA.y + rA.h <= rB.y || rB.y + rB.h <= rA.y)) {
+                    touching = true; break;
+                }
+            }
+        }
+        st.lastValue = Value::Num(touching ? 1.0 : 0.0);
+        st.log.info(idx, cmd, "Touch Sprite?", targetName + " -> " + st.lastValue.toString());
+        sp.scriptPC++; return StepResult::Advanced;
+    }
+    if (cmd == "TOUCH_EDGE") {
+        bool onEdge = (sp.x <= st.stageBounds.x + 0.5) ||
+                     (sp.x >= st.stageBounds.x + st.stageBounds.w - 0.5) ||
+                     (sp.y <= st.stageBounds.y + 0.5) ||
+                     (sp.y >= st.stageBounds.y + st.stageBounds.h - 0.5);
+        st.lastValue = Value::Num(onEdge ? 1.0 : 0.0);
+        st.lastValue = Value::Num(onEdge ? 1.0 : 0.0);
+        st.log.info(idx, cmd, "Touch edge?", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "TOUCH_MOUSE") {
+        double dx = sp.x - st.in.mx;
+        double dy = sp.y - st.in.my;
+        double dist = sqrt(dx*dx + dy*dy);
+        bool touching = dist <= 10.0;
+        st.lastValue = Value::Num(touching ? 1.0 : 0.0);
+        st.log.info(idx, cmd, "Touch mouse?", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "DIST_MOUSE") {
+        double dx = sp.x - st.in.mx;
+        double dy = sp.y - st.in.my;
+        double dist = sqrt(dx*dx + dy*dy);
+        st.lastValue = Value::Num(dist);
+        st.log.info(idx, cmd, "Distance mouse", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "KEY_PRESSED") {
+        int sc = b.i1;
+        bool down = (sc >= 0 && sc < SDL_NUM_SCANCODES) ? st.in.keyDown[sc] : false;
+        st.lastValue = Value::Num(down ? 1.0 : 0.0);
+        st.log.info(idx, cmd, "Key pressed?", "sc=" + to_string(sc) + " -> " + st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "MOUSE_DOWN") {
+        st.lastValue = Value::Num(st.in.mouseDown ? 1.0 : 0.0);
+        st.log.info(idx, cmd, "Mouse down?", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "MOUSE_X") {
+        st.lastValue = Value::Num((double)st.in.mx);
+        st.log.info(idx, cmd, "Mouse x", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "MOUSE_Y") {
+        st.lastValue = Value::Num((double)st.in.my);
+        st.log.info(idx, cmd, "Mouse y", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "ASK") {
+        beginAskDialog(st, b.s1.empty() ? "?" : b.s1, idx + 1);
+        return StepResult::Yielded;
+    }
+    if (cmd == "ANSWER") {
+        st.lastValue = Value::Str(st.lastAnswer);
+        st.log.info(idx, cmd, "Answer", "val=" + st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "TIMER") {
+        double secs = (SDL_GetTicks() - st.timerStartMs) / 1000.0;
+        st.lastValue = Value::Num(secs);
+        st.log.info(idx, cmd, "Timer", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "RESET_TIMER") {
+        st.timerStartMs = SDL_GetTicks();
+        st.log.info(idx, cmd, "Reset timer", "0");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    // ---- Operators
+    if (cmd == "OP_ADD") { st.lastValue = Value::Num(b.a + b.b); st.log.info(idx, cmd, "Add", st.lastValue.toString()); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "OP_SUB") { st.lastValue = Value::Num(b.a - b.b); st.log.info(idx, cmd, "Sub", st.lastValue.toString()); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "OP_MUL") { st.lastValue = Value::Num(b.a * b.b); st.log.info(idx, cmd, "Mul", st.lastValue.toString()); sp.scriptPC++; return StepResult::Advanced; }
+
+    if (cmd == "DIV") {
+        double out = 0.0;
+        if (safeDiv(st, idx, b.a, b.b, out)) st.lastValue = Value::Num(out);
+        st.log.info(idx, cmd, "Div", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "OP_EQ") { st.lastValue = Value::Num((b.a == b.b) ? 1.0 : 0.0); st.log.info(idx, cmd, "Eq", st.lastValue.toString()); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "OP_LT") { st.lastValue = Value::Num((b.a <  b.b) ? 1.0 : 0.0); st.log.info(idx, cmd, "Lt", st.lastValue.toString()); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "OP_GT") { st.lastValue = Value::Num((b.a >  b.b) ? 1.0 : 0.0); st.log.info(idx, cmd, "Gt", st.lastValue.toString()); sp.scriptPC++; return StepResult::Advanced; }
+
+    if (cmd == "OP_AND") { st.lastValue = Value::Num(((b.a != 0.0) && (b.b != 0.0)) ? 1.0 : 0.0); st.log.info(idx, cmd, "AND", st.lastValue.toString()); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "OP_OR")  { st.lastValue = Value::Num(((b.a != 0.0) || (b.b != 0.0)) ? 1.0 : 0.0); st.log.info(idx, cmd, "OR", st.lastValue.toString()); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "OP_NOT") { st.lastValue = Value::Num((b.a == 0.0) ? 1.0 : 0.0); st.log.info(idx, cmd, "NOT", st.lastValue.toString()); sp.scriptPC++; return StepResult::Advanced; }
+
+    if (cmd == "OP_STRLEN") {
+        st.lastValue = Value::Num((double)b.s1.size());
+        st.log.info(idx, cmd, "strlen", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "OP_LETTER") {
+        int n = (int)round(b.a);
+        if (n <= 0 || n > (int)b.s1.size()) st.lastValue = Value::Str("");
+        else st.lastValue = Value::Str(string(1, b.s1[n-1]));
+        st.log.info(idx, cmd, "letter", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "OP_JOIN") {
+        st.lastValue = Value::Str(b.s1 + b.s2);
+        st.log.info(idx, cmd, "join", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "FUNC_APPLY") {
+        string fn = b.s1.empty() ? "sqrt" : b.s1;
+        string inSel = b.inSel.empty() ? "last" : b.inSel;
+        string outSel = b.outSel.empty() ? "last" : b.outSel;
+
+        double x = funcReadInput(st, inSel);
+        double y = 0.0;
+
+        if (!funcApplyBuiltin(st, idx, fn, x, y)) {
+            sp.scriptPC++;
+            return StepResult::Advanced;
+        }
+
+        funcWriteOutput(st, outSel, y);
+
+        st.log.info(idx, cmd, "Apply " + fn,
+                    "in=" + inSel + " x=" + to_string(x) +
+                    " -> out=" + outSel + " y=" + to_string(y));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+
+    if (cmd == "DEFINE_FN") {
+
+        int endIdx = (idx >= 0 && idx < (int)sp.jumpEnd.size()) ? sp.jumpEnd[idx] : -1;
+        if (endIdx != -1) {
+            st.log.info(idx, cmd, "Skip function definition", "jump to END_FN");
+            sp.scriptPC = endIdx + 1;
+        } else {
+            sp.scriptPC++;
+        }
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "CALL_FN") {
+        string fnName = b.s1.empty() ? "myFunc" : b.s1;
+        if (sp.funcDefs.count(fnName)) {
+
+            sp.callStack.push_back(sp.scriptPC + 1);
+
+            sp.currentParam = b.a;
+
+            sp.scriptPC = sp.funcDefs[fnName] + 1;
+            st.log.info(idx, cmd, "Call function", fnName + " arg=" + to_string(b.a));
+        } else {
+            st.log.warn(idx, cmd, "Function not found", fnName);
+            sp.scriptPC++;
+        }
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "END_FN") {
+        if (!sp.callStack.empty()) {
+
+            int retAddr = sp.callStack.back();
+            sp.callStack.pop_back();
+            sp.scriptPC = retAddr;
+            st.log.info(idx, cmd, "Return from function", "to line " + to_string(retAddr));
+        } else {
+            sp.scriptPC++;
+        }
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "GET_PARAM") {
+
+        st.lastValue = Value::Num(sp.currentParam);
+        st.log.info(idx, cmd, "Get param", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "VAR_SET_NUM") {
+        string name = b.s1.empty() ? "v" : b.s1;
+        Value before = st.vars.count(name) ? st.vars[name] : Value::Num(0);
+        st.vars[name] = Value::Num(b.a);
+        st.log.info(idx, cmd, "Set var", name + ":" + before.toString() + "->" + st.vars[name].toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "VAR_SET_STR") {
+        string name = b.s1.empty() ? "msg" : b.s1;
+        Value before = st.vars.count(name) ? st.vars[name] : Value::Str("");
+        st.vars[name] = Value::Str(b.s2);
+        st.log.info(idx, cmd, "Set var", name + ":" + before.toString() + "->" + st.vars[name].toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "VAR_CHANGE") {
+        string name = b.s1.empty() ? "v" : b.s1;
+        double before = st.vars.count(name) ? asNum(st.vars[name]) : 0.0;
+        double after = before + b.a;
+        st.vars[name] = Value::Num(after);
+        st.log.info(idx, cmd, "Change var", name + ":" + to_string(before) + "->" + to_string(after));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "VAR_SHOW") {
+        string name = b.s1.empty() ? "v" : b.s1;
+        st.varVisible[name] = true;
+        st.log.info(idx, cmd, "Show var", name);
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "VAR_HIDE") {
+        string name = b.s1.empty() ? "v" : b.s1;
+        st.varVisible[name] = false;
+        st.log.info(idx, cmd, "Hide var", name);
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "VAR_GET") {
+        string name = b.s1.empty() ? "v" : b.s1;
+        if (st.vars.count(name)) st.lastValue = st.vars[name];
+        else st.lastValue = Value::Num(0.0);
+        st.log.info(idx, cmd, "Get var", name + " -> " + st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "LIST_ADD") {
+        string name = b.s1.empty() ? "list" : b.s1;
+        Value item = listItemFromBlock(b);
+        getList(st, name).push_back(item);
+        st.log.info(idx, cmd, "Add to list", name + " <- " + item.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "LIST_DELETE") {
+        string name = b.s1.empty() ? "list" : b.s1;
+        auto& L = getList(st, name);
+        int i1 = (int)round(b.a);
+        if (listIndexOk1(i1, (int)L.size())) {
+            Value removed = L[i1 - 1];
+            L.erase(L.begin() + (i1 - 1));
+            st.log.info(idx, cmd, "Delete from list", name + " idx=" + to_string(i1) + " val=" + removed.toString());
+        } else {
+            st.log.warn(idx, cmd, "Delete out of range", name + " idx=" + to_string(i1));
+        }
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
