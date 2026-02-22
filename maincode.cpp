@@ -2586,3 +2586,33 @@ static void rebuildPalette(AppState& st, int winW, int winH) {
         paletteAddCat(st, contentY, label);
         contentY += 28;
     };
+
+    cat("Events");
+    placeBtn("when flag clicked", "", [&]{ addTypedBlock(st, "EVENT_FLAG", 0, 0); });
+    cat("Motion");
+    placeBtn("move 10 steps", "", [&]{ addTypedBlock(st, "MOVE_STEPS", 10.0, 0.0); });
+    placeBtn("turn right 15", "", [&]{ addTypedBlock(st, "TURN_R", 15.0, 0.0); });
+    placeBtn("turn left 15", "", [&]{ addTypedBlock(st, "TURN_L", 15.0, 0.0); });
+    placeBtn("go to x:100 y:100", "", [&]{ addTypedBlock(st, "GOTO_XY", 100.0, 100.0); });
+    placeBtn("change x by 10", "", [&]{ addTypedBlock(st, "CHANGE_X", 10.0, 0.0); });
+    placeBtn("change y by 10", "", [&]{ addTypedBlock(st, "CHANGE_Y", 10.0, 0.0); });
+    placeBtn("point dir 90", "", [&]{ addTypedBlock(st, "SET_DIR", 90.0, 0.0); });
+    placeBtn("go to random", "", [&]{ addTypedBlock(st, "GOTO_RANDOM", 0.0, 0.0); });
+    placeBtn("go to mouse", "", [&]{ addTypedBlock(st, "GOTO_MOUSE", 0.0, 0.0); });
+    placeBtn("if on edge, bounce", "", [&]{ addTypedBlock(st, "BOUNCE_EDGE", 0.0, 0.0); });
+
+    cat("Looks");
+    placeBtn("go to front layer", "", [&]{ addTypedBlock(st, "LAYER_FRONT", 0.0, 0.0); });
+    placeBtn("go to back layer", "", [&]{ addTypedBlock(st, "LAYER_BACK", 0.0, 0.0); });
+    placeBtn("go forward 1 layers", "", [&]{ addTypedBlock(st, "LAYER_FWD", 1.0, 0.0); });
+    placeBtn("go backward 1 layers", "", [&]{ addTypedBlock(st, "LAYER_BWD", 1.0, 0.0); });
+    placeBtn("say \"Hello\"", "", [&]{ addTypedBlock(st, "SAY", 0.0, 0.0, "Hello"); });
+    placeBtn("say \"Hi\" for 2s", "", [&]{ addTypedBlock(st, "SAY_T", 2.0, 0.0, "Hi"); });
+    placeBtn("think \"...\"", "", [&]{ addTypedBlock(st, "THINK", 0.0, 0.0, "..."); });
+    placeBtn("show", "", [&]{ addTypedBlock(st, "SHOW", 0.0, 0.0); });
+    placeBtn("hide", "", [&]{ addTypedBlock(st, "HIDE", 0.0, 0.0); });
+    placeBtn("set size to 100%", "", [&]{ addTypedBlock(st, "SIZE_SET", 100.0, 0.0); });
+    placeBtn("change size by 10", "", [&]{ addTypedBlock(st, "SIZE_CHANGE", 10.0, 0.0); });
+    placeBtn("set color effect 30", "", [&]{ addTypedBlock(st, "FX_COLOR_SET", 30.0, 0.0); });
+    placeBtn("change color effect 10", "", [&]{ addTypedBlock(st, "FX_COLOR_CHANGE", 10.0, 0.0); });
+    placeBtn("clear effects", "", [&]{ addTypedBlock(st, "FX_CLEAR", 0.0, 0.0); });
