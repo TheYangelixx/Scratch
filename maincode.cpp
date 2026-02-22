@@ -2721,7 +2721,7 @@ static uint32_t playWavOneShot(AppState& st, const string& wavFile) {
         st.log.info(-1, "AUDIO", "Muted/zero volume", wavFile);
         return 0;
     }
- 
+
     SDL_ClearQueuedAudio(st.audioDev);
 
     Uint8* mixBuf = (Uint8*)SDL_malloc(len);
@@ -3502,6 +3502,13 @@ static StepResult executeOneBlock(AppState& st, Sprite& sp) {
         } else {
             st.log.warn(idx, cmd, "Delete out of range", name + " idx=" + to_string(i1));
         }
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "LIST_CLEAR") {
+        string name = b.s1.empty() ? "list" : b.s1;
+        getList(st, name).clear();
+        st.log.info(idx, cmd, "Clear list", name);
         sp.scriptPC++;
         return StepResult::Advanced;
     }
