@@ -2640,3 +2640,84 @@ static bool initAudioSystem(AppState& st) {
     want.channels = 2;
     want.samples = 4096;
     want.callback = nullptr;
+SDL_AudioSpec have{};
+    st.audioDev = SDL_OpenAudioDevice(nullptr, 0, &want, &have, SDL_AUDIO_ALLOW_ANY_CHANGE);
+    if (!st.audioDev) {
+        st.audioReady = false;
+        st.log.warn(-1, "AUDIO", "OpenAudioDevice failed", SDL_GetError());
+        return false;
+    }
+
+    st.audioSpec = have;
+    st.audioReady = true;
+    SDL_PauseAudioDevice(st.audioDev, 0);
+
+    st.log.info(-1, "AUDIO", "Audio ready",
+                "freq=" + to_string(have.freq) + " ch=" + to_string((int)have.channels));
+    return true;
+}
+
+static void shutdownAudioSystem(AppState& st) {
+    if (st.audioDev) {
+        SDL_ClearQueuedAudio(st.audioDev);
+        SDL_CloseAudioDevice(st.audioDev);
+    }
+    st.audioDev = 0;
+    st.audioReady = false;
+    st.soundBusyUntilMs = 0;
+}
+
+
+
+static uint32_t playWavOneShot(AppState& st, const string& wavFile) {
+    if (!st.audioReady || !st.audioDev) {
+        st.log.warn(-1, "AUDIO", "Audio not ready", "skip " + wavFile);
+        return 0;
+    }
+
+    SDL_AudioSpec srcSpec{};
+    Uint8* srcBuf = nullptr;
+    Uint32 srcLen = 0;
+
+    if (!SDL_LoadWAV(wavFile.c_str(), &srcSpec, &srcBuf, &srcLen)) {
+        st.log.warn(-1, "AUDIO", "LoadWAV failed", wavFile + " err=" + SDL_GetError());
+        return 0;
+    }
+
+    Uint8* buf = srcBuf;
+    Uint32 len = srcLen;
+    Uint8* cvtBuf = nullptr;
+
+    // convert if needed
+    if (srcSpec.format != st.audioSpec.format ||
+        srcSpec.channels != st.audioSpec.channels ||
+        srcSpec.freq != st.audioSpec.freq) {
+
+        SDL_AudioCVT cvt;
+        if (SDL_BuildAudioCVT(&cvt,
+                              srcSpec.format, srcSpec.channels, srcSpec.freq,
+                              st.audioSpec.format, st.audioSpec.channels, st.audioSpec.freq) >= 0 && cvt.needed) {
+
+            cvt.len = (int)srcLen;
+            cvtBuf = (Uint8*)SDL_malloc((size_t)cvt.len * (size_t)cvt.len_mult);
+            if (cvtBuf) {
+                SDL_memcpy(cvtBuf, srcBuf, srcLen);
+                cvt.buf = cvtBuf;
+
+                if (SDL_ConvertAudio(&cvt) == 0) {
+                    buf = cvt.buf;
+                    len = (Uint32)cvt.len_cvt;
+                } else {
+                    st.log.warn(-1, "AUDIO", "ConvertAudio failed", wavFile);
+                }
+            }
+        }
+    }
+
+    int vol = st.soundMuted ? 0 : clampT(st.soundVolume, 0, 100);
+    if (vol <= 0) {
+        SDL_FreeWAV(srcBuf);
+        if (cvtBuf) SDL_free(cvtBuf);
+        st.log.info(-1, "AUDIO", "Muted/zero volume", wavFile);
+        return 0;
+    }
