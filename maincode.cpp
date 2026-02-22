@@ -16,13 +16,13 @@
 
 #ifdef _WIN32
 #ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#include <direct.h>
-#include <commdlg.h>
+  #define NOMINMAX
+  #endif
+  #include <windows.h>
+  #include <direct.h>
+  #include <commdlg.h>
 #else
-#include <sys/stat.h>
+  #include <sys/stat.h>
   #include <dirent.h>
 #endif
 
@@ -52,6 +52,7 @@ static void fatalBox(const string& title, const string& msg) {
 static void infoBox(const string& title, const string& msg) {
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, title.c_str(), msg.c_str(), nullptr);
 }
+
 struct Logger {
     ofstream out;
     uint64_t cycle = 0;
@@ -114,6 +115,262 @@ struct Logger {
         logLine("ERROR", idx, cmd, op, data);
     }
 };
+
+
+struct InputState {
+    int mx = 0, my = 0;
+    bool mouseDown = false;
+    bool mousePressed = false;
+    bool mouseReleased = false;
+
+    bool keyDown[SDL_NUM_SCANCODES];
+    bool keyPressed[SDL_NUM_SCANCODES];
+
+    InputState() {
+        for (int i = 0; i < SDL_NUM_SCANCODES; i++) {
+            keyDown[i] = false;
+            keyPressed[i] = false;
+        }
+    }
+
+    void beginFrame() {
+        mousePressed = false;
+        mouseReleased = false;
+        for (int i = 0; i < SDL_NUM_SCANCODES; i++) keyPressed[i] = false;
+    }
+};
+
+
+static void renderText(SDL_Renderer* r, TTF_Font* font, const string& text, int x, int y, SDL_Color c) {
+    if (!font || text.empty()) return;
+    SDL_Surface* s = TTF_RenderUTF8_Blended(font, text.c_str(), c);
+    if (!s) return;
+    SDL_Texture* t = SDL_CreateTextureFromSurface(r, s);
+    SDL_Rect dst = {x, y, s->w, s->h};
+    SDL_FreeSurface(s);
+    if (!t) return;
+    SDL_RenderCopy(r, t, nullptr, &dst);
+    SDL_DestroyTexture(t);
+}
+
+static void renderTextCentered(SDL_Renderer* r, TTF_Font* font, const string& text, const SDL_Rect& box, int dy, SDL_Color c) {
+    if (!font || text.empty()) return;
+    int tw = 0, th = 0;
+    if (TTF_SizeUTF8(font, text.c_str(), &tw, &th) != 0) return;
+    int x = box.x + (box.w - tw) / 2;
+    int y = box.y + (box.h - th) / 2 + dy;
+    renderText(r, font, text, x, y, c);
+}
+
+static TTF_Font* loadUIFont(int pt) {
+#ifdef _WIN32
+    const char* candidates[] = {
+        "C:\\Windows\\Fonts\\consola.ttf",
+        "C:\\Windows\\Fonts\\arial.ttf",
+        "C:\\Windows\\Fonts\\tahoma.ttf"
+    };
+#else
+    const char* candidates[] = {
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSans.ttf"
+    };
+#endif
+    for (size_t i = 0; i < sizeof(candidates)/sizeof(candidates[0]); i++) {
+        TTF_Font* f = TTF_OpenFont(candidates[i], pt);
+        if (f) return f;
+    }
+
+    TTF_Font* f2 = TTF_OpenFont("font.ttf", pt);
+    if (f2) return f2;
+
+    return nullptr;
+}
+
+
+struct Button {
+    SDL_Rect rect{};
+    string text;
+    string sub;
+    function<void()> onClick;
+    function<void()> onPress;
+
+    bool hovered = false;
+    bool down = false;
+
+    void update(const InputState& in) {
+        hovered = pointInRect(in.mx, in.my, rect);
+
+        if (hovered && in.mousePressed) {
+            down = true;
+            if (onPress) onPress();
+        }
+
+        if (down && in.mouseReleased) {
+            down = false;
+            if (hovered && onClick) onClick();
+        }
+
+        if (!in.mouseDown) down = false;
+    }
+    void draw(SDL_Renderer* r, TTF_Font* font) const {
+        SDL_Color bg = {70, 70, 70, 255};
+        if (down) bg = SDL_Color{120, 120, 120, 255};
+        else if (hovered) bg = SDL_Color{90, 90, 90, 255};
+
+        SDL_SetRenderDrawColor(r, bg.r, bg.g, bg.b, bg.a);
+        SDL_RenderFillRect(r, &rect);
+
+        SDL_SetRenderDrawColor(r, 15, 15, 15, 255);
+        SDL_RenderDrawRect(r, &rect);
+
+        SDL_Color fg = {235, 235, 235, 255};
+        renderTextCentered(r, font, text, rect, sub.empty() ? 0 : -7, fg);
+        if (!sub.empty()) renderTextCentered(r, font, sub, rect, +10, fg);
+    }
+};
+
+
+struct Block {
+    int id = 0;
+    SDL_Rect rect{};
+    SDL_Color color = {60, 150, 220, 255};
+
+    bool dragging = false;
+    int offX = 0, offY = 0;
+
+
+    string cmd = "MOVE";
+    double a = 40.0;
+    double b = 0.0;
+    string s1 = "";
+    string s2 = "";
+    int i1 = 0;
+
+
+    string opt = "";
+    SDL_Color pickColor = {0, 255, 0, 255};
+
+
+    string inSel = "last";
+    string outSel = "last";
+};
+
+struct Workspace {
+    SDL_Rect bounds{};
+    vector<Block> blocks;
+    int nextId = 1;
+
+    void reset() {
+        blocks.clear();
+        nextId = 1;
+    }
+
+    void addBlock(int x, int y) {
+        Block b;
+        b.id = nextId++;
+        b.rect = SDL_Rect{x, y, 240, 52};
+        blocks.push_back(b);
+    }
+
+    int hitTest(int mx, int my) const {
+        for (int i = (int)blocks.size() - 1; i >= 0; --i) {
+            if (pointInRect(mx, my, blocks[i].rect)) return i;
+        }
+        return -1;
+    }
+
+    void bringToFront(int idx) {
+        if (idx < 0 || idx >= (int)blocks.size()) return;
+        Block b = blocks[idx];
+        blocks.erase(blocks.begin() + idx);
+        blocks.push_back(b);
+    }
+
+    void clampIntoBounds(Block& b) const {
+        b.rect.x = clampT(b.rect.x, bounds.x, bounds.x + bounds.w - b.rect.w);
+        b.rect.y = clampT(b.rect.y, bounds.y, bounds.y + bounds.h - b.rect.h);
+    }
+
+    void update(const InputState& in, Logger& log) {
+        if (in.mousePressed) {
+            int hit = hitTest(in.mx, in.my);
+            if (hit != -1) {
+                bringToFront(hit);
+                Block& top = blocks.back();
+                top.dragging = true;
+                top.offX = in.mx - top.rect.x;
+                top.offY = in.my - top.rect.y;
+                log.log("DRAG", "Pick block id=" + to_string(top.id));
+            }
+        }
+
+        if (in.mouseDown) {
+            for (size_t i = 0; i < blocks.size(); i++) {
+                Block& b = blocks[i];
+                if (!b.dragging) continue;
+
+                b.rect.x = in.mx - b.offX;
+                b.rect.y = in.my - b.offY;
+            }
+        }
+
+        if (in.mouseReleased) {
+
+            for (int i = (int)blocks.size() - 1; i >= 0; --i) {
+                Block& b = blocks[i];
+                if (b.dragging) {
+                    b.dragging = false;
+
+
+                    if (!pointInRect(in.mx, in.my, bounds)) {
+                        log.log("DRAG", "Deleted block id=" + to_string(b.id) + " (dropped outside)");
+                        blocks.erase(blocks.begin() + i);
+                    } else {
+
+                        int snapDist = 35;
+                        for (size_t j = 0; j < blocks.size(); ++j) {
+                            if (i == (int)j) continue;
+                            const Block& other = blocks[j];
+
+
+                            if (abs(b.rect.x - other.rect.x) < snapDist &&
+                                abs(b.rect.y - (other.rect.y + other.rect.h)) < snapDist) {
+                                b.rect.x = other.rect.x;
+                                b.rect.y = other.rect.y + other.rect.h; // فیکس شدن دقیق در زیر بلاک
+                                break;
+                            }
+
+                            if (abs(b.rect.x - other.rect.x) < snapDist &&
+                                abs((b.rect.y + b.rect.h) - other.rect.y) < snapDist) {
+                                b.rect.x = other.rect.x;
+                                b.rect.y = other.rect.y - b.rect.h;
+                                break;
+                            }
+                        }
+
+                        clampIntoBounds(b);
+                        log.log("DRAG", "Drop block id=" + to_string(b.id));
+                    }
+                }
+            }
+
+            std::stable_sort(blocks.begin(), blocks.end(), [](const Block& a1, const Block& a2) {
+                return a1.rect.y < a2.rect.y;
+            });
+        }
+    }
+
+    void draw(SDL_Renderer* r) const {
+        for (size_t i = 0; i < blocks.size(); i++) {
+            const Block& b = blocks[i];
+            SDL_SetRenderDrawColor(r, b.color.r, b.color.g, b.color.b, b.color.a);
+            SDL_RenderFillRect(r, &b.rect);
+            SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
+            SDL_RenderDrawRect(r, &b.rect);
+        }
+    }
+};
+
 struct PenSegment {
     double x1=0, y1=0, x2=0, y2=0;
     SDL_Color c{0,255,0,255};
@@ -127,6 +384,7 @@ struct PenStamp {
     double sizePct = 100.0;
 };
 
+
 struct TextureAsset {
     SDL_Texture* tex = nullptr;
     int w = 0, h = 0;
@@ -138,7 +396,6 @@ struct CloneSprite {
     bool visible = true;
     double sizePct = 100.0;
 };
-
 
 static bool dirExists(const string& path) {
 #ifdef _WIN32
@@ -233,35 +490,4 @@ static vector<string> listSaveStems() {
     sort(out.begin(), out.end());
     out.erase(unique(out.begin(), out.end()), out.end());
     return out;
-}
-
-struct Value {
-    bool isNum = true;
-    double num = 0.0;
-    string str;
-
-    static Value Num(double v) { Value x; x.isNum = true; x.num = v; return x; }
-    static Value Str(const string& s) { Value x; x.isNum = false; x.str = s; return x; }
-
-    string toString() const {
-        if (isNum) {
-            ostringstream ss;
-            ss << num;
-            return ss.str();
-        }
-        return str;
-    }
-
-    bool truthy() const {
-        if (isNum) return num != 0.0;
-        return !str.empty();
-    }
-};
-
-static double asNum(const Value& v) {
-    if (v.isNum) return v.num;
-    char* endp = nullptr;
-    double x = strtod(v.str.c_str(), &endp);
-    if (endp && endp != v.str.c_str()) return x;
-    return 0.0;
 }
