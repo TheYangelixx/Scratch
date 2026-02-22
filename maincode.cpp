@@ -29,9 +29,7 @@
 
 using namespace std;
 
-// =========================
-// Config
-// =========================
+
 static const int WINDOW_W = 1200;
 static const int WINDOW_H = 720;
 
