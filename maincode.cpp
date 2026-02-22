@@ -2119,3 +2119,470 @@ static void renderExtensionLibrary(const AppState& st, SDL_Renderer* r, int w, i
     SDL_RenderFillRect(r, &penItem);
     SDL_SetRenderDrawColor(r, 15,15,15,255);
     SDL_RenderDrawRect(r, &penItem);
+string penLabel = "Pen";
+    string penState = st.penExtensionEnabled ? "Installed" : "Click to enable";
+    renderText(r, st.uiFont, penLabel, penItem.x + 16, penItem.y + 10, white);
+    renderText(r, st.uiFont, penState, penItem.x + 16, penItem.y + 30, white);
+
+    SDL_Rect sw{penItem.x + penItem.w - 44, penItem.y + 12, 28, 28};
+    SDL_SetRenderDrawColor(r, 40,180,90,255);
+    SDL_RenderFillRect(r, &sw);
+    SDL_SetRenderDrawColor(r, 10,10,10,255);
+    SDL_RenderDrawRect(r, &sw);
+}
+
+// ---- Pen color picker (minimal preset palette)
+static SDL_Rect colorPickerRect(int w, int h) {
+    return SDL_Rect{w/2 - 250, h/2 - 180, 500, 360};
+}
+
+static bool handlePenColorPickerEvent(AppState& st, const SDL_Event& e, int w, int h) {
+    if (!st.penColorPickerOpen) return false;
+
+    if (e.type == SDL_KEYDOWN && !e.key.repeat) {
+        if (e.key.keysym.sym == SDLK_ESCAPE) {
+            st.penColorPickerOpen = false;
+            st.penColorPickerBlockIndex = -1;
+            st.log.info(-1, "PEN", "Close color picker (Esc)", "");
+            return true;
+        }
+    }
+
+    if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+        int mx = e.button.x, my = e.button.y;
+        SDL_Rect box = colorPickerRect(w,h);
+
+        if (!pointInRect(mx, my, box)) {
+            st.penColorPickerOpen = false;
+            st.penColorPickerBlockIndex = -1;
+            st.log.info(-1, "PEN", "Close color picker (outside click)", "");
+            return true;
+        }
+
+        SDL_Color presets[12] = {
+            {255,0,0,255},{255,128,0,255},{255,255,0,255},{128,255,0,255},
+            {0,255,0,255},{0,255,128,255},{0,255,255,255},{0,128,255,255},
+            {0,0,255,255},{128,0,255,255},{255,0,255,255},{255,255,255,255}
+        };
+
+        int gridX = box.x + 40;
+        int gridY = box.y + 90;
+        int cell = 60;
+        int cols = 4;
+
+        for (int i = 0; i < 12; i++) {
+            int cx = gridX + (i % cols) * cell;
+            int cy = gridY + (i / cols) * cell;
+            SDL_Rect rc{cx, cy, 44, 44};
+            if (pointInRect(mx,my,rc)) {
+                SDL_Color chosen = presets[i];
+
+                rgbToHsv(chosen, st.penHue, st.penSat, st.penBri);
+                penSyncRGB(st);
+
+                if (st.penColorPickerBlockIndex >= 0 &&
+                    st.penColorPickerBlockIndex < (int)st.getActive().ws.blocks.size()) {
+                    Block& b = st.getActive().ws.blocks[st.penColorPickerBlockIndex];
+                    b.pickColor = chosen;
+                }
+
+                st.penColorPickerOpen = false;
+                st.penColorPickerBlockIndex = -1;
+                st.log.info(-1, "PEN", "Pick color",
+                            "rgb=(" + to_string((int)chosen.r) + "," +
+                                    to_string((int)chosen.g) + "," +
+                                    to_string((int)chosen.b) + ")");
+                return true;
+            }
+        }
+
+        return true;
+    }
+
+    return true;
+}
+
+static void renderPenColorPicker(const AppState& st, SDL_Renderer* r, int w, int h) {
+    if (!st.penColorPickerOpen) return;
+
+    SDL_SetRenderDrawColor(r, 0,0,0,170);
+    SDL_Rect full{0,0,w,h};
+    SDL_RenderFillRect(r, &full);
+
+    SDL_Rect box = colorPickerRect(w,h);
+    SDL_SetRenderDrawColor(r, 40,40,46,255);
+    SDL_RenderFillRect(r, &box);
+    SDL_SetRenderDrawColor(r, 200,200,200,255);
+    SDL_RenderDrawRect(r, &box);
+
+    SDL_Color white{240,240,240,255};
+    renderText(r, st.uiFont, "Pick Pen Color (Esc to close)", box.x + 20, box.y + 18, white);
+    renderText(r, st.uiFont, "Click a color:", box.x + 20, box.y + 44, white);
+
+    SDL_Color presets[12] = {
+        {255,0,0,255},{255,128,0,255},{255,255,0,255},{128,255,0,255},
+        {0,255,0,255},{0,255,128,255},{0,255,255,255},{0,128,255,255},
+        {0,0,255,255},{128,0,255,255},{255,0,255,255},{255,255,255,255}
+    };
+
+    int gridX = box.x + 40;
+    int gridY = box.y + 90;
+    int cell = 60;
+    int cols = 4;
+
+    for (int i = 0; i < 12; i++) {
+        int cx = gridX + (i % cols) * cell;
+        int cy = gridY + (i / cols) * cell;
+        SDL_Rect rc{cx, cy, 44, 44};
+
+        SDL_SetRenderDrawColor(r, presets[i].r, presets[i].g, presets[i].b, 255);
+        SDL_RenderFillRect(r, &rc);
+        SDL_SetRenderDrawColor(r, 10,10,10,255);
+        SDL_RenderDrawRect(r, &rc);
+    }
+
+    SDL_Rect prev{box.x + box.w - 86, box.y + 18, 56, 56};
+    SDL_SetRenderDrawColor(r, st.penRGB.r, st.penRGB.g, st.penRGB.b, 255);
+    SDL_RenderFillRect(r, &prev);
+    SDL_SetRenderDrawColor(r, 10,10,10,255);
+    SDL_RenderDrawRect(r, &prev);
+}
+
+// =========================
+// Section 5: Function I/O Menu (Modal)
+// =========================
+static SDL_Rect funcIOMenuRect(int w, int h) {
+    return SDL_Rect{w/2 - 260, h/2 - 150, 520, 300};
+}
+
+static const vector<string>& funcList() {
+    static vector<string> v = {"sqrt","abs","sin","cos","tan","round","floor","ceil"};
+    return v;
+}
+static const vector<string>& funcInputList() {
+    // minimal sources
+    static vector<string> v = {"last","v","score","msg","mouseX","mouseY","timer","answer","actorX","actorY","dir"};
+    return v;
+}
+static const vector<string>& funcOutputList() {
+    static vector<string> v = {"last","v","score","msg"};
+    return v;
+}
+
+static int indexOfStr(const vector<string>& v, const string& s) {
+    for (int i = 0; i < (int)v.size(); i++) if (v[i] == s) return i;
+    return -1;
+}
+
+static string cycleStrInList(const vector<string>& v, const string& cur) {
+    if (v.empty()) return cur;
+    int idx = indexOfStr(v, cur);
+    if (idx < 0) return v[0];
+    return v[(idx + 1) % (int)v.size()];
+}
+
+static string prettyIO(const string& token) {
+    if (token == "last")   return "lastValue";
+    if (token == "mouseX") return "mouseX";
+    if (token == "mouseY") return "mouseY";
+    if (token == "timer")  return "timer(sec)";
+    if (token == "answer") return "answer";
+    if (token == "actorX") return "actorX";
+    if (token == "actorY") return "actorY";
+    if (token == "dir")    return "direction";
+    return string("var: ") + token;
+}
+
+static void openFuncIOMenu(AppState& st, int blockIndex) {
+    if (blockIndex < 0 || blockIndex >= (int)st.getActive().ws.blocks.size()) return;
+    if (st.getActive().ws.blocks[blockIndex].cmd != "FUNC_APPLY") return;
+
+    st.funcIOMenuOpen = true;
+    st.funcIOMenuBlockIndex = blockIndex;
+
+    // close other overlays
+    st.helpMenuOpen = false;
+    st.showLogsPanel = false;
+    st.extensionLibraryOpen = false;
+    st.penColorPickerOpen = false;
+
+    st.log.info(blockIndex, "FUNC", "Open I/O menu", "");
+}
+
+static void closeFuncIOMenu(AppState& st, const string& why) {
+    if (!st.funcIOMenuOpen) return;
+    st.funcIOMenuOpen = false;
+    st.funcIOMenuBlockIndex = -1;
+    st.log.info(-1, "FUNC", "Close I/O menu", why);
+}
+
+static bool handleFuncIOMenuEvent(AppState& st, const SDL_Event& e, int w, int h) {
+    if (!st.funcIOMenuOpen) return false;
+
+    if (e.type == SDL_KEYDOWN && !e.key.repeat) {
+        if (e.key.keysym.sym == SDLK_ESCAPE) {
+            closeFuncIOMenu(st, "Esc");
+            return true;
+        }
+    }
+
+    if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+        int mx = e.button.x, my = e.button.y;
+        SDL_Rect box = funcIOMenuRect(w,h);
+
+        if (!pointInRect(mx, my, box)) {
+            closeFuncIOMenu(st, "outside click");
+            return true;
+        }
+
+        int bi = st.funcIOMenuBlockIndex;
+        if (bi < 0 || bi >= (int)st.getActive().ws.blocks.size()) {
+            closeFuncIOMenu(st, "invalid index");
+            return true;
+        }
+        Block& b = st.getActive().ws.blocks[bi];
+
+        SDL_Rect rowFn  = {box.x + 30, box.y + 80,  box.w - 60, 38};
+        SDL_Rect rowIn  = {box.x + 30, box.y + 126, box.w - 60, 38};
+        SDL_Rect rowOut = {box.x + 30, box.y + 172, box.w - 60, 38};
+
+        SDL_Rect okBtn  = {box.x + box.w - 180, box.y + box.h - 60, 140, 40};
+        SDL_Rect canBtn = {box.x +  40,         box.y + box.h - 60, 140, 40};
+
+        if (pointInRect(mx,my,rowFn)) {
+            b.s1 = cycleStrInList(funcList(), b.s1.empty() ? "sqrt" : b.s1);
+            st.log.info(bi, "FUNC_APPLY", "Cycle function", "fn=" + b.s1);
+            return true;
+        }
+        if (pointInRect(mx,my,rowIn)) {
+            b.inSel = cycleStrInList(funcInputList(), b.inSel.empty() ? "last" : b.inSel);
+            st.log.info(bi, "FUNC_APPLY", "Cycle input", "in=" + b.inSel);
+            return true;
+        }
+        if (pointInRect(mx,my,rowOut)) {
+            b.outSel = cycleStrInList(funcOutputList(), b.outSel.empty() ? "last" : b.outSel);
+            st.log.info(bi, "FUNC_APPLY", "Cycle output", "out=" + b.outSel);
+            return true;
+        }
+
+        if (pointInRect(mx,my,okBtn)) {
+            closeFuncIOMenu(st, "OK");
+            return true;
+        }
+        if (pointInRect(mx,my,canBtn)) {
+            closeFuncIOMenu(st, "Cancel");
+            return true;
+        }
+
+        return true;
+    }
+
+    return true;
+}
+
+static void renderFuncIOMenu(const AppState& st, SDL_Renderer* r, int w, int h) {
+    if (!st.funcIOMenuOpen) return;
+
+    SDL_SetRenderDrawColor(r, 0,0,0,170);
+    SDL_Rect full{0,0,w,h};
+    SDL_RenderFillRect(r, &full);
+
+    SDL_Rect box = funcIOMenuRect(w,h);
+    SDL_SetRenderDrawColor(r, 40,40,46,255);
+    SDL_RenderFillRect(r, &box);
+    SDL_SetRenderDrawColor(r, 200,200,200,255);
+    SDL_RenderDrawRect(r, &box);
+
+    SDL_Color white{240,240,240,255};
+    renderText(r, st.uiFont, "Function I/O Menu (Esc to close)", box.x + 20, box.y + 18, white);
+    renderText(r, st.uiFont, "Click each row to cycle options:", box.x + 20, box.y + 44, SDL_Color{200,200,200,255});
+
+    int bi = st.funcIOMenuBlockIndex;
+    string fn = "sqrt", inSel = "last", outSel = "last";
+    if (bi >= 0 && bi < (int)st.getActive().ws.blocks.size()) {
+        const Block& b = st.getActive().ws.blocks[bi];
+        fn = b.s1.empty() ? "sqrt" : b.s1;
+        inSel = b.inSel.empty() ? "last" : b.inSel;
+        outSel = b.outSel.empty() ? "last" : b.outSel;
+    }
+
+    SDL_Rect rowFn  = {box.x + 30, box.y + 80,  box.w - 60, 38};
+    SDL_Rect rowIn  = {box.x + 30, box.y + 126, box.w - 60, 38};
+    SDL_Rect rowOut = {box.x + 30, box.y + 172, box.w - 60, 38};
+
+    auto drawRow = [&](const SDL_Rect& rc, const string& title, const string& val) {
+        SDL_SetRenderDrawColor(r, 25,25,28,255);
+        SDL_RenderFillRect(r, &rc);
+        SDL_SetRenderDrawColor(r, 120,120,120,255);
+        SDL_RenderDrawRect(r, &rc);
+        renderText(r, st.uiFont, title + ": " + val, rc.x + 12, rc.y + 9, white);
+    };
+
+    drawRow(rowFn,  "Function", fn);
+    drawRow(rowIn,  "Input",    prettyIO(inSel));
+    drawRow(rowOut, "Output",   prettyIO(outSel));
+
+    SDL_Rect okBtn  = {box.x + box.w - 180, box.y + box.h - 60, 140, 40};
+    SDL_Rect canBtn = {box.x +  40,         box.y + box.h - 60, 140, 40};
+
+    SDL_SetRenderDrawColor(r, 60,140,70,255);
+    SDL_RenderFillRect(r, &okBtn);
+    SDL_SetRenderDrawColor(r, 140,60,60,255);
+    SDL_RenderFillRect(r, &canBtn);
+
+    SDL_SetRenderDrawColor(r, 20,20,20,255);
+    SDL_RenderDrawRect(r, &okBtn);
+    SDL_RenderDrawRect(r, &canBtn);
+
+    renderTextCentered(r, st.uiFont, "OK", okBtn, -6, white);
+    renderTextCentered(r, st.uiFont, "Enter", okBtn, +10, white);
+
+    renderTextCentered(r, st.uiFont, "Cancel", canBtn, -6, white);
+    renderTextCentered(r, st.uiFont, "Esc", canBtn, +10, white);
+}
+
+
+static Button makePaletteBtn(int x, int y, int w, const string& label, const string& sub, function<void()> cb) {
+    Button b;
+    b.rect = SDL_Rect{x, y, w, 34};
+    b.text = label;
+    b.sub = sub;
+    b.onPress = cb;
+    return b;
+}
+
+
+static bool isControlCmd(const string& c) {
+    return (c == "WAIT" || c == "REPEAT" || c == "END_REPEAT" ||
+            c == "FOREVER" || c == "END_FOREVER" ||
+            c == "IF" || c == "IFELSE" || c == "ELSE" || c == "END_IF" ||
+            c == "WAIT_UNTIL" || c == "REPEAT_UNTIL" || c == "STOP_ALL");
+}
+
+static bool isEventCmd(const string& c) {
+    return (c == "EVENT_FLAG" || c == "EVENT_KEY" || c == "EVENT_CLICK" ||
+            c == "BROADCAST" || c == "WHEN_RECEIVE");
+}
+
+static bool isLooksCmd(const string& c) {
+    return (c == "SAY" || c == "SAY_T" || c == "THINK" || c == "THINK_T" ||
+            c == "SHOW" || c == "HIDE" ||
+            c == "SIZE_SET" || c == "SIZE_CHANGE" ||
+            c == "FX_COLOR_SET" || c == "FX_COLOR_CHANGE" || c == "FX_CLEAR" ||
+            c == "COSTUME_SET" || c == "COSTUME_NEXT" ||
+            c == "BACKDROP_SET" || c == "BACKDROP_NEXT");
+}
+
+static bool isMotionCmd(const string& c) {
+    return (c == "MOVE" || c == "MOVE_STEPS" || c == "TURN_R" || c == "TURN_L" ||
+            c == "GOTO_XY" || c == "CHANGE_X" || c == "CHANGE_Y" ||
+            c == "SET_DIR" || c == "GOTO_RANDOM" || c == "GOTO_MOUSE" ||
+            c == "BOUNCE_EDGE");
+}
+
+static bool isSoundCmd(const string& c) {
+    return (c == "SOUND_PLAY" || c == "SOUND_PLAY_UNTIL" || c == "SOUND_STOP_ALL" ||
+            c == "SOUND_SET_VOL" || c == "SOUND_CHANGE_VOL");
+}
+
+static bool isSensingCmd(const string& c) {
+    return (c == "TOUCH_EDGE" || c == "TOUCH_MOUSE" || c == "DIST_MOUSE" ||
+            c == "KEY_PRESSED" || c == "MOUSE_DOWN" || c == "MOUSE_X" || c == "MOUSE_Y" ||
+            c == "ASK" || c == "ANSWER" ||
+            c == "TIMER" || c == "RESET_TIMER");
+}
+
+static bool isOperatorCmd(const string& c) {
+    return (c == "OP_ADD" || c == "OP_SUB" || c == "OP_MUL" || c == "DIV" ||
+            c == "OP_EQ" || c == "OP_LT" || c == "OP_GT" ||
+            c == "OP_AND" || c == "OP_OR" || c == "OP_NOT" ||
+            c == "OP_STRLEN" || c == "OP_LETTER" || c == "OP_JOIN");
+}
+
+static bool isVarCmd(const string& c) {
+    return (c == "VAR_SET_NUM" || c == "VAR_SET_STR" || c == "VAR_CHANGE" ||
+            c == "VAR_SHOW" || c == "VAR_HIDE" || c == "VAR_GET");
+}
+
+static bool isFuncCmd(const string& c) {
+    return (c == "FUNC_APPLY");
+}
+
+static bool isListCmd(const string& c) {
+    return (c == "LIST_ADD" || c == "LIST_DELETE" || c == "LIST_CLEAR" ||
+            c == "LIST_LENGTH" || c == "LIST_ITEM" || c == "LIST_CONTAINS" ||
+            c == "LIST_SHOW" || c == "LIST_HIDE");
+}
+
+static bool isCloneCmd(const string& c) {
+    return (c == "CLONE_CREATE" || c == "CLONE_DELETE_LAST" || c == "CLONE_CLEAR" || c == "CLONE_COUNT");
+}
+
+static void setBlockVisual(Block& b) {
+    if (isMotionCmd(b.cmd)) b.color = SDL_Color{60, 150, 220, 255};
+    else if (isLooksCmd(b.cmd)) b.color = SDL_Color{120, 90, 200, 255};
+    else if (isSoundCmd(b.cmd)) b.color = SDL_Color{190, 70, 170, 255};
+    else if (isEventCmd(b.cmd)) b.color = SDL_Color{220, 190, 60, 255};
+    else if (isControlCmd(b.cmd)) b.color = SDL_Color{220, 160, 60, 255};
+    else if (isSensingCmd(b.cmd)) b.color = SDL_Color{60, 200, 200, 255};
+    else if (isOperatorCmd(b.cmd)) b.color = SDL_Color{70, 160, 90, 255};
+    else if (isVarCmd(b.cmd)) b.color = SDL_Color{200, 140, 70, 255};
+    else if (isFuncCmd(b.cmd)) b.color = SDL_Color{80, 140, 160, 255}; // Section 5
+    else if (isListCmd(b.cmd)) b.color = SDL_Color{210, 110, 80, 255};   // Lists
+    else if (isCloneCmd(b.cmd)) b.color = SDL_Color{140, 140, 220, 255}; // Clones
+    else if (isPenCmd(b.cmd)) b.color = SDL_Color{40, 180, 90, 255};
+    else if (b.cmd == "SQRT") b.color = SDL_Color{150, 90, 200, 255};
+    else if (b.cmd == "LOOP") b.color = SDL_Color{220, 160, 60, 255};
+    else if (b.cmd == "DEFINE_FN" || b.cmd == "END_FN" || b.cmd == "CALL_FN" || b.cmd == "GET_PARAM") b.color = SDL_Color{255, 105, 180, 255}; // Pink My Blocks
+    else b.color = SDL_Color{80, 80, 90, 255};
+}
+
+static void addTypedBlock(AppState& st, const string& cmd, double a, double bb, const string& s1 = "", const string& s2 = "", int i1 = 0) {
+
+    int spawnX = st.in.mx - 120;
+    int spawnY = st.in.my - 26;
+    st.getActive().ws.addBlock(spawnX, spawnY);
+
+    if (!st.getActive().ws.blocks.empty()) {
+        Block& b = st.getActive().ws.blocks.back();
+        b.cmd = cmd;
+        b.a = a;
+        b.b = bb;
+        b.s1 = s1;
+        b.s2 = s2;
+        b.i1 = i1;
+        setBlockVisual(b);
+
+
+        b.dragging = true;
+        b.offX = st.in.mx - b.rect.x;
+        b.offY = st.in.my - b.rect.y;
+
+        st.log.info((int)st.getActive().ws.blocks.size() - 1, cmd, "Add & Drag block", "");
+    }
+}
+
+
+static void paletteAddCat(AppState& st, int y, const string& label) {
+    st.paletteCats.push_back({y, label});
+}
+
+static void rebuildPalette(AppState& st, int winW, int winH) {
+    (void)winW; (void)winH;
+    st.palette.clear();
+    st.paletteCats.clear();
+
+    int x = 10;
+    int w = LEFT_PANEL_W - 20;
+
+    int contentY = TOP_BAR_H + 64;
+    auto placeBtn = [&](const string& label, const string& sub, function<void()> cb) {
+        int drawY = contentY - st.paletteScroll;
+        st.palette.push_back(makePaletteBtn(x, drawY, w, label, sub, cb));
+        contentY += 42;
+    };
+
+    auto cat = [&](const string& label) {
+        paletteAddCat(st, contentY, label);
+        contentY += 28;
+    };
