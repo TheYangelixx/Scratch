@@ -2600,11 +2600,10 @@ static string openBMPDialog(SDL_Window* owner) {
     return "";
 }
 
-static void initAssets(AppState& st, SDL_Renderer* r) {
 
+static void initAssets(AppState& st, SDL_Renderer* r) {
     destroyTextureAsset(st.actorIcon);
     st.actorIcon = loadBMPTexture(r, st.actorIconFile, st.log);
-
 
     st.costumes.clear();
     st.costumes.push_back(loadBMPTexture(r, "costume0.bmp", st.log));
@@ -2640,14 +2639,14 @@ static bool initAudioSystem(AppState& st) {
     want.channels = 2;
     want.samples = 4096;
     want.callback = nullptr;
-SDL_AudioSpec have{};
+
+    SDL_AudioSpec have{};
     st.audioDev = SDL_OpenAudioDevice(nullptr, 0, &want, &have, SDL_AUDIO_ALLOW_ANY_CHANGE);
     if (!st.audioDev) {
         st.audioReady = false;
         st.log.warn(-1, "AUDIO", "OpenAudioDevice failed", SDL_GetError());
         return false;
     }
-
     st.audioSpec = have;
     st.audioReady = true;
     SDL_PauseAudioDevice(st.audioDev, 0);
@@ -2688,7 +2687,7 @@ static uint32_t playWavOneShot(AppState& st, const string& wavFile) {
     Uint32 len = srcLen;
     Uint8* cvtBuf = nullptr;
 
-    // convert if needed
+
     if (srcSpec.format != st.audioSpec.format ||
         srcSpec.channels != st.audioSpec.channels ||
         srcSpec.freq != st.audioSpec.freq) {
@@ -2722,6 +2721,7 @@ static uint32_t playWavOneShot(AppState& st, const string& wavFile) {
         return 0;
     }
 
+
     SDL_ClearQueuedAudio(st.audioDev);
 
     Uint8* mixBuf = (Uint8*)SDL_malloc(len);
@@ -2733,7 +2733,7 @@ static uint32_t playWavOneShot(AppState& st, const string& wavFile) {
     }
     SDL_memset(mixBuf, 0, len);
 
-    int sdlVol = (int)llround((vol / 100.0) * SDL_MIX_MAXVOLUME); // 0..128
+    int sdlVol = (int)llround((vol / 100.0) * SDL_MIX_MAXVOLUME);
     SDL_MixAudioFormat(mixBuf, buf, st.audioSpec.format, len, sdlVol);
     SDL_QueueAudio(st.audioDev, mixBuf, len);
 
@@ -2804,14 +2804,12 @@ static void drawSprite(SDL_Renderer* r, const AppState& st, const Sprite& sp) {
         SDL_RenderDrawRect(r, &dst);
     }
 
-
     double rad = scratchRad(sp.dirDeg);
     int x2 = (int)round(sp.x + cos(rad) * (sizePx/2 + 10));
     int y2 = (int)round(sp.y - sin(rad) * (sizePx/2 + 10));
     SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
     SDL_RenderDrawLine(r, (int)round(sp.x), (int)round(sp.y), x2, y2);
 }
-
 
 static double funcReadInput(AppState& st, const string& inSel) {
     if (inSel == "last") return asNum(st.lastValue);
@@ -2828,7 +2826,6 @@ static double funcReadInput(AppState& st, const string& inSel) {
     if (inSel == "actorY") return st.getActive().y;
     if (inSel == "dir")    return st.getActive().dirDeg;
 
-
     if (st.vars.count(inSel)) return asNum(st.vars[inSel]);
     return 0.0;
 }
@@ -2843,7 +2840,6 @@ static void funcWriteOutput(AppState& st, const string& outSel, double v) {
         st.vars["msg"] = Value::Str(ss.str());
         return;
     }
-
     st.vars[outSel] = Value::Num(v);
 }
 
@@ -2880,7 +2876,6 @@ static bool funcApplyBuiltin(AppState& st, int blockIndex, const string& fn, dou
         return true;
     }
 
-
     out = x;
     return true;
 }
@@ -2909,7 +2904,6 @@ static StepResult executeOneBlock(AppState& st, Sprite& sp) {
     if (!sp.scriptRunning) return StepResult::Stopped;
     if (st.askDialogOpen)  return StepResult::Yielded;
 
-
     if (sp.waiting) {
         if (SDL_GetTicks() < sp.waitUntilMs) return StepResult::Yielded;
         sp.waiting = false;
@@ -2924,7 +2918,6 @@ static StepResult executeOneBlock(AppState& st, Sprite& sp) {
     Block& b = sp.ws.blocks[sp.scriptPC];
     int idx = sp.scriptPC;
     string cmd = b.cmd;
-
 
     if (cmd == "EVENT_FLAG" || cmd == "EVENT_KEY" || cmd == "EVENT_CLICK") {
         st.log.info(idx, cmd, "Event block", "pass");
@@ -3074,6 +3067,7 @@ static StepResult executeOneBlock(AppState& st, Sprite& sp) {
         return StepResult::Advanced;
     }
 
+
     if (cmd == "LAYER_FRONT") {
         int maxZ = sp.zOrder;
         for (const auto& s : st.sprites) if (s.zOrder > maxZ) maxZ = s.zOrder;
@@ -3156,7 +3150,6 @@ static StepResult executeOneBlock(AppState& st, Sprite& sp) {
     if (cmd == "BACKDROP_SET") { st.backdropIndex = (int)round(b.a); st.log.info(idx, cmd, "Set backdrop", "idx=" + to_string(st.backdropIndex)); sp.scriptPC++; return StepResult::Advanced; }
     if (cmd == "BACKDROP_NEXT"){ st.backdropIndex++;                 st.log.info(idx, cmd, "Next backdrop", "idx=" + to_string(st.backdropIndex)); sp.scriptPC++; return StepResult::Advanced; }
 
-
     if (cmd == "SOUND_PLAY") {
         string name = b.s1.empty() ? "pop" : b.s1;
         string wav = name + ".wav";
@@ -3172,11 +3165,9 @@ static StepResult executeOneBlock(AppState& st, Sprite& sp) {
         string wav = name + ".wav";
         uint32_t now = SDL_GetTicks();
 
-
         if (st.soundBusyUntilMs != 0 && now < st.soundBusyUntilMs) {
             return StepResult::Yielded;
         }
-
 
         st.soundBusyUntilMs = 0;
         uint32_t ms = playWavOneShot(st, wav);
@@ -3187,7 +3178,6 @@ static StepResult executeOneBlock(AppState& st, Sprite& sp) {
         if (st.soundBusyUntilMs != 0 && SDL_GetTicks() < st.soundBusyUntilMs) {
             return StepResult::Yielded;
         }
-
 
         st.soundBusyUntilMs = 0;
         sp.scriptPC++;
@@ -3230,7 +3220,7 @@ static StepResult executeOneBlock(AppState& st, Sprite& sp) {
             if (other.name == targetName && other.visible) {
                 int sizeB = (int)clampT((int)round(80.0 * (other.sizePct / 100.0)), 10, 300);
                 SDL_Rect rB{(int)round(other.x) - sizeB/2, (int)round(other.y) - sizeB/2, sizeB, sizeB};
-                // بررسی تداخل دو مستطیل (برخورد)
+
                 if (!(rA.x + rA.w <= rB.x || rB.x + rB.w <= rA.x || rA.y + rA.h <= rB.y || rB.y + rB.h <= rA.y)) {
                     touching = true; break;
                 }
@@ -3242,9 +3232,9 @@ static StepResult executeOneBlock(AppState& st, Sprite& sp) {
     }
     if (cmd == "TOUCH_EDGE") {
         bool onEdge = (sp.x <= st.stageBounds.x + 0.5) ||
-                     (sp.x >= st.stageBounds.x + st.stageBounds.w - 0.5) ||
-                     (sp.y <= st.stageBounds.y + 0.5) ||
-                     (sp.y >= st.stageBounds.y + st.stageBounds.h - 0.5);
+                      (sp.x >= st.stageBounds.x + st.stageBounds.w - 0.5) ||
+                      (sp.y <= st.stageBounds.y + 0.5) ||
+                      (sp.y >= st.stageBounds.y + st.stageBounds.h - 0.5);
         st.lastValue = Value::Num(onEdge ? 1.0 : 0.0);
         st.lastValue = Value::Num(onEdge ? 1.0 : 0.0);
         st.log.info(idx, cmd, "Touch edge?", st.lastValue.toString());
@@ -3320,7 +3310,7 @@ static StepResult executeOneBlock(AppState& st, Sprite& sp) {
         return StepResult::Advanced;
     }
 
-    // ---- Operators
+
     if (cmd == "OP_ADD") { st.lastValue = Value::Num(b.a + b.b); st.log.info(idx, cmd, "Add", st.lastValue.toString()); sp.scriptPC++; return StepResult::Advanced; }
     if (cmd == "OP_SUB") { st.lastValue = Value::Num(b.a - b.b); st.log.info(idx, cmd, "Sub", st.lastValue.toString()); sp.scriptPC++; return StepResult::Advanced; }
     if (cmd == "OP_MUL") { st.lastValue = Value::Num(b.a * b.b); st.log.info(idx, cmd, "Mul", st.lastValue.toString()); sp.scriptPC++; return StepResult::Advanced; }
@@ -3400,11 +3390,8 @@ static StepResult executeOneBlock(AppState& st, Sprite& sp) {
     if (cmd == "CALL_FN") {
         string fnName = b.s1.empty() ? "myFunc" : b.s1;
         if (sp.funcDefs.count(fnName)) {
-
             sp.callStack.push_back(sp.scriptPC + 1);
-
             sp.currentParam = b.a;
-
             sp.scriptPC = sp.funcDefs[fnName] + 1;
             st.log.info(idx, cmd, "Call function", fnName + " arg=" + to_string(b.a));
         } else {
@@ -3512,3 +3499,590 @@ static StepResult executeOneBlock(AppState& st, Sprite& sp) {
         sp.scriptPC++;
         return StepResult::Advanced;
     }
+    if (cmd == "LIST_LENGTH") {
+        string name = b.s1.empty() ? "list" : b.s1;
+        st.lastValue = Value::Num((double)getList(st, name).size());
+        st.log.info(idx, cmd, "List length", name + " -> " + st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "LIST_ITEM") {
+        string name = b.s1.empty() ? "list" : b.s1;
+        auto& L = getList(st, name);
+        int i1 = (int)round(b.a);
+        if (listIndexOk1(i1, (int)L.size())) st.lastValue = L[i1 - 1];
+        else st.lastValue = Value::Str("");
+        st.log.info(idx, cmd, "List item", name + "[" + to_string(i1) + "] -> " + st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "LIST_CONTAINS") {
+        string name = b.s1.empty() ? "list" : b.s1;
+        auto& L = getList(st, name);
+        string needle = b.s2;
+        bool ok = false;
+        for (auto& it : L) {
+            if (it.toString() == needle) { ok = true; break; }
+        }
+        st.lastValue = Value::Num(ok ? 1.0 : 0.0);
+        st.log.info(idx, cmd, "List contains?", name + " \"" + needle + "\" -> " + st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "LIST_SHOW") {
+        string name = b.s1.empty() ? "list" : b.s1;
+        st.listVisible[name] = true;
+        st.log.info(idx, cmd, "Show list", name);
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "LIST_HIDE") {
+        string name = b.s1.empty() ? "list" : b.s1;
+        st.listVisible[name] = false;
+        st.log.info(idx, cmd, "Hide list", name);
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "CLONE_CREATE") {
+        cloneCreateFromActor(st);
+        st.log.info(idx, cmd, "Create clone", "count=" + to_string((int)st.clones.size()));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "CLONE_DELETE_LAST") {
+        int before = (int)st.clones.size();
+        cloneDeleteLast(st);
+        st.log.info(idx, cmd, "Delete last clone", "count:" + to_string(before) + "->" + to_string((int)st.clones.size()));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "CLONE_CLEAR") {
+        cloneClearAll(st);
+        st.log.info(idx, cmd, "Clear clones", "");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "CLONE_COUNT") {
+        st.lastValue = Value::Num((double)st.clones.size());
+        st.log.info(idx, cmd, "Clone count", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "WAIT") {
+        int ms = (int)max(0.0, b.a * 1000.0);
+        sp.waiting = true;
+        sp.waitUntilMs = SDL_GetTicks() + (uint32_t)ms;
+        st.log.info(idx, cmd, "Wait", "ms=" + to_string(ms));
+        sp.scriptPC++;
+        return StepResult::Yielded;
+    }
+
+    if (cmd == "STOP_ALL") {
+        st.log.warn(idx, cmd, "Stop all scripts", "stop");
+        stopScript(st,sp, "STOP_ALL");
+        return StepResult::Stopped;
+    }
+
+    if (cmd == "WAIT_UNTIL") {
+        if (!st.lastValue.truthy()) {
+            st.log.info(idx, cmd, "Wait until", "blocked (last=false)");
+            return StepResult::Yielded;
+        }
+        st.log.info(idx, cmd, "Wait until", "pass");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "IF" || cmd == "IFELSE") {
+        bool cond = st.lastValue.truthy();
+        int endIdx  = (idx >= 0 && idx < (int)sp.jumpEnd.size())  ? sp.jumpEnd[idx]  : -1;
+        int elseIdx = (idx >= 0 && idx < (int)sp.jumpElse.size()) ? sp.jumpElse[idx] : -1;
+
+        if (!cond) {
+            if (cmd == "IFELSE" && elseIdx != -1) {
+                st.log.info(idx, cmd, "IF false", "jump to ELSE");
+                sp.scriptPC = elseIdx + 1;
+                return StepResult::Advanced;
+            }
+            if (endIdx != -1) {
+                st.log.info(idx, cmd, "IF false", "jump to END_IF");
+                sp.scriptPC = endIdx + 1;
+                return StepResult::Advanced;
+            }
+        }
+
+        st.log.info(idx, cmd, "IF true", "enter");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "ELSE") {
+        int endIdx = (idx >= 0 && idx < (int)sp.jumpTo.size()) ? sp.jumpTo[idx] : -1;
+        if (endIdx != -1) {
+            st.log.info(idx, cmd, "ELSE", "jump END_IF");
+            sp.scriptPC = endIdx + 1;
+            return StepResult::Advanced;
+        }
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "END_IF") {
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "REPEAT") {
+        int endIdx = (idx >= 0 && idx < (int)sp.loopEnd.size()) ? sp.loopEnd[idx] : -1;
+        int count = clampT((int)round(b.a), 0, 1000000);
+
+        if (sp.repeatCounter[idx] == 0) sp.repeatCounter[idx] = count;
+
+        if (count == 0 || sp.repeatCounter[idx] <= 0) {
+            sp.repeatCounter[idx] = 0;
+            if (endIdx != -1) {
+                st.log.info(idx, cmd, "Repeat skip", "count=0");
+                sp.scriptPC = endIdx + 1;
+                return StepResult::Advanced;
+            }
+        }
+
+        st.log.info(idx, cmd, "Repeat enter", "left=" + to_string(sp.repeatCounter[idx]));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "REPEAT_UNTIL") {
+        int endIdx = (idx >= 0 && idx < (int)sp.loopEnd.size()) ? sp.loopEnd[idx] : -1;
+        if (st.lastValue.truthy()) {
+            st.log.info(idx, cmd, "RepeatUntil", "cond true -> exit");
+            sp.scriptPC = (endIdx != -1) ? (endIdx + 1) : (idx + 1);
+            return StepResult::Advanced;
+        }
+        st.log.info(idx, cmd, "RepeatUntil", "cond false -> enter");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "END_REPEAT") {
+        int startIdx = (idx >= 0 && idx < (int)sp.loopStart.size()) ? sp.loopStart[idx] : -1;
+        if (startIdx != -1) {
+            string startCmd = sp.ws.blocks[startIdx].cmd;
+            if (startCmd == "REPEAT") {
+                sp.repeatCounter[startIdx] = max(0, sp.repeatCounter[startIdx] - 1);
+                if (sp.repeatCounter[startIdx] > 0) {
+                    st.log.info(idx, cmd, "Repeat loop", "back to start");
+                    sp.scriptPC = startIdx + 1;
+                    return StepResult::Advanced;
+                }
+                sp.repeatCounter[startIdx] = 0;
+                st.log.info(idx, cmd, "Repeat end", "done");
+                sp.scriptPC++;
+                return StepResult::Advanced;
+            }
+            if (startCmd == "REPEAT_UNTIL") {
+                st.log.info(idx, cmd, "RepeatUntil loop", "back to start");
+                sp.scriptPC = startIdx;
+                return StepResult::Advanced;
+            }
+        }
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "FOREVER") {
+        st.log.info(idx, cmd, "Forever enter", "");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "END_FOREVER") {
+        int startIdx = (idx >= 0 && idx < (int)sp.loopStart.size()) ? sp.loopStart[idx] : -1;
+        if (startIdx != -1) {
+            st.log.warn(idx, cmd, "Forever loop", "back to start");
+            sp.scriptPC = startIdx + 1;
+            return StepResult::Advanced;
+        }
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "SQRT") {
+        double out = 0.0;
+        if (safeSqrt(st, idx, b.a, out)) st.lastValue = Value::Num(out);
+        st.log.info(idx, cmd, "Sqrt", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "LOOP") {
+        st.log.warn(idx, cmd, "Infinite loop block", "pc stays same");
+        return StepResult::Yielded;
+    }
+
+
+    if (isPenCmd(cmd) && !st.penExtensionEnabled) {
+        st.log.warn(idx, cmd, "Pen extension not enabled", "skipped");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "PEN_DOWN") { st.penDown = true;  st.log.info(idx, cmd, "Pen down", ""); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "PEN_UP")   { st.penDown = false; st.log.info(idx, cmd, "Pen up", "");   sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "PEN_ERASE_ALL") {
+        penClearAll(st);
+        st.penDown = false;
+        st.log.info(idx, cmd, "All erase", "cleared");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "PEN_STAMP") { penAddStamp(st); st.log.info(idx, cmd, "Stamp", "count=" + to_string((int)st.penStamps.size())); sp.scriptPC++; return StepResult::Advanced; }
+
+    if (cmd == "PEN_SET_SIZE") {
+        int before = st.penSize;
+        st.penSize = clampT((int)round(b.a), 1, 30);
+        st.log.info(idx, cmd, "Set size", "size:" + to_string(before) + "->" + to_string(st.penSize));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "PEN_CHANGE_SIZE") {
+        int before = st.penSize;
+        st.penSize = clampT((int)round(st.penSize + b.a), 1, 30);
+        st.log.info(idx, cmd, "Change size", "size:" + to_string(before) + "->" + to_string(st.penSize));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "PEN_SET_COLOR") {
+        SDL_Color c = b.pickColor;
+        rgbToHsv(c, st.penHue, st.penSat, st.penBri);
+        penSyncRGB(st);
+        st.log.info(idx, cmd, "Set color (direct)",
+                    "rgb=(" + to_string((int)c.r) + "," + to_string((int)c.g) + "," + to_string((int)c.b) + ")");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    st.log.warn(idx, cmd, "Unknown cmd skipped", "");
+    sp.scriptPC++;
+    return StepResult::Advanced;
+}
+
+static void runScriptTick(AppState& st) {
+    if (st.isPaused) return;
+    uint32_t now = SDL_GetTicks();
+    if (st.runSpeedMs > 0 && now < st.nextStepAtMs) return;
+
+    bool anyRan = false;
+    for (auto& sp : st.sprites) {
+        if (!sp.scriptRunning) continue;
+        executeOneBlock(st, sp);
+        anyRan = true;
+    }
+
+    if (anyRan && st.runSpeedMs > 0) st.nextStepAtMs = SDL_GetTicks() + st.runSpeedMs;
+}
+
+
+
+static void setupUI(AppState& st) {
+    st.buttons.clear();
+
+    auto mkBtn = [&](int x, int w, const string& label, const string& sub, function<void()> cb) {
+        Button b;
+        b.rect = SDL_Rect{x, 8, w, TOP_BAR_H - 16};
+        b.text = label;
+        b.sub = sub;
+        b.onClick = cb;
+        return b;
+    };
+
+    int x = 10;
+
+    st.buttons.push_back(mkBtn(x, 90, "New", "Ctrl+N", [&] {
+        st.getActive().ws.reset();
+        st.penDown = false;
+        penClearAll(st);
+        st.log.log("NEW", "Reset workspace");
+    }));
+    x += 100;
+
+    st.buttons.push_back(mkBtn(x, 90, "Save", "Ctrl+S", [&] {
+        beginSaveDialog(st);
+        st.log.log("UI", "Open Save dialog");
+    }));
+    x += 100;
+
+    st.buttons.push_back(mkBtn(x, 90, "Load", "Ctrl+O", [&] {
+        beginLoadDialog(st);
+        st.log.log("UI", "Open Load dialog");
+    }));
+    x += 100;
+
+    st.buttons.push_back(mkBtn(x, 110, "Add Block", "B", [&] {
+        st.getActive().ws.addBlock(st.getActive().ws.bounds.x + 60, st.getActive().ws.bounds.y + 60);
+        if (!st.getActive().ws.blocks.empty()) {
+            Block& b = st.getActive().ws.blocks.back();
+            b.cmd = "MOVE_STEPS"; b.a = 10.0;
+            setBlockVisual(b);
+        }
+        st.log.log("ADD", "Added block");
+    }));
+    x += 120;
+
+    st.buttons.push_back(mkBtn(x, 120, "Extensions", "E", [&] {
+        openExtensionLibrary(st);
+    }));
+    x += 130;
+
+    st.buttons.push_back(mkBtn(x, 90, "Help", "H", [&] {
+        st.helpMenuOpen = !st.helpMenuOpen;
+        st.log.info(-1, "HELP", st.helpMenuOpen ? "Open menu" : "Close menu", "");
+    }));
+    st.helpButtonRect = st.buttons.back().rect;
+    x += 100;
+
+    st.buttons.push_back(mkBtn(x, 110, "Settings", "P", [&] {
+        openSettings(st);
+    }));
+    x += 120;
+
+    st.buttons.push_back(mkBtn(x, 70, "Run", "F5", [&] {
+        st.isPaused = false;
+        startScript(st);
+    }));
+    x += 80;
+
+    st.buttons.push_back(mkBtn(x, 75, "Pause", "F7", [&] {
+        st.isPaused = true;
+        st.log.log("RUN", "Paused");
+    }));
+    x += 85;
+
+    st.buttons.push_back(mkBtn(x, 85, "Resume", "F8", [&] {
+        st.isPaused = false;
+        st.log.log("RUN", "Resumed");
+    }));
+    x += 95;
+
+    st.buttons.push_back(mkBtn(x, 70, "Stop", "F6", [&] {
+        st.isPaused = false;
+        for (auto& s : st.sprites) stopScript(st, s, "User stop (F6)");
+    }));
+    x += 80;
+
+    st.buttons.push_back(mkBtn(x, 70, "Quit", "Esc", [&] {
+        st.quit = true;
+    }));
+}
+
+
+static void processEvents(AppState& st, SDL_Window* window) {
+    SDL_Event e;
+    int winW = 0, winH = 0;
+    SDL_GetWindowSize(window, &winW, &winH);
+
+    while (SDL_PollEvent(&e)) {
+        if (e.type == SDL_MOUSEMOTION) {
+            st.in.mx = e.motion.x;
+            st.in.my = e.motion.y;
+        }
+
+        if (st.settingsOpen) {
+            if (handleSettingsEvent(st, e, winW, winH)) continue;
+        }
+
+        if (st.extensionLibraryOpen) {
+            if (handleExtensionLibraryEvent(st, e, winW, winH)) continue;
+        }
+        if (st.penColorPickerOpen) {
+            if (handlePenColorPickerEvent(st, e, winW, winH)) continue;
+        }
+        if (st.funcIOMenuOpen) {
+            if (handleFuncIOMenuEvent(st, e, winW, winH)) continue;
+        }
+
+        if (st.askDialogOpen || st.saveDialogOpen || st.loadDialogOpen || st.renameDialogOpen) {
+            if (handleDialogsEvent(st, e, winW, winH)) continue;
+        }
+
+        if (e.type == SDL_MOUSEWHEEL) {
+            SDL_Rect left = {0, TOP_BAR_H, LEFT_PANEL_W, winH - TOP_BAR_H};
+            if (pointInRect(st.in.mx, st.in.my, left)) {
+                int step = (e.wheel.y > 0) ? -42 : (e.wheel.y < 0 ? 42 : 0);
+                if (step != 0) {
+                    st.paletteScroll = clampT(st.paletteScroll + step, 0, st.paletteMaxScroll);
+                    st.paletteDirty = true;
+                    continue;
+                }
+            }
+        }
+
+        switch (e.type) {
+            case SDL_QUIT:
+                st.quit = true;
+                break;
+
+            case SDL_MOUSEBUTTONDOWN:
+                if (e.button.button == SDL_BUTTON_LEFT) {
+                    st.in.mouseDown = true;
+                    st.in.mousePressed = true;
+                    st.in.mx = e.button.x;
+                    st.in.my = e.button.y;
+                }
+                break;
+
+            case SDL_MOUSEBUTTONUP:
+                if (e.button.button == SDL_BUTTON_LEFT) {
+                    st.in.mouseDown = false;
+                    st.in.mouseReleased = true;
+                    st.in.mx = e.button.x;
+                    st.in.my = e.button.y;
+                }
+                break;
+
+            case SDL_KEYDOWN:
+                if (!e.key.repeat) {
+                    st.in.keyDown[e.key.keysym.scancode] = true;
+                    st.in.keyPressed[e.key.keysym.scancode] = true;
+                }
+                break;
+
+            case SDL_KEYUP:
+                st.in.keyDown[e.key.keysym.scancode] = false;
+                break;
+
+            default:
+                break;
+        }
+    }
+}
+
+static void handleShortcuts(AppState& st) {
+    if (st.in.keyPressed[SDL_SCANCODE_P]) {
+        openSettings(st);
+    }
+
+    if (st.extensionLibraryOpen) {
+        if (st.in.keyPressed[SDL_SCANCODE_ESCAPE]) {
+            st.extensionLibraryOpen = false;
+            st.log.info(-1, "EXT", "Close library (Esc)", "");
+        }
+        return;
+    }
+
+    if (st.penColorPickerOpen) {
+        if (st.in.keyPressed[SDL_SCANCODE_ESCAPE]) {
+            st.penColorPickerOpen = false;
+            st.penColorPickerBlockIndex = -1;
+            st.log.info(-1, "PEN", "Close color picker (Esc)", "");
+        }
+        return;
+    }
+
+    if (st.funcIOMenuOpen) {
+        if (st.in.keyPressed[SDL_SCANCODE_ESCAPE]) {
+            closeFuncIOMenu(st, "Esc shortcut");
+        }
+        return;
+    }
+
+    if (st.askDialogOpen) {
+        return;
+    }
+
+    if (st.showLogsPanel) {
+        if (st.in.keyPressed[SDL_SCANCODE_ESCAPE]) {
+            st.showLogsPanel = false;
+            st.logsScroll = 0;
+            st.log.info(-1, "HELP", "Close Logs panel", "");
+        }
+        return;
+    }
+
+    if (st.helpMenuOpen && st.in.keyPressed[SDL_SCANCODE_ESCAPE]) {
+        st.helpMenuOpen = false;
+        st.log.info(-1, "HELP", "Close menu (Esc)", "");
+        return;
+    }
+
+    bool ctrl = st.in.keyDown[SDL_SCANCODE_LCTRL] || st.in.keyDown[SDL_SCANCODE_RCTRL];
+
+    if (st.in.keyPressed[SDL_SCANCODE_H]) {
+        st.helpMenuOpen = !st.helpMenuOpen;
+        st.log.info(-1, "HELP", st.helpMenuOpen ? "Open menu (H)" : "Close menu (H)", "");
+    }
+
+    if (st.in.keyPressed[SDL_SCANCODE_E]) {
+        openExtensionLibrary(st);
+    }
+
+    if (st.in.keyPressed[SDL_SCANCODE_F5]) {
+        st.isPaused = false;
+        startScript(st);
+    }
+    if (st.in.keyPressed[SDL_SCANCODE_F7]) {
+        st.isPaused = true;
+        st.log.log("RUN", "Paused via shortcut");
+    }
+    if (st.in.keyPressed[SDL_SCANCODE_F8]) {
+        st.isPaused = false;
+        st.log.log("RUN", "Resumed via shortcut");
+    }
+    if (st.in.keyPressed[SDL_SCANCODE_F6]) {
+        st.isPaused = false;
+        for (auto& s : st.sprites) stopScript(st, s, "User stop (F6)");
+    }
+
+    if (st.debugStepMode && st.getActive().scriptRunning && st.in.keyPressed[SDL_SCANCODE_SPACE]) {
+        st.getActive().stepRequested = true;
+        st.log.info(st.getActive().scriptPC, "DEBUG", "Step", "Space pressed");
+    }
+
+    if (ctrl && st.in.keyPressed[SDL_SCANCODE_N]) {
+        st.getActive().ws.reset();
+        st.penDown = false;
+        penClearAll(st);
+        st.log.log("NEW", "Reset (shortcut)");
+    }
+    if (ctrl && st.in.keyPressed[SDL_SCANCODE_N]) {
+        st.getActive().ws.reset();
+        st.penDown = false;
+        penClearAll(st);
+        st.log.log("NEW", "Reset (shortcut)");
+    }
+
+    if (ctrl && st.in.keyPressed[SDL_SCANCODE_S]) {
+        beginSaveDialog(st);
+        st.log.log("UI", "Open Save dialog (shortcut)");
+    }
+
+    if (ctrl && st.in.keyPressed[SDL_SCANCODE_O]) {
+        beginLoadDialog(st);
+        st.log.log("UI", "Open Load dialog (shortcut)");
+    }
+
+    if (st.in.keyPressed[SDL_SCANCODE_B]) {
+        st.getActive().ws.addBlock(st.getActive().ws.bounds.x + 60, st.getActive().ws.bounds.y + 60);
+        if (!st.getActive().ws.blocks.empty()) {
+            Block& b = st.getActive().ws.blocks.back();
+            b.cmd = "MOVE_STEPS"; b.a = 10.0;
+            setBlockVisual(b);
+        }
+        st.log.log("ADD", "Added block (shortcut)");
+    }
+
+    if (st.in.keyPressed[SDL_SCANCODE_ESCAPE]) {
+        st.quit = true;
+    }
+}
+
+
+static void update(AppState& st, SDL_Window* window) {
+    int w = 0, h = 0;
+    SDL_GetWindowSize(window, &w, &h);
+    bgmTick(st);
+
+    int stageW = 480;
+    int stageH = 360;
