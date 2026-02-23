@@ -1160,3 +1160,328 @@ static void renderSettings(const AppState& st, SDL_Renderer* r, int w, int h) {
     int bIdx = bCount > 0 ? ((st.backdropIndex % bCount) + bCount) % bCount : 0;
     string bLabel = "Backdrop: " + to_string(bIdx) + " / " + to_string(max(0, bCount - 1));
     renderText(r, st.uiFont, bLabel, backMid.x + 10, backMid.y + 10, white);
+
+
+    SDL_Rect musDec  = {box.x + 30,         box.y + 300, 60, 32};
+    SDL_Rect musInc  = {box.x + box.w - 90, box.y + 300, 60, 32};
+    SDL_Rect musMid  = {box.x + 100,        box.y + 300, box.w - 320, 32};
+    SDL_Rect musMute = {box.x + box.w - 250, box.y + 300, 150, 32};
+
+    SDL_SetRenderDrawColor(r, 80,80,90,255);
+    SDL_RenderFillRect(r, &musDec);
+    SDL_RenderFillRect(r, &musInc);
+
+    SDL_SetRenderDrawColor(r, 25,25,28,255);
+    SDL_RenderFillRect(r, &musMid);
+
+    SDL_SetRenderDrawColor(r, st.musicMuted ? 120 : 60, st.musicMuted ? 60 : 140, 70, 255);
+    SDL_RenderFillRect(r, &musMute);
+
+    SDL_SetRenderDrawColor(r, 15,15,15,255);
+    SDL_RenderDrawRect(r, &musDec);
+    SDL_RenderDrawRect(r, &musInc);
+    SDL_RenderDrawRect(r, &musMid);
+    SDL_RenderDrawRect(r, &musMute);
+
+    renderTextCentered(r, st.uiFont, "-", musDec, 0, white);
+    renderTextCentered(r, st.uiFont, "+", musInc, 0, white);
+
+    string mv = "Music: " + to_string(clampT(st.musicVolume, 0, 100));
+    renderText(r, st.uiFont, mv, musMid.x + 10, musMid.y + 7, white);
+
+
+    int fillW = (int)llround((clampT(st.musicVolume,0,100) / 100.0) * (musMid.w - 20));
+    SDL_Rect bar{musMid.x + 10, musMid.y + musMid.h - 8, max(0, fillW), 4};
+    SDL_SetRenderDrawColor(r, 200,200,200,255);
+    SDL_RenderFillRect(r, &bar);
+
+    renderTextCentered(r, st.uiFont, st.musicMuted ? "Muted" : "Mute", musMute, 0, white);
+
+
+
+    SDL_Rect okBtn  = {box.x + box.w - 180, box.y + box.h - 60, 140, 40};
+    SDL_SetRenderDrawColor(r, 60,140,70,255);
+    SDL_RenderFillRect(r, &okBtn);
+    SDL_SetRenderDrawColor(r, 20,20,20,255);
+    SDL_RenderDrawRect(r, &okBtn);
+    renderTextCentered(r, st.uiFont, "OK", okBtn, 0, white);
+}
+
+
+
+
+struct AppState;
+struct Block;
+
+static void setBlockVisual(Block& b);
+static void penSyncRGB(AppState& st);
+
+static bool saveProjectNamed(const string& saveStem, AppState& st){
+    const string path = buildSavePath(saveStem);
+    ofstream f(path.c_str());
+    if (!f) {
+        st.log.log("SAVE", "Cannot open: " + path);
+        return false;
+    }
+
+
+    f << "SAVE_V1\n";
+
+
+    f << "BLOCKS " << st.getActive().ws.blocks.size() << "\n";
+    for (size_t i = 0; i < st.getActive().ws.blocks.size(); i++) {
+        const Block& b = st.getActive().ws.blocks[i];
+
+        f << "BLOCK "
+          << b.id << " "
+          << b.rect.x << " " << b.rect.y << " "
+          << b.rect.w << " " << b.rect.h << " "
+          << (int)b.color.r << " " << (int)b.color.g << " " << (int)b.color.b << " "
+          << b.cmd << " "
+          << b.a << " " << b.b << " "
+          << b.i1 << " "
+          << (int)b.pickColor.r << " " << (int)b.pickColor.g << " " << (int)b.pickColor.b << " "
+          << b.inSel << " " << b.outSel << " "
+          << std::quoted(b.s1) << " " << std::quoted(b.s2)
+          << "\n";
+    }
+
+
+    f << "SETTINGS " << st.runSpeedMs << " " << (st.drawActorWhenStopped ? 1 : 0) << "\n";
+
+
+    f << "LOOKS " << st.getActive().costumeIndex << " " << st.backdropIndex << " " << st.getActive().colorEffect << "\n";
+
+
+    f << "EXT_PEN " << (st.penExtensionEnabled ? 1 : 0) << "\n";
+
+
+    f << "PEN_STATE "
+      << (st.penDown ? 1 : 0) << " "
+      << st.penHue << " " << st.penSat << " " << st.penBri << " "
+      << st.penSize << "\n";
+
+    f << "PEN_SEGS " << st.penSegs.size() << "\n";
+    for (const auto& seg : st.penSegs) {
+        f << "SEG "
+          << seg.x1 << " " << seg.y1 << " " << seg.x2 << " " << seg.y2 << " "
+          << (int)seg.c.r << " " << (int)seg.c.g << " " << (int)seg.c.b << " "
+          << seg.size << "\n";
+    }
+
+    f << "PEN_STAMPS " << st.penStamps.size() << "\n";
+    for (const auto& sp : st.penStamps) {
+        f << "STAMP "
+          << sp.x << " " << sp.y << " "
+          << sp.costumeIndex << " "
+          << sp.dirDeg << " "
+          << sp.sizePct
+          << "\n";
+    }
+
+
+
+    f << "VARS " << st.vars.size() << "\n";
+    for (const auto& kv : st.vars) {
+        const string& name = kv.first;
+        const Value& v = kv.second;
+        f << "VAR " << name << " " << (v.isNum ? 1 : 0) << " ";
+        if (v.isNum) f << v.num << " " << std::quoted("") << "\n";
+        else         f << 0.0  << " " << std::quoted(v.str) << "\n";
+    }
+
+    f << "VARVIS " << st.varVisible.size() << "\n";
+    for (const auto& kv : st.varVisible) {
+        f << "VARV " << kv.first << " " << (kv.second ? 1 : 0) << "\n";
+    }
+
+
+    f << "LISTS " << st.lists.size() << "\n";
+    for (const auto& kv : st.lists) {
+        const string& name = kv.first;
+        const auto& items = kv.second;
+        f << "LIST " << name << " " << items.size() << "\n";
+        for (const auto& it : items) {
+            f << "ITEM " << (it.isNum ? 1 : 0) << " ";
+            if (it.isNum) f << it.num << " " << std::quoted("") << "\n";
+            else          f << 0.0   << " " << std::quoted(it.str) << "\n";
+        }
+    }
+
+    f << "LISTVIS " << st.listVisible.size() << "\n";
+    for (const auto& kv : st.listVisible) {
+        f << "LISTV " << kv.first << " " << (kv.second ? 1 : 0) << "\n";
+    }
+
+    st.log.log("SAVE", "Saved: " + path);
+    return true;
+}
+
+
+static bool loadProjectNamed(const string& saveStem, AppState& st) {
+    const string path = buildSavePath(saveStem);
+    ifstream f(path.c_str());
+    if (!f) {
+        st.log.log("LOAD", "Cannot open: " + path);
+        return false;
+    }
+
+
+    st.getActive().ws.reset();
+    st.penSegs.clear();
+    st.penStamps.clear();
+    st.vars.clear();
+    st.varVisible.clear();
+    st.lists.clear();
+    st.listVisible.clear();
+
+    string header;
+    if (!getline(f, header)) return false;
+    if (header != "SAVE_V1") {
+        st.log.log("LOAD", "Invalid save header: " + header);
+        return false;
+    }
+
+    string line;
+    int maxId = 0;
+
+    size_t expectBlocks = 0;
+    size_t expectPenSegs = 0, expectPenStamps = 0;
+    size_t expectVars = 0, expectVarVis = 0;
+    size_t expectLists = 0, expectListVis = 0;
+
+    while (getline(f, line)) {
+        if (line.empty()) continue;
+
+        stringstream ss(line);
+        string tag;
+        ss >> tag;
+
+        if (tag == "BLOCKS") {
+            ss >> expectBlocks;
+            continue;
+        }
+
+        if (tag == "BLOCK") {
+            Block b;
+            int r=80,g=80,bl=90;
+            int pr=0,pg=255,pb=0;
+
+            ss >> b.id
+               >> b.rect.x >> b.rect.y >> b.rect.w >> b.rect.h
+               >> r >> g >> bl
+               >> b.cmd
+               >> b.a >> b.b
+               >> b.i1
+               >> pr >> pg >> pb
+               >> b.inSel >> b.outSel
+               >> std::quoted(b.s1) >> std::quoted(b.s2);
+
+            b.color = SDL_Color{(Uint8)r,(Uint8)g,(Uint8)bl,255};
+            b.pickColor = SDL_Color{(Uint8)pr,(Uint8)pg,(Uint8)pb,255};
+
+            setBlockVisual(b);
+
+            maxId = max(maxId, b.id);
+            st.getActive().ws.blocks.push_back(b);
+            continue;
+        }
+
+        if (tag == "SETTINGS") {
+            int drawFlag = 1;
+            ss >> st.runSpeedMs >> drawFlag;
+            st.drawActorWhenStopped = (drawFlag != 0);
+            continue;
+        }
+
+        if (tag == "LOOKS") {
+            ss >> st.getActive().costumeIndex >> st.backdropIndex >> st.getActive().colorEffect;
+            continue;
+        }
+
+        if (tag == "EXT_PEN") {
+            int v=0; ss >> v;
+            st.penExtensionEnabled = (v != 0);
+            continue;
+        }
+
+        if (tag == "PEN_STATE") {
+            int down=0;
+            ss >> down >> st.penHue >> st.penSat >> st.penBri >> st.penSize;
+            st.penDown = (down != 0);
+            penSyncRGB(st);
+            continue;
+        }
+
+        if (tag == "PEN_SEGS") { ss >> expectPenSegs; continue; }
+        if (tag == "SEG") {
+            PenSegment seg;
+            int cr=0,cg=255,cb=0;
+            ss >> seg.x1 >> seg.y1 >> seg.x2 >> seg.y2 >> cr >> cg >> cb >> seg.size;
+            seg.c = SDL_Color{(Uint8)cr,(Uint8)cg,(Uint8)cb,255};
+            st.penSegs.push_back(seg);
+            continue;
+        }
+
+        if (tag == "PEN_STAMPS") { ss >> expectPenStamps; continue; }
+        if (tag == "STAMP") {
+            PenStamp sp;
+            ss >> sp.x >> sp.y >> sp.costumeIndex >> sp.dirDeg >> sp.sizePct;
+            st.penStamps.push_back(sp);
+            continue;
+        }
+
+
+        if (tag == "VARS") { ss >> expectVars; continue; }
+        if (tag == "VAR") {
+            string name; int isNum=1; double num=0.0; string str;
+            ss >> name >> isNum >> num >> std::quoted(str);
+            if (isNum) st.vars[name] = Value::Num(num);
+            else       st.vars[name] = Value::Str(str);
+            continue;
+        }
+
+        if (tag == "VARVIS") { ss >> expectVarVis; continue; }
+        if (tag == "VARV") {
+            string name; int v=0;
+            ss >> name >> v;
+            st.varVisible[name] = (v!=0);
+            continue;
+        }
+
+        if (tag == "LISTS") { ss >> expectLists; continue; }
+        if (tag == "LIST") {
+            string name; size_t n=0;
+            ss >> name >> n;
+            auto& L = st.lists[name];
+            L.clear();
+
+            for (size_t i = 0; i < n; i++) {
+                string itemLine;
+                if (!getline(f, itemLine)) break;
+                stringstream is(itemLine);
+                string itag; is >> itag;
+                if (itag != "ITEM") break;
+
+                int isNum=1; double num=0.0; string s;
+                is >> isNum >> num >> std::quoted(s);
+                if (isNum) L.push_back(Value::Num(num));
+                else       L.push_back(Value::Str(s));
+            }
+            continue;
+        }
+
+        if (tag == "LISTVIS") { ss >> expectListVis; continue; }
+        if (tag == "LISTV") {
+            string name; int v=0;
+            ss >> name >> v;
+            st.listVisible[name] = (v!=0);
+            continue;
+        }
+    }
+
+    st.getActive().ws.nextId = maxId + 1;
+    st.paletteDirty = true; // because pen enabled affects palette
+    st.log.log("LOAD", "Loaded: " + path);
+    return true;
+}
