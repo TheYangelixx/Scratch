@@ -4046,3 +4046,233 @@ static void handleShortcuts(AppState& st) {
         penClearAll(st);
         st.log.log("NEW", "Reset (shortcut)");
     }
+
+    if (ctrl && st.in.keyPressed[SDL_SCANCODE_N]) {
+        st.getActive().ws.reset();
+        st.penDown = false;
+        penClearAll(st);
+        st.log.log("NEW", "Reset (shortcut)");
+    }
+
+    if (ctrl && st.in.keyPressed[SDL_SCANCODE_S]) {
+        beginSaveDialog(st);
+        st.log.log("UI", "Open Save dialog (shortcut)");
+    }
+
+    if (ctrl && st.in.keyPressed[SDL_SCANCODE_O]) {
+        beginLoadDialog(st);
+        st.log.log("UI", "Open Load dialog (shortcut)");
+    }
+
+    if (st.in.keyPressed[SDL_SCANCODE_B]) {
+        st.getActive().ws.addBlock(st.getActive().ws.bounds.x + 60, st.getActive().ws.bounds.y + 60);
+        if (!st.getActive().ws.blocks.empty()) {
+            Block& b = st.getActive().ws.blocks.back();
+            b.cmd = "MOVE_STEPS"; b.a = 10.0;
+            setBlockVisual(b);
+        }
+        st.log.log("ADD", "Added block (shortcut)");
+    }
+
+    if (st.in.keyPressed[SDL_SCANCODE_ESCAPE]) {
+        st.quit = true;
+    }
+}
+
+
+
+static void update(AppState& st, SDL_Window* window) {
+    int w = 0, h = 0;
+    SDL_GetWindowSize(window, &w, &h);
+    bgmTick(st);
+
+    int stageW = 480;
+    int stageH = 360;
+    int padding = 10;
+    int rightPanelW = stageW + (padding * 2);
+
+    if (!st.sprites.empty()) {
+        st.getActive().ws.bounds = SDL_Rect{LEFT_PANEL_W, TOP_BAR_H, w - LEFT_PANEL_W - rightPanelW, h - TOP_BAR_H};
+    }
+
+    if (st.isFullscreen) {
+        st.stageBounds = SDL_Rect{0, 0, w, h};
+    } else {
+        st.stageBounds = SDL_Rect{w - stageW - padding, TOP_BAR_H + padding, stageW, stageH};
+    }
+
+    if (w != st.paletteLastW || h != st.paletteLastH || st.penExtensionEnabled != st.paletteLastPenEnabled) {
+        st.paletteDirty = true;
+        st.paletteLastW = w; st.paletteLastH = h;
+        st.paletteLastPenEnabled = st.penExtensionEnabled;
+    }
+    if (st.paletteDirty) rebuildPalette(st, w, h);
+
+    if (st.loadDialogOpen) updateLoadHover(st, w, h);
+
+    if (st.askDialogOpen || st.saveDialogOpen || st.loadDialogOpen || st.renameDialogOpen) return;
+    if (st.extensionLibraryOpen || st.penColorPickerOpen || st.funcIOMenuOpen) return;
+    if (st.settingsOpen) return;
+
+    if (updateHelpMenu(st)) return;
+
+    if (st.showLogsPanel) {
+        updateLogsPanel(st);
+        handleShortcuts(st);
+        return;
+    }
+
+    for (size_t i = 0; i < st.buttons.size(); i++) st.buttons[i].update(st.in);
+    for (size_t i = 0; i < st.palette.size(); i++) st.palette[i].update(st.in);
+
+    handleShortcuts(st);
+
+    bool shift = st.in.keyDown[SDL_SCANCODE_LSHIFT] || st.in.keyDown[SDL_SCANCODE_RSHIFT];
+    if (shift && st.in.mousePressed && !st.sprites.empty()) {
+        int hit = st.getActive().ws.hitTest(st.in.mx, st.in.my);
+        if (hit != -1) {
+            Block& b = st.getActive().ws.blocks[hit];
+            if (b.cmd == "FUNC_APPLY") { openFuncIOMenu(st, hit); return; }
+            if (b.cmd == "TOUCH_SPRITE") {
+                if (!st.sprites.empty()) {
+                    int idxx = -1;
+                    for (size_t k=0; k<st.sprites.size(); k++) {
+                        if (st.sprites[k].name == b.s1) { idxx = k; break; }
+                    }
+                    idxx = (idxx + 1) % st.sprites.size();
+                    b.s1 = st.sprites[idxx].name;
+                }
+                return;
+            }
+            if (b.cmd == "PEN_SET_COLOR") {
+                st.penColorPickerOpen = true;
+                st.penColorPickerBlockIndex = hit;
+                return;
+            }
+            if (b.cmd.rfind("VAR_", 0) == 0) { b.s1 = cycleName3(b.s1.empty() ? "v" : b.s1); return; }
+            if (b.cmd.rfind("LIST_", 0) == 0) { b.s1 = cycleListName3(b.s1.empty() ? "list" : b.s1); return; }
+            if (b.cmd == "DEFINE_FN" || b.cmd == "CALL_FN") { b.s1 = cycleFuncName(b.s1.empty() ? "myFunc" : b.s1); return; }
+        }
+    }
+
+    if (st.bubbleUntilMs != 0 && SDL_GetTicks() >= st.bubbleUntilMs) {
+        st.bubbleText.clear();
+        st.bubbleUntilMs = 0;
+    }
+
+
+    if (pointInRect(st.in.mx, st.in.my, st.stageBounds) || st.in.mouseDown) {
+
+
+        if (st.in.mousePressed) {
+
+            for (int i = (int)st.sprites.size() - 1; i >= 0; i--) {
+                Sprite& sp = st.sprites[i];
+                if (!sp.visible) continue;
+
+
+                int sizePx = (int)clampT((int)round(80.0 * (sp.sizePct / 100.0)), 10, 300);
+                SDL_Rect spRect{(int)round(sp.x) - sizePx/2, (int)round(sp.y) - sizePx/2, sizePx, sizePx};
+
+
+                if (pointInRect(st.in.mx, st.in.my, spRect)) {
+                    st.activeSprite = i;
+                    sp.isDragging = true;
+                    sp.dragOffX = st.in.mx - sp.x;
+                    sp.dragOffY = st.in.my - sp.y;
+                    break;
+                }
+            }
+        }
+
+        if (st.in.mouseDown) {
+            for (auto& sp : st.sprites) {
+                if (sp.isDragging) {
+                    sp.x = st.in.mx - sp.dragOffX;
+                    sp.y = st.in.my - sp.dragOffY;
+
+                    double minX = st.stageBounds.x;
+                    double maxX = st.stageBounds.x + st.stageBounds.w;
+                    double minY = st.stageBounds.y;
+                    double maxY = st.stageBounds.y + st.stageBounds.h;
+
+                    if (sp.x < minX) sp.x = minX;
+                    if (sp.x > maxX) sp.x = maxX;
+                    if (sp.y < minY) sp.y = minY;
+                    if (sp.y > maxY) sp.y = maxY;
+                }
+            }
+        }
+    }
+
+
+    if (st.in.mouseReleased) {
+        for (auto& sp : st.sprites) {
+            if (sp.isDragging) {
+                sp.isDragging = false;
+
+                sp.backupX = sp.x;
+                sp.backupY = sp.y;
+            }
+        }
+    }
+
+
+    st.log.cycle++;
+    if (!st.sprites.empty()) {
+        st.getActive().ws.update(st.in, st.log);
+    }
+    runScriptTick(st);
+
+
+    if (st.isFullscreen) {
+        SDL_Rect exitBtn = {20, 20, 150, 40};
+        if (st.in.mousePressed && pointInRect(st.in.mx, st.in.my, exitBtn)) {
+            st.isFullscreen = false;
+        }
+    } else {
+        SDL_Rect uploadBtn = { st.stageBounds.x, st.stageBounds.y + st.stageBounds.h + 10, 160, 30 };
+        if (st.in.mousePressed && pointInRect(st.in.mx, st.in.my, uploadBtn)) {
+            string path = openBMPDialog(window);
+            if (!path.empty()) {
+                SDL_Renderer* r = SDL_GetRenderer(window);
+                TextureAsset newBg = loadBMPTexture(r, path, st.log);
+                if (newBg.tex) {
+                    for(auto& bg : st.backdrops) if(bg.tex) SDL_DestroyTexture(bg.tex);
+                    st.backdrops.clear();
+                    st.backdrops.push_back(newBg);
+                    st.backdropIndex = 0;
+                }
+            }
+        }
+
+        SDL_Rect fullBtn = { st.stageBounds.x + 170, st.stageBounds.y + st.stageBounds.h + 10, 150, 30 };
+        if (st.in.mousePressed && pointInRect(st.in.mx, st.in.my, fullBtn)) {
+            st.isFullscreen = true;
+        }
+
+        int thumbY = st.stageBounds.y + st.stageBounds.h + 50;
+        SDL_Rect addSpriteBtn = {st.stageBounds.x, thumbY, 40, 40};
+        if (st.in.mousePressed && pointInRect(st.in.mx, st.in.my, addSpriteBtn)) {
+            string path = openBMPDialog(window);
+            if (!path.empty()) {
+                Sprite newSp;
+                newSp.name = "Sprite " + to_string(st.sprites.size() + 1);
+                newSp.x = st.stageBounds.x + st.stageBounds.w / 2.0;
+                newSp.y = st.stageBounds.y + st.stageBounds.h / 2.0;
+                newSp.backupX = newSp.x;
+                newSp.backupY = newSp.y;
+                newSp.icon = loadBMPTexture(SDL_GetRenderer(window), path, st.log);
+                st.sprites.push_back(newSp);
+                st.activeSprite = st.sprites.size() - 1;
+            }
+        }
+
+        int cx = st.stageBounds.x + 50;
+        for (size_t i = 0; i < st.sprites.size(); i++) {
+            SDL_Rect thumbRect = {cx, thumbY, 40, 40};
+            if (st.in.mousePressed && pointInRect(st.in.mx, st.in.my, thumbRect)) {
+                st.activeSprite = i;
+            }
+            cx += 50;
+        }
