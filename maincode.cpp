@@ -3708,3 +3708,253 @@ static StepResult executeOneBlock(AppState& st, Sprite& sp) {
         sp.scriptPC++;
         return StepResult::Advanced;
     }
+
+    if (cmd == "SQRT") {
+        double out = 0.0;
+        if (safeSqrt(st, idx, b.a, out)) st.lastValue = Value::Num(out);
+        st.log.info(idx, cmd, "Sqrt", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "LOOP") {
+        st.log.warn(idx, cmd, "Infinite loop block", "pc stays same");
+        return StepResult::Yielded;
+    }
+
+
+    if (isPenCmd(cmd) && !st.penExtensionEnabled) {
+        st.log.warn(idx, cmd, "Pen extension not enabled", "skipped");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "PEN_DOWN") { st.penDown = true;  st.log.info(idx, cmd, "Pen down", ""); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "PEN_UP")   { st.penDown = false; st.log.info(idx, cmd, "Pen up", "");   sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "PEN_ERASE_ALL") {
+        penClearAll(st);
+        st.penDown = false;
+        st.log.info(idx, cmd, "All erase", "cleared");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "PEN_STAMP") { penAddStamp(st); st.log.info(idx, cmd, "Stamp", "count=" + to_string((int)st.penStamps.size())); sp.scriptPC++; return StepResult::Advanced; }
+
+    if (cmd == "PEN_SET_SIZE") {
+        int before = st.penSize;
+        st.penSize = clampT((int)round(b.a), 1, 30);
+        st.log.info(idx, cmd, "Set size", "size:" + to_string(before) + "->" + to_string(st.penSize));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "PEN_CHANGE_SIZE") {
+        int before = st.penSize;
+        st.penSize = clampT((int)round(st.penSize + b.a), 1, 30);
+        st.log.info(idx, cmd, "Change size", "size:" + to_string(before) + "->" + to_string(st.penSize));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "PEN_SET_COLOR") {
+        SDL_Color c = b.pickColor;
+        rgbToHsv(c, st.penHue, st.penSat, st.penBri);
+        penSyncRGB(st);
+        st.log.info(idx, cmd, "Set color (direct)",
+                    "rgb=(" + to_string((int)c.r) + "," + to_string((int)c.g) + "," + to_string((int)c.b) + ")");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    st.log.warn(idx, cmd, "Unknown cmd skipped", "");
+    sp.scriptPC++;
+    return StepResult::Advanced;
+}
+
+static void runScriptTick(AppState& st) {
+    if (st.isPaused) return;
+    uint32_t now = SDL_GetTicks();
+    if (st.runSpeedMs > 0 && now < st.nextStepAtMs) return;
+
+    bool anyRan = false;
+    for (auto& sp : st.sprites) {
+        if (!sp.scriptRunning) continue;
+        executeOneBlock(st, sp);
+        anyRan = true;
+    }
+
+    if (anyRan && st.runSpeedMs > 0) st.nextStepAtMs = SDL_GetTicks() + st.runSpeedMs;
+}
+
+
+
+static void setupUI(AppState& st) {
+    st.buttons.clear();
+
+    auto mkBtn = [&](int x, int w, const string& label, const string& sub, function<void()> cb) {
+        Button b;
+        b.rect = SDL_Rect{x, 8, w, TOP_BAR_H - 16};
+        b.text = label;
+        b.sub = sub;
+        b.onClick = cb;
+        return b;
+    };
+
+    int x = 10;
+
+    st.buttons.push_back(mkBtn(x, 90, "New", "Ctrl+N", [&] {
+        st.getActive().ws.reset();
+        st.penDown = false;
+        penClearAll(st);
+        st.log.log("NEW", "Reset workspace");
+    }));
+    x += 100;
+
+    st.buttons.push_back(mkBtn(x, 90, "Save", "Ctrl+S", [&] {
+        beginSaveDialog(st);
+        st.log.log("UI", "Open Save dialog");
+    }));
+    x += 100;
+
+    st.buttons.push_back(mkBtn(x, 90, "Load", "Ctrl+O", [&] {
+        beginLoadDialog(st);
+        st.log.log("UI", "Open Load dialog");
+    }));
+    x += 100;
+
+    st.buttons.push_back(mkBtn(x, 110, "Add Block", "B", [&] {
+        st.getActive().ws.addBlock(st.getActive().ws.bounds.x + 60, st.getActive().ws.bounds.y + 60);
+        if (!st.getActive().ws.blocks.empty()) {
+            Block& b = st.getActive().ws.blocks.back();
+            b.cmd = "MOVE_STEPS"; b.a = 10.0;
+            setBlockVisual(b);
+        }
+        st.log.log("ADD", "Added block");
+    }));
+    x += 120;
+
+    st.buttons.push_back(mkBtn(x, 120, "Extensions", "E", [&] {
+        openExtensionLibrary(st);
+    }));
+    x += 130;
+
+    st.buttons.push_back(mkBtn(x, 90, "Help", "H", [&] {
+        st.helpMenuOpen = !st.helpMenuOpen;
+        st.log.info(-1, "HELP", st.helpMenuOpen ? "Open menu" : "Close menu", "");
+    }));
+    st.helpButtonRect = st.buttons.back().rect;
+    x += 100;
+
+    st.buttons.push_back(mkBtn(x, 110, "Settings", "P", [&] {
+        openSettings(st);
+    }));
+    x += 120;
+
+    st.buttons.push_back(mkBtn(x, 70, "Run", "F5", [&] {
+        st.isPaused = false;
+        startScript(st);
+    }));
+    x += 80;
+
+    st.buttons.push_back(mkBtn(x, 75, "Pause", "F7", [&] {
+        st.isPaused = true;
+        st.log.log("RUN", "Paused");
+    }));
+    x += 85;
+
+    st.buttons.push_back(mkBtn(x, 85, "Resume", "F8", [&] {
+        st.isPaused = false;
+        st.log.log("RUN", "Resumed");
+    }));
+    x += 95;
+
+    st.buttons.push_back(mkBtn(x, 70, "Stop", "F6", [&] {
+        st.isPaused = false;
+        for (auto& s : st.sprites) stopScript(st, s, "User stop (F6)");
+    }));
+    x += 80;
+
+    st.buttons.push_back(mkBtn(x, 70, "Quit", "Esc", [&] {
+        st.quit = true;
+    }));
+}
+
+
+static void processEvents(AppState& st, SDL_Window* window) {
+    SDL_Event e;
+    int winW = 0, winH = 0;
+    SDL_GetWindowSize(window, &winW, &winH);
+
+    while (SDL_PollEvent(&e)) {
+        if (e.type == SDL_MOUSEMOTION) {
+            st.in.mx = e.motion.x;
+            st.in.my = e.motion.y;
+        }
+
+        if (st.settingsOpen) {
+            if (handleSettingsEvent(st, e, winW, winH)) continue;
+        }
+
+        if (st.extensionLibraryOpen) {
+            if (handleExtensionLibraryEvent(st, e, winW, winH)) continue;
+        }
+        if (st.penColorPickerOpen) {
+            if (handlePenColorPickerEvent(st, e, winW, winH)) continue;
+        }
+        if (st.funcIOMenuOpen) {
+            if (handleFuncIOMenuEvent(st, e, winW, winH)) continue;
+        }
+
+        if (st.askDialogOpen || st.saveDialogOpen || st.loadDialogOpen || st.renameDialogOpen) {
+            if (handleDialogsEvent(st, e, winW, winH)) continue;
+        }
+
+        if (e.type == SDL_MOUSEWHEEL) {
+            SDL_Rect left = {0, TOP_BAR_H, LEFT_PANEL_W, winH - TOP_BAR_H};
+            if (pointInRect(st.in.mx, st.in.my, left)) {
+                int step = (e.wheel.y > 0) ? -42 : (e.wheel.y < 0 ? 42 : 0);
+                if (step != 0) {
+                    st.paletteScroll = clampT(st.paletteScroll + step, 0, st.paletteMaxScroll);
+                    st.paletteDirty = true;
+                    continue;
+                }
+            }
+        }
+
+        switch (e.type) {
+            case SDL_QUIT:
+                st.quit = true;
+                break;
+
+            case SDL_MOUSEBUTTONDOWN:
+                if (e.button.button == SDL_BUTTON_LEFT) {
+                    st.in.mouseDown = true;
+                    st.in.mousePressed = true;
+                    st.in.mx = e.button.x;
+                    st.in.my = e.button.y;
+                }
+                break;
+
+            case SDL_MOUSEBUTTONUP:
+                if (e.button.button == SDL_BUTTON_LEFT) {
+                    st.in.mouseDown = false;
+                    st.in.mouseReleased = true;
+                    st.in.mx = e.button.x;
+                    st.in.my = e.button.y;
+                }
+                break;
+
+            case SDL_KEYDOWN:
+                if (!e.key.repeat) {
+                    st.in.keyDown[e.key.keysym.scancode] = true;
+                    st.in.keyPressed[e.key.keysym.scancode] = true;
+                }
+                break;
+
+            case SDL_KEYUP:
+                st.in.keyDown[e.key.keysym.scancode] = false;
+                break;
+
+            default:
+                break;
+        }
+    }
+}
