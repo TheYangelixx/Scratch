@@ -3958,3 +3958,91 @@ static void processEvents(AppState& st, SDL_Window* window) {
         }
     }
 }
+
+static void handleShortcuts(AppState& st) {
+    if (st.in.keyPressed[SDL_SCANCODE_P]) {
+        openSettings(st);
+    }
+
+    if (st.extensionLibraryOpen) {
+        if (st.in.keyPressed[SDL_SCANCODE_ESCAPE]) {
+            st.extensionLibraryOpen = false;
+            st.log.info(-1, "EXT", "Close library (Esc)", "");
+        }
+        return;
+    }
+
+    if (st.penColorPickerOpen) {
+        if (st.in.keyPressed[SDL_SCANCODE_ESCAPE]) {
+            st.penColorPickerOpen = false;
+            st.penColorPickerBlockIndex = -1;
+            st.log.info(-1, "PEN", "Close color picker (Esc)", "");
+        }
+        return;
+    }
+
+    if (st.funcIOMenuOpen) {
+        if (st.in.keyPressed[SDL_SCANCODE_ESCAPE]) {
+            closeFuncIOMenu(st, "Esc shortcut");
+        }
+        return;
+    }
+
+    if (st.askDialogOpen) {
+        return;
+    }
+
+    if (st.showLogsPanel) {
+        if (st.in.keyPressed[SDL_SCANCODE_ESCAPE]) {
+            st.showLogsPanel = false;
+            st.logsScroll = 0;
+            st.log.info(-1, "HELP", "Close Logs panel", "");
+        }
+        return;
+    }
+
+    if (st.helpMenuOpen && st.in.keyPressed[SDL_SCANCODE_ESCAPE]) {
+        st.helpMenuOpen = false;
+        st.log.info(-1, "HELP", "Close menu (Esc)", "");
+        return;
+    }
+
+    bool ctrl = st.in.keyDown[SDL_SCANCODE_LCTRL] || st.in.keyDown[SDL_SCANCODE_RCTRL];
+
+    if (st.in.keyPressed[SDL_SCANCODE_H]) {
+        st.helpMenuOpen = !st.helpMenuOpen;
+        st.log.info(-1, "HELP", st.helpMenuOpen ? "Open menu (H)" : "Close menu (H)", "");
+    }
+
+    if (st.in.keyPressed[SDL_SCANCODE_E]) {
+        openExtensionLibrary(st);
+    }
+
+    if (st.in.keyPressed[SDL_SCANCODE_F5]) {
+        st.isPaused = false;
+        startScript(st);
+    }
+    if (st.in.keyPressed[SDL_SCANCODE_F7]) {
+        st.isPaused = true;
+        st.log.log("RUN", "Paused via shortcut");
+    }
+    if (st.in.keyPressed[SDL_SCANCODE_F8]) {
+        st.isPaused = false;
+        st.log.log("RUN", "Resumed via shortcut");
+    }
+    if (st.in.keyPressed[SDL_SCANCODE_F6]) {
+        st.isPaused = false;
+        for (auto& s : st.sprites) stopScript(st, s, "User stop (F6)");
+    }
+
+    if (st.debugStepMode && st.getActive().scriptRunning && st.in.keyPressed[SDL_SCANCODE_SPACE]) {
+        st.getActive().stepRequested = true;
+        st.log.info(st.getActive().scriptPC, "DEBUG", "Step", "Space pressed");
+    }
+
+    if (ctrl && st.in.keyPressed[SDL_SCANCODE_N]) {
+        st.getActive().ws.reset();
+        st.penDown = false;
+        penClearAll(st);
+        st.log.log("NEW", "Reset (shortcut)");
+    }
