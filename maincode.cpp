@@ -195,3 +195,4 @@ static string buildSavePath(const string& stem) {
     return getSaveDir() + "/" + safe + ".txt";
 #endif
 }
+
