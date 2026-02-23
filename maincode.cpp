@@ -734,3 +734,106 @@ static bool initBGMSystem(AppState& st) {
                 "freq=" + to_string(have.freq) + " ch=" + to_string((int)have.channels));
     return true;
 }
+
+// فایل WAV رو لود میکنه و اگه فرمتش با دستگاه فرق داشت تبدیلش میکنه
+static bool loadBGM(AppState& st, const string& wavFile) {
+    if (!st.bgmReady || !st.bgmDev) return false;
+
+    // buffer قدیمی رو آزاد کن
+    if (st.bgmBuf) { SDL_free(st.bgmBuf); st.bgmBuf = nullptr; }
+    st.bgmLen = 0;
+    st.bgmPos = 0;
+
+    SDL_AudioSpec srcSpec{};
+    Uint8* srcBuf = nullptr;
+    Uint32 srcLen = 0;
+
+    if (!SDL_LoadWAV(wavFile.c_str(), &srcSpec, &srcBuf, &srcLen)) {
+        st.log.warn(-1, "BGM", "LoadWAV failed", wavFile + " err=" + SDL_GetError());
+        return false;
+    }
+
+    Uint8* outBuf = srcBuf;
+    Uint32 outLen = srcLen;
+
+    // اگه فرمت WAV با دستگاه صوتی فرق داشت، تبدیلش کن
+    if (srcSpec.format != st.bgmSpec.format ||
+        srcSpec.channels != st.bgmSpec.channels ||
+        srcSpec.freq != st.bgmSpec.freq) {
+
+        SDL_AudioCVT cvt;
+        if (SDL_BuildAudioCVT(&cvt,
+                              srcSpec.format, srcSpec.channels, srcSpec.freq,
+                              st.bgmSpec.format, st.bgmSpec.channels, st.bgmSpec.freq) < 0) {
+            st.log.warn(-1, "BGM", "BuildAudioCVT failed", wavFile);
+            SDL_FreeWAV(srcBuf);
+            return false;
+        }
+
+        if (cvt.needed) {
+            cvt.len = (int)srcLen;
+            Uint8* cvtBuf = (Uint8*)SDL_malloc((size_t)cvt.len * (size_t)cvt.len_mult);
+            if (!cvtBuf) {
+                st.log.warn(-1, "BGM", "malloc failed", "cvt");
+                SDL_FreeWAV(srcBuf);
+                return false;
+            }
+
+            SDL_memcpy(cvtBuf, srcBuf, srcLen);
+            cvt.buf = cvtBuf;
+
+            if (SDL_ConvertAudio(&cvt) != 0) {
+                st.log.warn(-1, "BGM", "ConvertAudio failed", wavFile);
+                SDL_free(cvtBuf);
+                SDL_FreeWAV(srcBuf);
+                return false;
+            }
+
+            outBuf = cvtBuf;
+            outLen = (Uint32)cvt.len_cvt;
+            SDL_FreeWAV(srcBuf);
+        }
+    }
+
+    // یه buffer یکدست میسازیم که همیشه با SDL_free آزاد بشه
+    Uint8* finalBuf = (Uint8*)SDL_malloc(outLen);
+    if (!finalBuf) {
+        st.log.warn(-1, "BGM", "malloc failed", "finalBuf");
+        if (outBuf == srcBuf) SDL_FreeWAV(srcBuf);
+        else SDL_free(outBuf);
+        return false;
+    }
+    SDL_memcpy(finalBuf, outBuf, outLen);
+
+    if (outBuf == srcBuf) SDL_FreeWAV(srcBuf);
+    else SDL_free(outBuf);
+
+    st.bgmBuf = finalBuf;
+    st.bgmLen = outLen;
+    st.bgmPos = 0;
+
+    st.log.info(-1, "BGM", "Loaded BGM", wavFile + " bytes=" + to_string(outLen));
+    return true;
+}
+
+// دستگاه صوتی BGM رو میبنده و حافظه‌اش رو آزاد میکنه
+static void shutdownBGMSystem(AppState& st) {
+    if (st.bgmDev) {
+        SDL_ClearQueuedAudio(st.bgmDev);
+        SDL_CloseAudioDevice(st.bgmDev);
+    }
+    st.bgmDev = 0;
+    st.bgmReady = false;
+
+    if (st.bgmBuf) {
+        SDL_free(st.bgmBuf);
+        st.bgmBuf = nullptr;
+    }
+    st.bgmLen = 0;
+    st.bgmPos = 0;
+}
+
+// queue صوتی BGM رو خالی میکنه — مثلاً وقتی صدا رو mute میکنیم
+static void bgmClearQueue(AppState& st) {
+    if (st.bgmReady && st.bgmDev) SDL_ClearQueuedAudio(st.bgmDev);
+}
