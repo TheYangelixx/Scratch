@@ -2734,5 +2734,35 @@ static void rebuildPalette(AppState& st, int winW, int winH) {
 
     st.paletteDirty = false;
 }
+static void renderPaletteHeader(const AppState& st, SDL_Renderer* r) {
+    SDL_Color white{240,240,240,255};
+    renderText(r, st.uiFont, "Code", 12, TOP_BAR_H + 6, white);
+    if (st.penExtensionEnabled) renderText(r, st.uiFont, "Pen: enabled", 12, TOP_BAR_H + 28, SDL_Color{40,180,90,255});
+    else                       renderText(r, st.uiFont, "Pen: Extensions (E)", 12, TOP_BAR_H + 28, SDL_Color{160,160,160,255});
+
+    renderText(r, st.uiFont, "Scroll wheel", 12, TOP_BAR_H + 46, SDL_Color{120,120,120,255});
+}
+
+static void renderPaletteCats(const AppState& st, SDL_Renderer* r) {
+    SDL_Color c{210,210,210,255};
+    for (auto& it : st.paletteCats) {
+        int y = it.first - st.paletteScroll;
+        if (y < TOP_BAR_H + 55 || y > st.getActive().ws.bounds.y + st.getActive().ws.bounds.h) continue;
+        renderText(r, st.uiFont, it.second, 12, y, c);
+    }
+}
+static SDL_Rect helpMenuRect(const AppState& st) {
+    SDL_Rect r;
+    r.x = st.helpButtonRect.x;
+    r.y = TOP_BAR_H - 2;
+    r.w = 260;
+    r.h = 32 * 3 + 10;
+    return r;
+}
+
+static SDL_Rect helpMenuItemRect(const SDL_Rect& menu, int i) {
+    SDL_Rect r = {menu.x + 5, menu.y + 5 + i * 32, menu.w - 10, 28};
+    return r;
+}
 
 
