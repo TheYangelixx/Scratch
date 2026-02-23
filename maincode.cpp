@@ -2705,3 +2705,34 @@ static void rebuildPalette(AppState& st, int winW, int winH) {
     placeBtn("clone count (to last)", "", [&]{ addTypedBlock(st, "CLONE_COUNT", 0.0, 0.0); });
 
 
+    cat("My Blocks");
+    placeBtn("Define f(x)", "Shift+Click cycle name", [&]{ addTypedBlock(st, "DEFINE_FN", 0.0, 0.0, "myFunc", "x"); });
+    placeBtn("End Function", "", [&]{ addTypedBlock(st, "END_FN", 0.0, 0.0); });
+    placeBtn("Call f(n)", "Shift+Click cycle name", [&]{ addTypedBlock(st, "CALL_FN", 10.0, 0.0, "myFunc"); });
+    placeBtn("Get param x", "", [&]{ addTypedBlock(st, "GET_PARAM", 0.0, 0.0, "x"); });
+    // Pen at end
+    if (st.penExtensionEnabled) {
+        cat("Pen (Extension)");
+        placeBtn("PEN Down", "", [&]{ addTypedBlock(st, "PEN_DOWN", 0.0, 0.0); });
+        placeBtn("PEN Up", "", [&]{ addTypedBlock(st, "PEN_UP", 0.0, 0.0); });
+        placeBtn("Stamp", "", [&]{ addTypedBlock(st, "PEN_STAMP", 0.0, 0.0); });
+        placeBtn("All Erase", "", [&]{ addTypedBlock(st, "PEN_ERASE_ALL", 0.0, 0.0); });
+        placeBtn("Set Size (3)", "", [&]{ addTypedBlock(st, "PEN_SET_SIZE", 3.0, 0.0); });
+        placeBtn("Change Size (+1)", "", [&]{ addTypedBlock(st, "PEN_CHANGE_SIZE", 1.0, 0.0); });
+        placeBtn("Set Color (picker)", "Shift+Click edit", [&]{
+            addTypedBlock(st, "PEN_SET_COLOR", 0.0, 0.0);
+            if (!st.getActive().ws.blocks.empty()) {
+                st.getActive().ws.blocks.back().pickColor = st.penRGB;
+                setBlockVisual(st.getActive().ws.blocks.back());
+            }
+        });
+    }
+    int visibleH = (winH - TOP_BAR_H) - 10;
+    int contentEnd = contentY + 10;
+    st.paletteMaxScroll = max(0, contentEnd - (TOP_BAR_H + visibleH));
+    st.paletteScroll = clampT(st.paletteScroll, 0, st.paletteMaxScroll);
+
+    st.paletteDirty = false;
+}
+
+
