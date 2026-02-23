@@ -2749,7 +2749,7 @@ static uint32_t playWavOneShot(AppState& st, const string& wavFile) {
 
 
 static vector<Value>& getList(AppState& st, const string& name) {
-    return st.lists[name]; // auto-create if missing
+    return st.lists[name];
 }
 
 static Value listItemFromBlock(const Block& b) {
@@ -3216,7 +3216,7 @@ static StepResult executeOneBlock(AppState& st, Sprite& sp) {
         SDL_Rect rA{(int)round(sp.x) - sizeA/2, (int)round(sp.y) - sizeA/2, sizeA, sizeA};
 
         for (const auto& other : st.sprites) {
-            if (&other == &sp) continue; // با خودش برخورد نکند
+            if (&other == &sp) continue;
             if (other.name == targetName && other.visible) {
                 int sizeB = (int)clampT((int)round(80.0 * (other.sizePct / 100.0)), 10, 300);
                 SDL_Rect rB{(int)round(other.x) - sizeB/2, (int)round(other.y) - sizeB/2, sizeB, sizeB};
@@ -3733,7 +3733,7 @@ static StepResult executeOneBlock(AppState& st, Sprite& sp) {
     if (cmd == "PEN_UP")   { st.penDown = false; st.log.info(idx, cmd, "Pen up", "");   sp.scriptPC++; return StepResult::Advanced; }
     if (cmd == "PEN_ERASE_ALL") {
         penClearAll(st);
-        st.penDown = false; // optional: prevent immediate redraw
+        st.penDown = false;
         st.log.info(idx, cmd, "All erase", "cleared");
         sp.scriptPC++;
         return StepResult::Advanced;
