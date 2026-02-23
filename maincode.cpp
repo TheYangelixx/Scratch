@@ -3708,7 +3708,7 @@ static StepResult executeOneBlock(AppState& st, Sprite& sp) {
         sp.scriptPC++;
         return StepResult::Advanced;
     }
-    // ---- Legacy extra
+
     if (cmd == "SQRT") {
         double out = 0.0;
         if (safeSqrt(st, idx, b.a, out)) st.lastValue = Value::Num(out);
@@ -3722,7 +3722,7 @@ static StepResult executeOneBlock(AppState& st, Sprite& sp) {
         return StepResult::Yielded; // keep yielding so UI doesn't watchdog
     }
 
-    // ---- Pen extension blocks
+
     if (isPenCmd(cmd) && !st.penExtensionEnabled) {
         st.log.warn(idx, cmd, "Pen extension not enabled", "skipped");
         sp.scriptPC++;
