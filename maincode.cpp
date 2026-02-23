@@ -4276,3 +4276,323 @@ static void update(AppState& st, SDL_Window* window) {
             }
             cx += 50;
         }
+
+        if (!st.sprites.empty() && st.in.mousePressed) {
+            SDL_Rect infoBox = { st.stageBounds.x + 330, st.stageBounds.y + st.stageBounds.h + 10, 150, 135 };
+            SDL_Rect renameBtn = { infoBox.x + 10, infoBox.y + 10, 130, 20 };
+            SDL_Rect dirLeftBtn = { infoBox.x + 90, infoBox.y + 60, 22, 22 };
+            SDL_Rect dirRightBtn = { infoBox.x + 118, infoBox.y + 60, 22, 22 };
+            SDL_Rect visBtn = { infoBox.x + 10, infoBox.y + 85, 130, 20 };
+            SDL_Rect deleteBtn = { infoBox.x + 10, infoBox.y + 110, 130, 20 };
+
+
+            if (pointInRect(st.in.mx, st.in.my, renameBtn)) {
+                st.renameDialogOpen = true;
+                st.renameInput = st.getActive().name;
+                SDL_StartTextInput();
+            }
+
+            else if (pointInRect(st.in.mx, st.in.my, dirLeftBtn)) {
+                st.getActive().dirDeg = fmod(st.getActive().dirDeg - 15.0 + 360.0, 360.0);
+                st.getActive().backupDirDeg = st.getActive().dirDeg;
+            }
+
+            else if (pointInRect(st.in.mx, st.in.my, dirRightBtn)) {
+                st.getActive().dirDeg = fmod(st.getActive().dirDeg + 15.0, 360.0);
+                st.getActive().backupDirDeg = st.getActive().dirDeg;
+            }
+
+            else if (pointInRect(st.in.mx, st.in.my, visBtn)) {
+                st.getActive().visible = !st.getActive().visible;
+                st.getActive().backupVisible = st.getActive().visible;
+            }
+
+            else if (pointInRect(st.in.mx, st.in.my, deleteBtn)) {
+                st.sprites.erase(st.sprites.begin() + st.activeSprite);
+                if (!st.sprites.empty() && st.activeSprite >= (int)st.sprites.size()) {
+                    st.activeSprite = (int)st.sprites.size() - 1;
+                } else if (st.sprites.empty()) {
+                    st.activeSprite = 0;
+                }
+            }
+        }
+    }
+}
+
+
+static void renderBlockLabels(const AppState& st, SDL_Renderer* r) {
+    SDL_Color t{10,10,10,255};
+    SDL_Color w{240,240,240,255};
+
+    for (size_t i = 0; i < st.getActive().ws.blocks.size(); i++) {
+        const Block& b = st.getActive().ws.blocks[i];
+        string label = b.cmd;
+
+        if (b.cmd == "MOVE_STEPS") label = "move " + to_string((int)round(b.a)) + " steps";
+        else if (b.cmd == "LAYER_FRONT") label = "go to front layer";
+        else if (b.cmd == "LAYER_BACK") label = "go to back layer";
+        else if (b.cmd == "LAYER_FWD") label = "go forward " + to_string((int)round(b.a)) + " layers";
+        else if (b.cmd == "LAYER_BWD") label = "go backward " + to_string((int)round(b.a)) + " layers";
+        else if (b.cmd == "TOUCH_SPRITE") label = "touching " + b.s1 + "?";
+        else if (b.cmd == "TURN_R") label = "turn right " + to_string((int)round(b.a));
+        else if (b.cmd == "TURN_L") label = "turn left " + to_string((int)round(b.a));
+        else if (b.cmd == "GOTO_XY") label = "go to (" + to_string((int)round(b.a)) + "," + to_string((int)round(b.b)) + ")";
+        else if (b.cmd == "SAY") label = "say " + b.s1;
+        else if (b.cmd == "THINK") label = "think " + b.s1;
+        else if (b.cmd == "ASK") label = "ask " + b.s1;
+        else if (b.cmd == "BROADCAST") label = "broadcast " + b.s1;
+        else if (b.cmd == "WHEN_RECEIVE") label = "when receive " + b.s1;
+        else if (b.cmd == "VAR_SET_NUM") label = "set " + b.s1 + " = " + to_string((int)round(b.a));
+        else if (b.cmd == "VAR_SET_STR") label = "set " + b.s1 + " = \"" + b.s2 + "\"";
+        else if (b.cmd == "VAR_CHANGE") label = "change " + b.s1 + " by " + to_string((int)round(b.a));
+        else if (b.cmd == "FUNC_APPLY") {
+            string fn = b.s1.empty() ? "sqrt" : b.s1;
+            string inSel = b.inSel.empty() ? "last" : b.inSel;
+            string outSel = b.outSel.empty() ? "last" : b.outSel;
+            label = fn + "(" + inSel + ") -> " + outSel;
+        }
+        else if (b.cmd == "LIST_ADD") label = "add " + (b.s2.empty() ? to_string((int)round(b.a)) : "\"" + b.s2 + "\"") + " to " + b.s1;
+        else if (b.cmd == "LIST_DELETE") label = "delete " + to_string((int)round(b.a)) + " of " + b.s1;
+        else if (b.cmd == "LIST_CLEAR") label = "clear " + b.s1;
+        else if (b.cmd == "LIST_LENGTH") label = "length of " + b.s1;
+        else if (b.cmd == "LIST_ITEM") label = "item " + to_string((int)round(b.a)) + " of " + b.s1;
+        else if (b.cmd == "LIST_CONTAINS") label = b.s1 + " contains \"" + b.s2 + "\"?";
+        else if (b.cmd == "LIST_SHOW") label = "show " + b.s1;
+        else if (b.cmd == "LIST_HIDE") label = "hide " + b.s1;
+        else if (b.cmd == "CLONE_CREATE") label = "create clone";
+        else if (b.cmd == "CLONE_DELETE_LAST") label = "delete last clone";
+        else if (b.cmd == "CLONE_CLEAR") label = "clear clones";
+        else if (b.cmd == "CLONE_COUNT") label = "clone count";
+        else if (b.cmd == "DEFINE_FN") label = "define " + b.s1 + " (param: " + b.s2 + ")";
+        else if (b.cmd == "END_FN") label = "end function";
+        else if (b.cmd == "CALL_FN") label = "call " + b.s1 + " (arg: " + to_string((int)round(b.a)) + ")";
+        else if (b.cmd == "GET_PARAM") label = "get param " + b.s1 + " (to last)";
+
+        renderText(r, st.uiFont, label, b.rect.x + 10 + 1, b.rect.y + 16 + 1, t);
+        renderText(r, st.uiFont, label, b.rect.x + 10, b.rect.y + 16, w);
+    }
+}
+
+
+
+static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
+    int w = 0, h = 0;
+    SDL_GetWindowSize(window, &w, &h);
+
+    SDL_SetRenderDrawColor(r, 25, 25, 28, 255);
+    SDL_RenderClear(r);
+
+    if (!st.isFullscreen) {
+        SDL_Rect top = {0, 0, w, TOP_BAR_H};
+        SDL_SetRenderDrawColor(r, 20, 20, 22, 255);
+        SDL_RenderFillRect(r, &top);
+
+        SDL_Rect left = {0, TOP_BAR_H, LEFT_PANEL_W, h - TOP_BAR_H};
+        SDL_SetRenderDrawColor(r, 24, 24, 26, 255);
+        SDL_RenderFillRect(r, &left);
+        SDL_SetRenderDrawColor(r, 12, 12, 12, 255);
+        SDL_RenderDrawRect(r, &left);
+
+        for (size_t i = 0; i < st.buttons.size(); i++) st.buttons[i].draw(r, st.uiFont);
+
+        renderPaletteHeader(st, r);
+        renderPaletteCats(st, r);
+        for (size_t i = 0; i < st.palette.size(); i++) st.palette[i].draw(r, st.uiFont);
+
+        if (!st.sprites.empty()) {
+            SDL_SetRenderDrawColor(r, 30, 30, 30, 255);
+            SDL_RenderFillRect(r, &st.getActive().ws.bounds);
+            SDL_SetRenderDrawColor(r, 60, 60, 60, 255);
+            SDL_RenderDrawRect(r, &st.getActive().ws.bounds);
+
+            st.getActive().ws.draw(r);
+            renderBlockLabels(st, r);
+
+            if (st.getActive().scriptRunning && st.getActive().scriptPC >= 0 && st.getActive().scriptPC < (int)st.getActive().ws.blocks.size()) {
+                SDL_Rect hi = st.getActive().ws.blocks[st.getActive().scriptPC].rect;
+                SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+                SDL_RenderDrawRect(r, &hi);
+            }
+        }
+    }
+
+
+    bool bgDrawn = false;
+    if (!st.backdrops.empty()) {
+        int bi = st.backdropIndex;
+        if (bi >= 0 && bi < (int)st.backdrops.size() && st.backdrops[bi].tex) {
+            SDL_RenderCopy(r, st.backdrops[bi].tex, nullptr, &st.stageBounds);
+            bgDrawn = true;
+        }
+    }
+
+    if (!bgDrawn) {
+        SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+        SDL_RenderFillRect(r, &st.stageBounds);
+    }
+
+    if (!st.isFullscreen) {
+        SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
+        SDL_RenderDrawRect(r, &st.stageBounds);
+    }
+
+    SDL_RenderSetClipRect(r, &st.stageBounds);
+    renderPenLayer(st, r);
+
+    bool shouldDrawActor = false;
+    if (!st.sprites.empty()) {
+        shouldDrawActor = st.getActive().scriptRunning || st.drawActorWhenStopped;
+    }
+
+
+    if (shouldDrawActor) {
+        vector<const Sprite*> sortedSprites;
+        for (const auto& sp : st.sprites) {
+            sortedSprites.push_back(&sp);
+        }
+
+        std::stable_sort(sortedSprites.begin(), sortedSprites.end(), [](const Sprite* a, const Sprite* b) {
+            return a->zOrder < b->zOrder;
+        });
+
+        for (const Sprite* pSp : sortedSprites) {
+            drawSprite(r, st, *pSp);
+        }
+    }
+
+    if (!st.sprites.empty() && !st.bubbleText.empty() && st.getActive().scriptRunning && st.getActive().visible) {
+        SDL_Rect box{(int)st.getActive().x + 16, (int)st.getActive().y - 40, 240, 46};
+        SDL_SetRenderDrawColor(r, 245,245,245,255);
+        SDL_RenderFillRect(r, &box);
+        SDL_SetRenderDrawColor(r, 10,10,10,255);
+        SDL_RenderDrawRect(r, &box);
+        renderText(r, st.uiFont, st.bubbleThink ? ("(think) " + st.bubbleText) : st.bubbleText, box.x + 8, box.y + 12, SDL_Color{10,10,10,255});
+    }
+
+    SDL_RenderSetClipRect(r, nullptr);
+
+
+    if (st.isFullscreen) {
+        SDL_Rect exitBtn = {20, 20, 150, 40};
+        SDL_SetRenderDrawColor(r, 200, 50, 50, 255);
+        SDL_RenderFillRect(r, &exitBtn);
+        renderTextCentered(r, st.uiFont, "Exit Fullscreen", exitBtn, 0, SDL_Color{255, 255, 255, 255});
+    } else {
+        SDL_Color white = {255, 255, 255, 255};
+
+        SDL_Rect uploadBtn = { st.stageBounds.x, st.stageBounds.y + st.stageBounds.h + 10, 160, 30 };
+        SDL_SetRenderDrawColor(r, 60, 100, 180, 255);
+        SDL_RenderFillRect(r, &uploadBtn);
+        renderTextCentered(r, st.uiFont, "Upload BG", uploadBtn, 0, white);
+
+        SDL_Rect fullBtn = { st.stageBounds.x + 170, st.stageBounds.y + st.stageBounds.h + 10, 150, 30 };
+        SDL_SetRenderDrawColor(r, 60, 180, 100, 255);
+        SDL_RenderFillRect(r, &fullBtn);
+        renderTextCentered(r, st.uiFont, "Fullscreen", fullBtn, 0, white);
+
+        int thumbY = st.stageBounds.y + st.stageBounds.h + 50;
+        SDL_Rect addBtn = { st.stageBounds.x, thumbY, 40, 40 };
+        SDL_SetRenderDrawColor(r, 60, 180, 100, 255);
+        SDL_RenderFillRect(r, &addBtn);
+        renderTextCentered(r, st.uiFont, "+", addBtn, 0, white);
+
+        int cx = st.stageBounds.x + 50;
+        for (size_t i = 0; i < st.sprites.size(); i++) {
+            SDL_Rect thumb = { cx, thumbY, 40, 40 };
+
+            if (i == st.activeSprite) {
+                SDL_Rect outline = { cx - 3, thumbY - 3, 46, 46 };
+                SDL_SetRenderDrawColor(r, 255, 200, 0, 255);
+                SDL_RenderFillRect(r, &outline);
+            }
+
+            if (st.sprites[i].icon.tex) {
+                SDL_RenderCopy(r, st.sprites[i].icon.tex, nullptr, &thumb);
+            } else {
+                SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
+                SDL_RenderFillRect(r, &thumb);
+            }
+            cx += 50;
+        }
+
+
+        if (!st.sprites.empty()) {
+            int centerX = st.stageBounds.x + st.stageBounds.w / 2;
+            int centerY = st.stageBounds.y + st.stageBounds.h / 2;
+            int scratchX = (int)round(st.getActive().x - centerX);
+            int scratchY = (int)round(centerY - st.getActive().y);
+
+            SDL_Rect infoBox = { st.stageBounds.x + 330, st.stageBounds.y + st.stageBounds.h + 10, 150, 135 };
+            SDL_SetRenderDrawColor(r, 40, 40, 46, 255);
+            SDL_RenderFillRect(r, &infoBox);
+            SDL_SetRenderDrawColor(r, 100, 100, 100, 255);
+            SDL_RenderDrawRect(r, &infoBox);
+
+            SDL_Rect renameBtn = { infoBox.x + 10, infoBox.y + 10, 130, 20 };
+            SDL_SetRenderDrawColor(r, 60, 100, 180, 255);
+            SDL_RenderFillRect(r, &renameBtn);
+            SDL_SetRenderDrawColor(r, 20, 20, 20, 255);
+            SDL_RenderDrawRect(r, &renameBtn);
+
+            string spName = st.getActive().name;
+            if (spName.length() > 12) spName = spName.substr(0, 10) + "..";
+            renderTextCentered(r, st.uiFont, spName, renameBtn, 0, white);
+
+            string xyText = "X: " + to_string(scratchX) + "  Y: " + to_string(scratchY);
+            renderText(r, st.uiFont, xyText, infoBox.x + 10, infoBox.y + 38, white);
+
+            string dirText = "Dir: " + to_string((int)st.getActive().dirDeg);
+            renderText(r, st.uiFont, dirText, infoBox.x + 10, infoBox.y + 63, white);
+
+            SDL_Rect dirLeftBtn = { infoBox.x + 90, infoBox.y + 60, 22, 22 };
+            SDL_Rect dirRightBtn = { infoBox.x + 118, infoBox.y + 60, 22, 22 };
+            SDL_SetRenderDrawColor(r, 80, 80, 90, 255);
+            SDL_RenderFillRect(r, &dirLeftBtn);
+            SDL_RenderFillRect(r, &dirRightBtn);
+            SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
+            SDL_RenderDrawRect(r, &dirLeftBtn);
+            SDL_RenderDrawRect(r, &dirRightBtn);
+            renderTextCentered(r, st.uiFont, "<", dirLeftBtn, 0, white);
+            renderTextCentered(r, st.uiFont, ">", dirRightBtn, 0, white);
+
+            SDL_Rect visBtn = { infoBox.x + 10, infoBox.y + 85, 130, 20 };
+            if (st.getActive().visible) {
+                SDL_SetRenderDrawColor(r, 60, 160, 100, 255);
+            } else {
+                SDL_SetRenderDrawColor(r, 120, 120, 120, 255);
+            }
+            SDL_RenderFillRect(r, &visBtn);
+            SDL_SetRenderDrawColor(r, 20, 20, 20, 255);
+            SDL_RenderDrawRect(r, &visBtn);
+            string visText = st.getActive().visible ? "Visible: ON" : "Visible: OFF";
+            renderTextCentered(r, st.uiFont, visText, visBtn, 0, white);
+
+
+            SDL_Rect deleteBtn = { infoBox.x + 10, infoBox.y + 110, 130, 20 };
+            SDL_SetRenderDrawColor(r, 180, 60, 60, 255);
+            SDL_RenderFillRect(r, &deleteBtn);
+            SDL_SetRenderDrawColor(r, 20, 20, 20, 255);
+            SDL_RenderDrawRect(r, &deleteBtn);
+            renderTextCentered(r, st.uiFont, "Delete Sprite", deleteBtn, 0, white);
+        }
+
+        int vy = TOP_BAR_H + 8;
+        for (auto& kv : st.varVisible) {
+            if (!kv.second) continue;
+            string val = st.vars.count(kv.first) ? st.vars.at(kv.first).toString() : "0";
+            renderText(r, st.uiFont, kv.first + " = " + val, LEFT_PANEL_W + 12, vy, SDL_Color{220,220,220,255});
+            vy += 18;
+            if (vy > TOP_BAR_H + 140) break;
+        }
+    }
+
+    renderHelpMenu(st, r);
+    renderLogsPanel(st, r, w, h);
+    renderExtensionLibrary(st, r, w, h);
+    renderPenColorPicker(st, r, w, h);
+    renderFuncIOMenu(st, r, w, h);
+    renderDialogs(st, r, w, h);
+    renderSettings(st, r, w, h);
+
+    SDL_RenderPresent(r);
+}
