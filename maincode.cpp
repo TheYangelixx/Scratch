@@ -114,3 +114,84 @@ struct Logger {
         logLine("ERROR", idx, cmd, op, data);
     }
 };
+struct PenSegment {
+    double x1=0, y1=0, x2=0, y2=0;
+    SDL_Color c{0,255,0,255};
+    int size = 3;
+};
+
+struct PenStamp {
+    double x=0, y=0;
+    int costumeIndex = 0;
+    double dirDeg = 90.0;
+    double sizePct = 100.0;
+};
+
+struct TextureAsset {
+    SDL_Texture* tex = nullptr;
+    int w = 0, h = 0;
+};
+
+struct CloneSprite {
+    double x = 0.0, y = 0.0;
+    double dirDeg = 90.0;
+    bool visible = true;
+    double sizePct = 100.0;
+};
+
+
+static bool dirExists(const string& path) {
+#ifdef _WIN32
+    DWORD attr = GetFileAttributesA(path.c_str());
+    return (attr != INVALID_FILE_ATTRIBUTES) && (attr & FILE_ATTRIBUTE_DIRECTORY);
+#else
+    struct stat st{};
+    return (stat(path.c_str(), &st) == 0) && S_ISDIR(st.st_mode);
+#endif
+}
+
+static bool makeDir(const string& path) {
+    if (dirExists(path)) return true;
+#ifdef _WIN32
+    return _mkdir(path.c_str()) == 0;
+#else
+    return mkdir(path.c_str(), 0777) == 0;
+#endif
+}
+
+static string sanitizeStem(string s) {
+    const string bad = "\\/:*?\"<>|";
+    string out;
+    for (size_t i = 0; i < s.size(); i++) {
+        char c = s[i];
+        if ((unsigned char)c < 32) continue;
+        if (bad.find(c) != string::npos) continue;
+        out.push_back(c);
+    }
+    while (!out.empty() && (out.front() == ' ' || out.front() == '\t')) out.erase(out.begin());
+    while (!out.empty() && (out.back() == ' ' || out.back() == '\t')) out.pop_back();
+
+    if (out.size() >= 4) {
+        string tail = out.substr(out.size() - 4);
+        for (size_t i = 0; i < tail.size(); i++) tail[i] = (char)tolower(tail[i]);
+        if (tail == ".txt") out = out.substr(0, out.size() - 4);
+    }
+
+    if (out.empty()) out = "untitled";
+    return out;
+}
+
+static string getSaveDir() {
+    const string dir = "SMemory";
+    makeDir(dir);
+    return dir;
+}
+
+static string buildSavePath(const string& stem) {
+    string safe = sanitizeStem(stem);
+#ifdef _WIN32
+    return getSaveDir() + "\\" + safe + ".txt";
+#else
+    return getSaveDir() + "/" + safe + ".txt";
+#endif
+}
