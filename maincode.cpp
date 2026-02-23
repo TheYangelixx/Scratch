@@ -16,11 +16,11 @@
 
 #ifdef _WIN32
 #ifndef NOMINMAX
-  #define NOMINMAX
-  #endif
-  #include <windows.h>
-  #include <direct.h>
-  #include <commdlg.h>
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <direct.h>
+#include <commdlg.h>
 #else
 #include <sys/stat.h>
 #include <dirent.h>
@@ -28,12 +28,10 @@
 
 using namespace std;
 
-
 static const int WINDOW_W = 1200;
 static const int WINDOW_H = 720;
-
 static const int TOP_BAR_H = 52;
-static const int LEFT_PANEL_W = 320; // was 280, now larger
+static const int LEFT_PANEL_W = 320;
 
 static bool pointInRect(int x, int y, const SDL_Rect& r) {
     return (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
@@ -53,11 +51,9 @@ static void infoBox(const string& title, const string& msg) {
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, title.c_str(), msg.c_str(), nullptr);
 }
 
-
 struct Logger {
     ofstream out;
     uint64_t cycle = 0;
-
     vector<string> mem;
     int maxMem = 3000;
     bool toConsole = true;
@@ -85,45 +81,31 @@ struct Logger {
     void logLine(const string& level, int blockIndex, const string& cmd,
                  const string& operation, const string& data) {
         string line = formatLine(level, blockIndex, cmd, operation, data);
-
         mem.push_back(line);
         if ((int)mem.size() > maxMem) {
             mem.erase(mem.begin(), mem.begin() + ((int)mem.size() - maxMem));
         }
-
         if (toConsole) {
             if (level == "ERROR") cerr << line << "\n";
             else                 cout << line << "\n";
         }
-
         if (out) {
             out << line << "\n";
             out.flush();
         }
     }
 
-    void log(const string& tag, const string& msg) {
-        logLine("INFO", -1, tag, msg, "");
-    }
-
-    void info(int idx, const string& cmd, const string& op, const string& data) {
-        logLine("INFO", idx, cmd, op, data);
-    }
-    void warn(int idx, const string& cmd, const string& op, const string& data) {
-        logLine("WARNING", idx, cmd, op, data);
-    }
-    void error(int idx, const string& cmd, const string& op, const string& data) {
-        logLine("ERROR", idx, cmd, op, data);
-    }
+    void log(const string& tag, const string& msg) { logLine("INFO", -1, tag, msg, ""); }
+    void info(int idx, const string& cmd, const string& op, const string& data) { logLine("INFO", idx, cmd, op, data); }
+    void warn(int idx, const string& cmd, const string& op, const string& data) { logLine("WARNING", idx, cmd, op, data); }
+    void error(int idx, const string& cmd, const string& op, const string& data) { logLine("ERROR", idx, cmd, op, data); }
 };
-
 
 struct InputState {
     int mx = 0, my = 0;
     bool mouseDown = false;
     bool mousePressed = false;
     bool mouseReleased = false;
-
     bool keyDown[SDL_NUM_SCANCODES];
     bool keyPressed[SDL_NUM_SCANCODES];
 
@@ -140,7 +122,6 @@ struct InputState {
         for (int i = 0; i < SDL_NUM_SCANCODES; i++) keyPressed[i] = false;
     }
 };
-
 
 static void renderText(SDL_Renderer* r, TTF_Font* font, const string& text, int x, int y, SDL_Color c) {
     if (!font || text.empty()) return;
@@ -166,9 +147,9 @@ static void renderTextCentered(SDL_Renderer* r, TTF_Font* font, const string& te
 static TTF_Font* loadUIFont(int pt) {
 #ifdef _WIN32
     const char* candidates[] = {
-        "C:\\Windows\\Fonts\\consola.ttf",
-        "C:\\Windows\\Fonts\\arial.ttf",
-        "C:\\Windows\\Fonts\\tahoma.ttf"
+            "C:\\Windows\\Fonts\\consola.ttf",
+            "C:\\Windows\\Fonts\\arial.ttf",
+            "C:\\Windows\\Fonts\\tahoma.ttf"
     };
 #else
     const char* candidates[] = {
@@ -180,13 +161,10 @@ static TTF_Font* loadUIFont(int pt) {
         TTF_Font* f = TTF_OpenFont(candidates[i], pt);
         if (f) return f;
     }
-
     TTF_Font* f2 = TTF_OpenFont("font.ttf", pt);
     if (f2) return f2;
-
     return nullptr;
 }
-
 
 struct Button {
     SDL_Rect rect{};
@@ -194,64 +172,50 @@ struct Button {
     string sub;
     function<void()> onClick;
     function<void()> onPress;
-
     bool hovered = false;
     bool down = false;
 
     void update(const InputState& in) {
         hovered = pointInRect(in.mx, in.my, rect);
-
         if (hovered && in.mousePressed) {
             down = true;
             if (onPress) onPress();
         }
-
         if (down && in.mouseReleased) {
             down = false;
             if (hovered && onClick) onClick();
         }
-
         if (!in.mouseDown) down = false;
     }
+
     void draw(SDL_Renderer* r, TTF_Font* font) const {
         SDL_Color bg = {70, 70, 70, 255};
         if (down) bg = SDL_Color{120, 120, 120, 255};
         else if (hovered) bg = SDL_Color{90, 90, 90, 255};
-
         SDL_SetRenderDrawColor(r, bg.r, bg.g, bg.b, bg.a);
         SDL_RenderFillRect(r, &rect);
-
         SDL_SetRenderDrawColor(r, 15, 15, 15, 255);
         SDL_RenderDrawRect(r, &rect);
-
         SDL_Color fg = {235, 235, 235, 255};
         renderTextCentered(r, font, text, rect, sub.empty() ? 0 : -7, fg);
         if (!sub.empty()) renderTextCentered(r, font, sub, rect, +10, fg);
     }
 };
 
-
 struct Block {
     int id = 0;
     SDL_Rect rect{};
     SDL_Color color = {60, 150, 220, 255};
-
     bool dragging = false;
     int offX = 0, offY = 0;
-
-
-    string cmd = "MOVE";   // extended commands in section 4
-    double a = 40.0;       // numeric param A
-    double b = 0.0;        // numeric param B
-    string s1 = "";        // string param
-    string s2 = "";        // string param 2
-    int i1 = 0;            // int param
-
-
-    string opt = "";                 // dropdown: "COLOR", "SAT", "BRI"
-    SDL_Color pickColor = {0, 255, 0, 255}; // for PEN_SET_COLOR block
-
-
+    string cmd = "MOVE";
+    double a = 40.0;
+    double b = 0.0;
+    string s1 = "";
+    string s2 = "";
+    int i1 = 0;
+    string opt = "";
+    SDL_Color pickColor = {0, 255, 0, 255};
     string inSel = "last";
     string outSel = "last";
 };
@@ -261,10 +225,7 @@ struct Workspace {
     vector<Block> blocks;
     int nextId = 1;
 
-    void reset() {
-        blocks.clear();
-        nextId = 1;
-    }
+    void reset() { blocks.clear(); nextId = 1; }
 
     void addBlock(int x, int y) {
         Block b;
@@ -304,44 +265,33 @@ struct Workspace {
                 log.log("DRAG", "Pick block id=" + to_string(top.id));
             }
         }
-
         if (in.mouseDown) {
             for (size_t i = 0; i < blocks.size(); i++) {
                 Block& b = blocks[i];
                 if (!b.dragging) continue;
-
-
                 b.rect.x = in.mx - b.offX;
                 b.rect.y = in.my - b.offY;
             }
         }
-
         if (in.mouseReleased) {
-
             for (int i = (int)blocks.size() - 1; i >= 0; --i) {
                 Block& b = blocks[i];
                 if (b.dragging) {
                     b.dragging = false;
-
-
                     if (!pointInRect(in.mx, in.my, bounds)) {
                         log.log("DRAG", "Deleted block id=" + to_string(b.id) + " (dropped outside)");
                         blocks.erase(blocks.begin() + i);
                     } else {
-
                         int snapDist = 35;
                         for (size_t j = 0; j < blocks.size(); ++j) {
                             if (i == (int)j) continue;
                             const Block& other = blocks[j];
-
-
                             if (abs(b.rect.x - other.rect.x) < snapDist &&
                                 abs(b.rect.y - (other.rect.y + other.rect.h)) < snapDist) {
                                 b.rect.x = other.rect.x;
                                 b.rect.y = other.rect.y + other.rect.h;
                                 break;
                             }
-
                             if (abs(b.rect.x - other.rect.x) < snapDist &&
                                 abs((b.rect.y + b.rect.h) - other.rect.y) < snapDist) {
                                 b.rect.x = other.rect.x;
@@ -349,14 +299,11 @@ struct Workspace {
                                 break;
                             }
                         }
-
                         clampIntoBounds(b);
                         log.log("DRAG", "Drop block id=" + to_string(b.id));
                     }
                 }
             }
-
-
             std::stable_sort(blocks.begin(), blocks.end(), [](const Block& a1, const Block& a2) {
                 return a1.rect.y < a2.rect.y;
             });
@@ -374,7 +321,6 @@ struct Workspace {
     }
 };
 
-
 struct PenSegment {
     double x1=0, y1=0, x2=0, y2=0;
     SDL_Color c{0,255,0,255};
@@ -388,7 +334,6 @@ struct PenStamp {
     double sizePct = 100.0;
 };
 
-
 struct TextureAsset {
     SDL_Texture* tex = nullptr;
     int w = 0, h = 0;
@@ -400,7 +345,6 @@ struct CloneSprite {
     bool visible = true;
     double sizePct = 100.0;
 };
-
 
 static bool dirExists(const string& path) {
 #ifdef _WIN32
@@ -432,13 +376,11 @@ static string sanitizeStem(string s) {
     }
     while (!out.empty() && (out.front() == ' ' || out.front() == '\t')) out.erase(out.begin());
     while (!out.empty() && (out.back() == ' ' || out.back() == '\t')) out.pop_back();
-
     if (out.size() >= 4) {
         string tail = out.substr(out.size() - 4);
         for (size_t i = 0; i < tail.size(); i++) tail[i] = (char)tolower(tail[i]);
         if (tail == ".txt") out = out.substr(0, out.size() - 4);
     }
-
     if (out.empty()) out = "untitled";
     return out;
 }
@@ -461,13 +403,11 @@ static string buildSavePath(const string& stem) {
 static vector<string> listSaveStems() {
     vector<string> out;
     string dir = getSaveDir();
-
 #ifdef _WIN32
     string pattern = dir + "\\*.txt";
     WIN32_FIND_DATAA fd;
     HANDLE h = FindFirstFileA(pattern.c_str(), &fd);
     if (h == INVALID_HANDLE_VALUE) return out;
-
     do {
         string name = fd.cFileName;
         if (name.size() >= 4) {
@@ -476,7 +416,6 @@ static vector<string> listSaveStems() {
             if (tail == ".txt") out.push_back(name.substr(0, name.size() - 4));
         }
     } while (FindNextFileA(h, &fd));
-
     FindClose(h);
 #else
     DIR* d = opendir(dir.c_str());
@@ -491,15 +430,10 @@ static vector<string> listSaveStems() {
     }
     closedir(d);
 #endif
-
     sort(out.begin(), out.end());
     out.erase(unique(out.begin(), out.end()), out.end());
     return out;
 }
-
-
-
-
 
 struct Value {
     bool isNum = true;
@@ -532,15 +466,12 @@ static double asNum(const Value& v) {
     return 0.0;
 }
 
-
 struct Sprite {
     string name = "Sprite";
     TextureAsset icon;
-
     bool isDragging = false;
     double dragOffX = 0.0;
     double dragOffY = 0.0;
-
     double backupX = 0.0;
     double backupY = 0.0;
     double backupDirDeg = 90.0;
@@ -549,8 +480,6 @@ struct Sprite {
     double backupColorEffect = 0.0;
     int backupCostumeIndex = 0;
     int backupZOrder = 0;
-
-
     double x = 0.0;
     double y = 0.0;
     double dirDeg = 90.0;
@@ -559,193 +488,114 @@ struct Sprite {
     double colorEffect = 0.0;
     int costumeIndex = 0;
     int zOrder = 0;
-
-
     Workspace ws;
-
-
     bool scriptRunning = false;
     int scriptPC = 0;
     bool stepRequested = false;
     uint32_t waitUntilMs = 0;
     bool waiting = false;
-
-
     vector<int> jumpTo;
     vector<int> jumpElse;
     vector<int> jumpEnd;
     vector<int> loopEnd;
     vector<int> loopStart;
     vector<int> repeatCounter;
-
-
     map<string, int> funcDefs;
     vector<int> callStack;
     double currentParam = 0.0;
 };
 
-
-
 struct AppState {
-
     vector<Sprite> sprites;
     int activeSprite = 0;
 
-
-
-    Sprite& getActive() {
-        return sprites[activeSprite];
-    }
-
-
-    const Sprite& getActive() const {
-        return sprites[activeSprite];
-    }
+    Sprite& getActive() { return sprites[activeSprite]; }
+    const Sprite& getActive() const { return sprites[activeSprite]; }
 
     bool quit = false;
-
     bool isPaused = false;
-
-
     bool settingsOpen = false;
     int  runSpeedMs = 30;
     bool drawActorWhenStopped = true;
-
-
     uint32_t nextStepAtMs = 0;
-
-
     vector<TextureAsset> costumes;
     vector<TextureAsset> backdrops;
-
-
     string actorIconFile = "costume0.bmp";
-
     InputState in;
     Logger log = Logger("log.txt");
-
-
     bool isFullscreen = false;
     SDL_Rect stageBounds {};
     vector<Button> buttons;
-
     string baseTitle = "YKP Base (SDL2)";
-
     TTF_Font* uiFont = nullptr;
-
     bool saveDialogOpen = false;
     bool loadDialogOpen = false;
-
     bool renameDialogOpen = false;
     string renameInput = "";
-
     string saveNameInput = "";
     vector<string> saveList;
     int loadHoverIndex = -1;
     int loadScroll = 0;
-
     bool helpMenuOpen = false;
     SDL_Rect helpButtonRect{0,0,0,0};
     bool showLogsPanel = false;
     int logsScroll = 0;
-
     bool debugStepMode = false;
-
-
     int backdropIndex = 0;
-
-
     string bubbleText = "";
     bool bubbleThink = false;
     uint32_t bubbleUntilMs = 0;
-
-
     bool askDialogOpen = false;
     string askQuestion = "";
     string askInput = "";
     string lastAnswer = "";
     int askResumePC = -1;
-
-
     uint32_t timerStartMs = 0;
-
-
     int soundVolume = 100;
     bool soundMuted = false;
     bool bgmReady = false;
     SDL_AudioDeviceID bgmDev = 0;
     SDL_AudioSpec bgmSpec{};
-
     Uint8* bgmBuf = nullptr;
     Uint32 bgmLen = 0;
     Uint32 bgmPos = 0;
-
     int  musicVolume = 100;
     bool musicMuted  = false;
-
-
     string bgmFile = "bgm.wav";
-
-
     map<string, Value> vars;
     map<string, bool> varVisible;
-
-
     Value lastValue = Value::Num(0.0);
-
-
-
     string lastBroadcast = "";
-
-
     bool extensionLibraryOpen = false;
     bool penExtensionEnabled = false;
-
     vector<Button> palette;
     bool paletteDirty = true;
     int paletteLastW = 0, paletteLastH = 0;
     bool paletteLastPenEnabled = false;
-
-
     int paletteScroll = 0;
     int paletteMaxScroll = 0;
     vector<pair<int,string>> paletteCats;
-
-
     bool penDown = false;
     double penHue = 120.0;
     double penSat = 100.0;
     double penBri = 100.0;
     SDL_Color penRGB{0,255,0,255};
     int penSize = 3;
-
     vector<PenSegment> penSegs;
     vector<PenStamp> penStamps;
-
     bool penColorPickerOpen = false;
     int  penColorPickerBlockIndex = -1;
-
-
     bool funcIOMenuOpen = false;
     int  funcIOMenuBlockIndex = -1;
-
-
     TextureAsset actorIcon;
-
-
     bool audioReady = false;
     SDL_AudioDeviceID audioDev = 0;
     SDL_AudioSpec audioSpec{};
     uint32_t soundBusyUntilMs = 0;
-
-
     map<string, vector<Value>> lists;
     map<string, bool> listVisible;
-
-
     vector<CloneSprite> clones;
 };
-
 
 static bool initBGMSystem(AppState& st) {
     SDL_AudioSpec want{};
@@ -754,7 +604,6 @@ static bool initBGMSystem(AppState& st) {
     want.channels = 2;
     want.samples = 4096;
     want.callback = nullptr;
-
     SDL_AudioSpec have{};
     st.bgmDev = SDL_OpenAudioDevice(nullptr, 0, &want, &have, SDL_AUDIO_ALLOW_ANY_CHANGE);
     if (!st.bgmDev) {
@@ -762,11 +611,9 @@ static bool initBGMSystem(AppState& st) {
         st.log.warn(-1, "BGM", "OpenAudioDevice failed", SDL_GetError());
         return false;
     }
-
     st.bgmSpec = have;
     st.bgmReady = true;
     SDL_PauseAudioDevice(st.bgmDev, 0);
-
     st.log.info(-1, "BGM", "BGM device ready",
                 "freq=" + to_string(have.freq) + " ch=" + to_string((int)have.channels));
     return true;
@@ -774,29 +621,21 @@ static bool initBGMSystem(AppState& st) {
 
 static bool loadBGM(AppState& st, const string& wavFile) {
     if (!st.bgmReady || !st.bgmDev) return false;
-
-    // free old
     if (st.bgmBuf) { SDL_free(st.bgmBuf); st.bgmBuf = nullptr; }
     st.bgmLen = 0;
     st.bgmPos = 0;
-
     SDL_AudioSpec srcSpec{};
     Uint8* srcBuf = nullptr;
     Uint32 srcLen = 0;
-
     if (!SDL_LoadWAV(wavFile.c_str(), &srcSpec, &srcBuf, &srcLen)) {
         st.log.warn(-1, "BGM", "LoadWAV failed", wavFile + " err=" + SDL_GetError());
         return false;
     }
-
-
     Uint8* outBuf = srcBuf;
     Uint32 outLen = srcLen;
-
     if (srcSpec.format != st.bgmSpec.format ||
         srcSpec.channels != st.bgmSpec.channels ||
         srcSpec.freq != st.bgmSpec.freq) {
-
         SDL_AudioCVT cvt;
         if (SDL_BuildAudioCVT(&cvt,
                               srcSpec.format, srcSpec.channels, srcSpec.freq,
@@ -805,7 +644,6 @@ static bool loadBGM(AppState& st, const string& wavFile) {
             SDL_FreeWAV(srcBuf);
             return false;
         }
-
         if (cvt.needed) {
             cvt.len = (int)srcLen;
             Uint8* cvtBuf = (Uint8*)SDL_malloc((size_t)cvt.len * (size_t)cvt.len_mult);
@@ -814,27 +652,19 @@ static bool loadBGM(AppState& st, const string& wavFile) {
                 SDL_FreeWAV(srcBuf);
                 return false;
             }
-
             SDL_memcpy(cvtBuf, srcBuf, srcLen);
             cvt.buf = cvtBuf;
-
             if (SDL_ConvertAudio(&cvt) != 0) {
                 st.log.warn(-1, "BGM", "ConvertAudio failed", wavFile);
                 SDL_free(cvtBuf);
                 SDL_FreeWAV(srcBuf);
                 return false;
             }
-
             outBuf = cvtBuf;
             outLen = (Uint32)cvt.len_cvt;
-
             SDL_FreeWAV(srcBuf);
-        } else {
-
         }
     }
-
-
     Uint8* finalBuf = (Uint8*)SDL_malloc(outLen);
     if (!finalBuf) {
         st.log.warn(-1, "BGM", "malloc failed", "finalBuf");
@@ -843,14 +673,11 @@ static bool loadBGM(AppState& st, const string& wavFile) {
         return false;
     }
     SDL_memcpy(finalBuf, outBuf, outLen);
-
     if (outBuf == srcBuf) SDL_FreeWAV(srcBuf);
     else SDL_free(outBuf);
-
     st.bgmBuf = finalBuf;
     st.bgmLen = outLen;
     st.bgmPos = 0;
-
     st.log.info(-1, "BGM", "Loaded BGM", wavFile + " bytes=" + to_string(outLen));
     return true;
 }
@@ -862,7 +689,6 @@ static void shutdownBGMSystem(AppState& st) {
     }
     st.bgmDev = 0;
     st.bgmReady = false;
-
     if (st.bgmBuf) {
         SDL_free(st.bgmBuf);
         st.bgmBuf = nullptr;
@@ -874,47 +700,38 @@ static void shutdownBGMSystem(AppState& st) {
 static void bgmClearQueue(AppState& st) {
     if (st.bgmReady && st.bgmDev) SDL_ClearQueuedAudio(st.bgmDev);
 }
-Uint32 queuedBytes = SDL_GetQueuedAudioSize(st.bgmDev);
 
-int bytesPerSample = (SDL_AUDIO_BITSIZE(st.bgmSpec.format) / 8) * (int)st.bgmSpec.channels;
-if (bytesPerSample <= 0 || st.bgmSpec.freq <= 0) return;
-
-Uint32 targetMs = 300;
-Uint32 targetBytes = (Uint32)((st.bgmSpec.freq * bytesPerSample) * (targetMs / 1000.0));
-
-if (queuedBytes >= targetBytes) return;
-
-
-Uint32 chunkMs = 100;
-Uint32 chunkBytes = (Uint32)((st.bgmSpec.freq * bytesPerSample) * (chunkMs / 1000.0));
-if (chunkBytes < 256) chunkBytes = 256;
-
-
-Uint8* tmp = (Uint8*)SDL_malloc(chunkBytes);
-if (!tmp) return;
-SDL_memset(tmp, 0, chunkBytes);
-
-
-Uint32 remaining = chunkBytes;
-Uint32 writePos = 0;
-
-while (remaining > 0) {
-Uint32 avail = st.bgmLen - st.bgmPos;
-Uint32 take = (avail < remaining) ? avail : remaining;
-
-
-int sdlVol = (int)llround((vol / 100.0) * SDL_MIX_MAXVOLUME); // 0..128
-SDL_MixAudioFormat(tmp + writePos, st.bgmBuf + st.bgmPos, st.bgmSpec.format, take, sdlVol);
-
-st.bgmPos += take;
-if (st.bgmPos >= st.bgmLen) st.bgmPos = 0;
-
-writePos += take;
-remaining -= take;
-}
-
-SDL_QueueAudio(st.bgmDev, tmp, chunkBytes);
-SDL_free(tmp);
+static void bgmTick(AppState& st) {
+    if (!st.bgmReady || !st.bgmDev) return;
+    if (!st.bgmBuf || st.bgmLen == 0) return;
+    int vol = st.musicMuted ? 0 : clampT(st.musicVolume, 0, 100);
+    if (vol <= 0) { bgmClearQueue(st); return; }
+    Uint32 queuedBytes = SDL_GetQueuedAudioSize(st.bgmDev);
+    int bytesPerSample = (SDL_AUDIO_BITSIZE(st.bgmSpec.format) / 8) * (int)st.bgmSpec.channels;
+    if (bytesPerSample <= 0 || st.bgmSpec.freq <= 0) return;
+    Uint32 targetMs = 300;
+    Uint32 targetBytes = (Uint32)((st.bgmSpec.freq * bytesPerSample) * (targetMs / 1000.0));
+    if (queuedBytes >= targetBytes) return;
+    Uint32 chunkMs = 100;
+    Uint32 chunkBytes = (Uint32)((st.bgmSpec.freq * bytesPerSample) * (chunkMs / 1000.0));
+    if (chunkBytes < 256) chunkBytes = 256;
+    Uint8* tmp = (Uint8*)SDL_malloc(chunkBytes);
+    if (!tmp) return;
+    SDL_memset(tmp, 0, chunkBytes);
+    Uint32 remaining = chunkBytes;
+    Uint32 writePos = 0;
+    while (remaining > 0) {
+        Uint32 avail = st.bgmLen - st.bgmPos;
+        Uint32 take = (avail < remaining) ? avail : remaining;
+        int sdlVol = (int)llround((vol / 100.0) * SDL_MIX_MAXVOLUME);
+        SDL_MixAudioFormat(tmp + writePos, st.bgmBuf + st.bgmPos, st.bgmSpec.format, take, sdlVol);
+        st.bgmPos += take;
+        if (st.bgmPos >= st.bgmLen) st.bgmPos = 0;
+        writePos += take;
+        remaining -= take;
+    }
+    SDL_QueueAudio(st.bgmDev, tmp, chunkBytes);
+    SDL_free(tmp);
 }
 
 static SDL_Rect settingsRect(int w, int h) {
@@ -937,7 +754,6 @@ static void openSettings(AppState& st) {
 
 static bool handleSettingsEvent(AppState& st, const SDL_Event& e, int w, int h) {
     if (!st.settingsOpen) return false;
-
     if (e.type == SDL_KEYDOWN && !e.key.repeat) {
         if (e.key.keysym.sym == SDLK_ESCAPE) {
             st.settingsOpen = false;
@@ -945,260 +761,142 @@ static bool handleSettingsEvent(AppState& st, const SDL_Event& e, int w, int h) 
             return true;
         }
     }
-
     if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
         int mx = e.button.x, my = e.button.y;
         SDL_Rect box = settingsRect(w,h);
-
         if (!pointInRect(mx, my, box)) {
             st.settingsOpen = false;
             st.log.info(-1, "SET", "Close settings (outside)", "");
             return true;
         }
-
         SDL_Rect rowSpeedDec = {box.x + 30, box.y + 90, 60, 40};
         SDL_Rect rowSpeedInc = {box.x + box.w - 90, box.y + 90, 60, 40};
         SDL_Rect rowToggle   = {box.x + 30, box.y + 150, box.w - 60, 44};
-
         SDL_Rect okBtn  = {box.x + box.w - 180, box.y + box.h - 60, 140, 40};
-        // NEW rows
         SDL_Rect rowCostPrev = {box.x + 30,           box.y + 210, 60, 38};
         SDL_Rect rowCostNext = {box.x + box.w - 90,   box.y + 210, 60, 38};
         SDL_Rect rowCostMid  = {box.x + 100,          box.y + 210, box.w - 200, 38};
-
         SDL_Rect rowBackPrev = {box.x + 30,           box.y + 255, 60, 38};
         SDL_Rect rowBackNext = {box.x + box.w - 90,   box.y + 255, 60, 38};
         SDL_Rect rowBackMid  = {box.x + 100,          box.y + 255, box.w - 200, 38};
-
         SDL_Rect rowMusicDec = {box.x + 30,           box.y + 300, 60, 32};
         SDL_Rect rowMusicInc = {box.x + box.w - 90,   box.y + 300, 60, 32};
-        SDL_Rect rowMusicMid = {box.x + 100,          box.y + 300, box.w - 320, 32}; // smaller to fit mute btn
+        SDL_Rect rowMusicMid = {box.x + 100,          box.y + 300, box.w - 320, 32};
         SDL_Rect rowMusicMute= {box.x + box.w - 250,  box.y + 300, 150, 32};
 
-
-        if (pointInRect(mx,my,rowSpeedDec)) {
-            st.runSpeedMs = clampT(st.runSpeedMs - 10, 0, 300);
-            st.log.info(-1, "SET", "Speed -10", "runSpeedMs=" + to_string(st.runSpeedMs));
-            return true;
-        }
-        if (pointInRect(mx,my,rowSpeedInc)) {
-            st.runSpeedMs = clampT(st.runSpeedMs + 10, 0, 300);
-            st.log.info(-1, "SET", "Speed +10", "runSpeedMs=" + to_string(st.runSpeedMs));
-            return true;
-        }
-        if (pointInRect(mx,my,rowToggle)) {
-            st.drawActorWhenStopped = !st.drawActorWhenStopped;
-            st.log.info(-1, "SET", "Toggle draw actor when stopped", st.drawActorWhenStopped ? "ON" : "OFF");
-            return true;
-        }
-        if (pointInRect(mx,my,okBtn)) {
-            st.settingsOpen = false;
-            st.log.info(-1, "SET", "Close settings (OK)", "");
-            return true;
-        }
-
-        if (pointInRect(mx,my,rowCostPrev)) {
-            if (!st.costumes.empty()) {
-                st.getActive().costumeIndex--;
-                if (st.getActive().costumeIndex < 0) st.getActive().costumeIndex = (int)st.costumes.size() - 1;
-            }
-            st.log.info(-1, "SET", "Costume prev", "idx=" + to_string(st.getActive().costumeIndex));
-            return true;
-        }
-        if (pointInRect(mx,my,rowCostNext)) {
-            if (!st.costumes.empty()) {
-                st.getActive().costumeIndex = (st.getActive().costumeIndex + 1) % (int)st.costumes.size();
-            }
-            st.log.info(-1, "SET", "Costume next", "idx=" + to_string(st.getActive().costumeIndex));
-            return true;
-        }
-
-
-        if (pointInRect(mx,my,rowBackPrev)) {
-            if (!st.backdrops.empty()) {
-                st.backdropIndex--;
-                if (st.backdropIndex < 0) st.backdropIndex = (int)st.backdrops.size() - 1;
-            }
-            st.log.info(-1, "SET", "Backdrop prev", "idx=" + to_string(st.backdropIndex));
-            return true;
-        }
-        if (pointInRect(mx,my,rowBackNext)) {
-            if (!st.backdrops.empty()) {
-                st.backdropIndex = (st.backdropIndex + 1) % (int)st.backdrops.size();
-            }
-            st.log.info(-1, "SET", "Backdrop next", "idx=" + to_string(st.backdropIndex));
-            return true;
-        }
-
-
-        if (pointInRect(mx,my,rowMusicDec)) {
-            st.musicVolume = clampT(st.musicVolume - 10, 0, 100);
-            st.log.info(-1, "SET", "Music volume -10", "musicVolume=" + to_string(st.musicVolume));
-            return true;
-        }
-        if (pointInRect(mx,my,rowMusicInc)) {
-            st.musicVolume = clampT(st.musicVolume + 10, 0, 100);
-            st.log.info(-1, "SET", "Music volume +10", "musicVolume=" + to_string(st.musicVolume));
-            return true;
-        }
-
-
-        if (pointInRect(mx,my,rowMusicMid)) {
-            int rel = mx - rowMusicMid.x;
-            int v = (int)llround((rel / (double)max(1, rowMusicMid.w)) * 100.0);
-            st.musicVolume = clampT(v, 0, 100);
-            st.log.info(-1, "SET", "Music volume set", "musicVolume=" + to_string(st.musicVolume));
-            return true;
-        }
-
-
-        if (pointInRect(mx,my,rowMusicMute)) {
-            st.musicMuted = !st.musicMuted;
-            if (st.musicMuted) bgmClearQueue(st); // instantly silence
-            st.log.info(-1, "SET", "Music mute toggle", st.musicMuted ? "MUTED" : "UNMUTED");
-            return true;
-        }
-
-
+        if (pointInRect(mx,my,rowSpeedDec)) { st.runSpeedMs = clampT(st.runSpeedMs - 10, 0, 300); st.log.info(-1, "SET", "Speed -10", "runSpeedMs=" + to_string(st.runSpeedMs)); return true; }
+        if (pointInRect(mx,my,rowSpeedInc)) { st.runSpeedMs = clampT(st.runSpeedMs + 10, 0, 300); st.log.info(-1, "SET", "Speed +10", "runSpeedMs=" + to_string(st.runSpeedMs)); return true; }
+        if (pointInRect(mx,my,rowToggle)) { st.drawActorWhenStopped = !st.drawActorWhenStopped; st.log.info(-1, "SET", "Toggle draw actor when stopped", st.drawActorWhenStopped ? "ON" : "OFF"); return true; }
+        if (pointInRect(mx,my,okBtn)) { st.settingsOpen = false; st.log.info(-1, "SET", "Close settings (OK)", ""); return true; }
+        if (pointInRect(mx,my,rowCostPrev)) { if (!st.costumes.empty()) { st.getActive().costumeIndex--; if (st.getActive().costumeIndex < 0) st.getActive().costumeIndex = (int)st.costumes.size() - 1; } st.log.info(-1, "SET", "Costume prev", "idx=" + to_string(st.getActive().costumeIndex)); return true; }
+        if (pointInRect(mx,my,rowCostNext)) { if (!st.costumes.empty()) { st.getActive().costumeIndex = (st.getActive().costumeIndex + 1) % (int)st.costumes.size(); } st.log.info(-1, "SET", "Costume next", "idx=" + to_string(st.getActive().costumeIndex)); return true; }
+        if (pointInRect(mx,my,rowBackPrev)) { if (!st.backdrops.empty()) { st.backdropIndex--; if (st.backdropIndex < 0) st.backdropIndex = (int)st.backdrops.size() - 1; } st.log.info(-1, "SET", "Backdrop prev", "idx=" + to_string(st.backdropIndex)); return true; }
+        if (pointInRect(mx,my,rowBackNext)) { if (!st.backdrops.empty()) { st.backdropIndex = (st.backdropIndex + 1) % (int)st.backdrops.size(); } st.log.info(-1, "SET", "Backdrop next", "idx=" + to_string(st.backdropIndex)); return true; }
+        if (pointInRect(mx,my,rowMusicDec)) { st.musicVolume = clampT(st.musicVolume - 10, 0, 100); st.log.info(-1, "SET", "Music volume -10", "musicVolume=" + to_string(st.musicVolume)); return true; }
+        if (pointInRect(mx,my,rowMusicInc)) { st.musicVolume = clampT(st.musicVolume + 10, 0, 100); st.log.info(-1, "SET", "Music volume +10", "musicVolume=" + to_string(st.musicVolume)); return true; }
+        if (pointInRect(mx,my,rowMusicMid)) { int rel = mx - rowMusicMid.x; int v = (int)llround((rel / (double)max(1, rowMusicMid.w)) * 100.0); st.musicVolume = clampT(v, 0, 100); st.log.info(-1, "SET", "Music volume set", "musicVolume=" + to_string(st.musicVolume)); return true; }
+        if (pointInRect(mx,my,rowMusicMute)) { st.musicMuted = !st.musicMuted; if (st.musicMuted) bgmClearQueue(st); st.log.info(-1, "SET", "Music mute toggle", st.musicMuted ? "MUTED" : "UNMUTED"); return true; }
         return true;
     }
-
     return true;
 }
 
 static void renderSettings(const AppState& st, SDL_Renderer* r, int w, int h) {
     if (!st.settingsOpen) return;
-
     SDL_SetRenderDrawColor(r, 0,0,0,170);
     SDL_Rect full{0,0,w,h};
     SDL_RenderFillRect(r, &full);
-
     SDL_Rect box = settingsRect(w,h);
     SDL_SetRenderDrawColor(r, 40,40,46,255);
     SDL_RenderFillRect(r, &box);
     SDL_SetRenderDrawColor(r, 200,200,200,255);
     SDL_RenderDrawRect(r, &box);
-
     SDL_Color white{240,240,240,255};
     renderText(r, st.uiFont, "Settings (Esc to close)", box.x + 20, box.y + 18, white);
-
-    // speed row
     SDL_Rect dec = {box.x + 30, box.y + 90, 60, 40};
     SDL_Rect inc = {box.x + box.w - 90, box.y + 90, 60, 40};
     SDL_Rect mid = {box.x + 100, box.y + 90, box.w - 200, 40};
-
     SDL_SetRenderDrawColor(r, 80,80,90,255);
     SDL_RenderFillRect(r, &dec);
     SDL_RenderFillRect(r, &inc);
     SDL_SetRenderDrawColor(r, 25,25,28,255);
     SDL_RenderFillRect(r, &mid);
-
     SDL_SetRenderDrawColor(r, 15,15,15,255);
     SDL_RenderDrawRect(r, &dec);
     SDL_RenderDrawRect(r, &inc);
     SDL_RenderDrawRect(r, &mid);
-
     renderTextCentered(r, st.uiFont, "-", dec, 0, white);
     renderTextCentered(r, st.uiFont, "+", inc, 0, white);
-
     string sp = "Run speed delay: " + to_string(st.runSpeedMs) + " ms per block";
     renderText(r, st.uiFont, sp, mid.x + 10, mid.y + 10, white);
-
-
     SDL_Rect tog = {box.x + 30, box.y + 150, box.w - 60, 44};
     SDL_SetRenderDrawColor(r, 25,25,28,255);
     SDL_RenderFillRect(r, &tog);
     SDL_SetRenderDrawColor(r, 120,120,120,255);
     SDL_RenderDrawRect(r, &tog);
-
     string tv = string("Show actor when stopped: ") + (st.drawActorWhenStopped ? "ON" : "OFF");
     renderText(r, st.uiFont, tv, tog.x + 12, tog.y + 12, white);
-
     SDL_Rect costPrev = {box.x + 30,         box.y + 210, 60, 38};
     SDL_Rect costNext = {box.x + box.w - 90, box.y + 210, 60, 38};
     SDL_Rect costMid  = {box.x + 100,        box.y + 210, box.w - 200, 38};
-
     SDL_SetRenderDrawColor(r, 80,80,90,255);
     SDL_RenderFillRect(r, &costPrev);
     SDL_RenderFillRect(r, &costNext);
     SDL_SetRenderDrawColor(r, 25,25,28,255);
     SDL_RenderFillRect(r, &costMid);
-
     SDL_SetRenderDrawColor(r, 15,15,15,255);
     SDL_RenderDrawRect(r, &costPrev);
     SDL_RenderDrawRect(r, &costNext);
     SDL_RenderDrawRect(r, &costMid);
-
     renderTextCentered(r, st.uiFont, "<", costPrev, 0, white);
     renderTextCentered(r, st.uiFont, ">", costNext, 0, white);
-
     int cCount = (int)st.costumes.size();
     int cIdx = cCount > 0 ? ((st.getActive().costumeIndex % cCount) + cCount) % cCount : 0;
     string cLabel = "Costume: " + to_string(cIdx) + " / " + to_string(max(0, cCount - 1));
     renderText(r, st.uiFont, cLabel, costMid.x + 10, costMid.y + 10, white);
-
-
     SDL_Rect backPrev = {box.x + 30,         box.y + 255, 60, 38};
     SDL_Rect backNext = {box.x + box.w - 90, box.y + 255, 60, 38};
     SDL_Rect backMid  = {box.x + 100,        box.y + 255, box.w - 200, 38};
-
     SDL_SetRenderDrawColor(r, 80,80,90,255);
     SDL_RenderFillRect(r, &backPrev);
     SDL_RenderFillRect(r, &backNext);
     SDL_SetRenderDrawColor(r, 25,25,28,255);
     SDL_RenderFillRect(r, &backMid);
-
     SDL_SetRenderDrawColor(r, 15,15,15,255);
     SDL_RenderDrawRect(r, &backPrev);
     SDL_RenderDrawRect(r, &backNext);
     SDL_RenderDrawRect(r, &backMid);
-
     renderTextCentered(r, st.uiFont, "<", backPrev, 0, white);
     renderTextCentered(r, st.uiFont, ">", backNext, 0, white);
-
     int bCount = (int)st.backdrops.size();
     int bIdx = bCount > 0 ? ((st.backdropIndex % bCount) + bCount) % bCount : 0;
     string bLabel = "Backdrop: " + to_string(bIdx) + " / " + to_string(max(0, bCount - 1));
     renderText(r, st.uiFont, bLabel, backMid.x + 10, backMid.y + 10, white);
-
-
     SDL_Rect musDec  = {box.x + 30,         box.y + 300, 60, 32};
     SDL_Rect musInc  = {box.x + box.w - 90, box.y + 300, 60, 32};
     SDL_Rect musMid  = {box.x + 100,        box.y + 300, box.w - 320, 32};
     SDL_Rect musMute = {box.x + box.w - 250, box.y + 300, 150, 32};
-
     SDL_SetRenderDrawColor(r, 80,80,90,255);
     SDL_RenderFillRect(r, &musDec);
     SDL_RenderFillRect(r, &musInc);
-
     SDL_SetRenderDrawColor(r, 25,25,28,255);
     SDL_RenderFillRect(r, &musMid);
-
     SDL_SetRenderDrawColor(r, st.musicMuted ? 120 : 60, st.musicMuted ? 60 : 140, 70, 255);
     SDL_RenderFillRect(r, &musMute);
-
     SDL_SetRenderDrawColor(r, 15,15,15,255);
     SDL_RenderDrawRect(r, &musDec);
     SDL_RenderDrawRect(r, &musInc);
     SDL_RenderDrawRect(r, &musMid);
     SDL_RenderDrawRect(r, &musMute);
-
     renderTextCentered(r, st.uiFont, "-", musDec, 0, white);
     renderTextCentered(r, st.uiFont, "+", musInc, 0, white);
-
     string mv = "Music: " + to_string(clampT(st.musicVolume, 0, 100));
     renderText(r, st.uiFont, mv, musMid.x + 10, musMid.y + 7, white);
-
-
     int fillW = (int)llround((clampT(st.musicVolume,0,100) / 100.0) * (musMid.w - 20));
     SDL_Rect bar{musMid.x + 10, musMid.y + musMid.h - 8, max(0, fillW), 4};
     SDL_SetRenderDrawColor(r, 200,200,200,255);
     SDL_RenderFillRect(r, &bar);
-
     renderTextCentered(r, st.uiFont, st.musicMuted ? "Muted" : "Mute", musMute, 0, white);
-
-
-
     SDL_Rect okBtn  = {box.x + box.w - 180, box.y + box.h - 60, 140, 40};
     SDL_SetRenderDrawColor(r, 60,140,70,255);
     SDL_RenderFillRect(r, &okBtn);
@@ -1213,22 +911,14 @@ struct Block;
 static void setBlockVisual(Block& b);
 static void penSyncRGB(AppState& st);
 
-static bool saveProjectNamed(const string& saveStem, AppState& st){
+static bool saveProjectNamed(const string& saveStem, AppState& st) {
     const string path = buildSavePath(saveStem);
     ofstream f(path.c_str());
-    if (!f) {
-        st.log.log("SAVE", "Cannot open: " + path);
-        return false;
-    }
-
-
+    if (!f) { st.log.log("SAVE", "Cannot open: " + path); return false; }
     f << "SAVE_V1\n";
-
-
     f << "BLOCKS " << st.getActive().ws.blocks.size() << "\n";
     for (size_t i = 0; i < st.getActive().ws.blocks.size(); i++) {
         const Block& b = st.getActive().ws.blocks[i];
-
         f << "BLOCK "
           << b.id << " "
           << b.rect.x << " " << b.rect.y << " "
@@ -1242,88 +932,51 @@ static bool saveProjectNamed(const string& saveStem, AppState& st){
           << std::quoted(b.s1) << " " << std::quoted(b.s2)
           << "\n";
     }
-
-
     f << "SETTINGS " << st.runSpeedMs << " " << (st.drawActorWhenStopped ? 1 : 0) << "\n";
-
-
     f << "LOOKS " << st.getActive().costumeIndex << " " << st.backdropIndex << " " << st.getActive().colorEffect << "\n";
-
-
     f << "EXT_PEN " << (st.penExtensionEnabled ? 1 : 0) << "\n";
-
-
-    f << "PEN_STATE "
-      << (st.penDown ? 1 : 0) << " "
-      << st.penHue << " " << st.penSat << " " << st.penBri << " "
-      << st.penSize << "\n";
-
+    f << "PEN_STATE " << (st.penDown ? 1 : 0) << " " << st.penHue << " " << st.penSat << " " << st.penBri << " " << st.penSize << "\n";
     f << "PEN_SEGS " << st.penSegs.size() << "\n";
     for (const auto& seg : st.penSegs) {
-        f << "SEG "
-          << seg.x1 << " " << seg.y1 << " " << seg.x2 << " " << seg.y2 << " "
-          << (int)seg.c.r << " " << (int)seg.c.g << " " << (int)seg.c.b << " "
-          << seg.size << "\n";
+        f << "SEG " << seg.x1 << " " << seg.y1 << " " << seg.x2 << " " << seg.y2 << " "
+          << (int)seg.c.r << " " << (int)seg.c.g << " " << (int)seg.c.b << " " << seg.size << "\n";
     }
-
     f << "PEN_STAMPS " << st.penStamps.size() << "\n";
     for (const auto& sp : st.penStamps) {
-        f << "STAMP "
-          << sp.x << " " << sp.y << " "
-          << sp.costumeIndex << " "
-          << sp.dirDeg << " "
-          << sp.sizePct
-          << "\n";
+        f << "STAMP " << sp.x << " " << sp.y << " " << sp.costumeIndex << " " << sp.dirDeg << " " << sp.sizePct << "\n";
     }
-
-
-
     f << "VARS " << st.vars.size() << "\n";
     for (const auto& kv : st.vars) {
-        const string& name = kv.first;
         const Value& v = kv.second;
-        f << "VAR " << name << " " << (v.isNum ? 1 : 0) << " ";
+        f << "VAR " << kv.first << " " << (v.isNum ? 1 : 0) << " ";
         if (v.isNum) f << v.num << " " << std::quoted("") << "\n";
         else         f << 0.0  << " " << std::quoted(v.str) << "\n";
     }
-
     f << "VARVIS " << st.varVisible.size() << "\n";
     for (const auto& kv : st.varVisible) {
         f << "VARV " << kv.first << " " << (kv.second ? 1 : 0) << "\n";
     }
-
-
     f << "LISTS " << st.lists.size() << "\n";
     for (const auto& kv : st.lists) {
-        const string& name = kv.first;
-        const auto& items = kv.second;
-        f << "LIST " << name << " " << items.size() << "\n";
-        for (const auto& it : items) {
+        f << "LIST " << kv.first << " " << kv.second.size() << "\n";
+        for (const auto& it : kv.second) {
             f << "ITEM " << (it.isNum ? 1 : 0) << " ";
             if (it.isNum) f << it.num << " " << std::quoted("") << "\n";
             else          f << 0.0   << " " << std::quoted(it.str) << "\n";
         }
     }
-
     f << "LISTVIS " << st.listVisible.size() << "\n";
     for (const auto& kv : st.listVisible) {
         f << "LISTV " << kv.first << " " << (kv.second ? 1 : 0) << "\n";
     }
-
     st.log.log("SAVE", "Saved: " + path);
     return true;
 }
 
-
 static bool loadProjectNamed(const string& saveStem, AppState& st) {
     const string path = buildSavePath(saveStem);
     ifstream f(path.c_str());
-    if (!f) {
-        st.log.log("LOAD", "Cannot open: " + path);
-        return false;
-    }
-
-
+    if (!f) { st.log.log("LOAD", "Cannot open: " + path); return false; }
     st.getActive().ws.reset();
     st.penSegs.clear();
     st.penStamps.clear();
@@ -1331,135 +984,53 @@ static bool loadProjectNamed(const string& saveStem, AppState& st) {
     st.varVisible.clear();
     st.lists.clear();
     st.listVisible.clear();
-
     string header;
     if (!getline(f, header)) return false;
-    if (header != "SAVE_V1") {
-        st.log.log("LOAD", "Invalid save header: " + header);
-        return false;
-    }
-
+    if (header != "SAVE_V1") { st.log.log("LOAD", "Invalid save header: " + header); return false; }
     string line;
     int maxId = 0;
-
-    size_t expectBlocks = 0;
-    size_t expectPenSegs = 0, expectPenStamps = 0;
-    size_t expectVars = 0, expectVarVis = 0;
-    size_t expectLists = 0, expectListVis = 0;
-
+    size_t expectBlocks = 0, expectPenSegs = 0, expectPenStamps = 0;
+    size_t expectVars = 0, expectVarVis = 0, expectLists = 0, expectListVis = 0;
     while (getline(f, line)) {
         if (line.empty()) continue;
-
         stringstream ss(line);
         string tag;
         ss >> tag;
-
-        if (tag == "BLOCKS") {
-            ss >> expectBlocks;
-            continue;
-        }
-
+        if (tag == "BLOCKS") { ss >> expectBlocks; continue; }
         if (tag == "BLOCK") {
             Block b;
-            int r=80,g=80,bl=90;
-            int pr=0,pg=255,pb=0;
-
-            ss >> b.id
-               >> b.rect.x >> b.rect.y >> b.rect.w >> b.rect.h
-               >> r >> g >> bl
-               >> b.cmd
-               >> b.a >> b.b
-               >> b.i1
-               >> pr >> pg >> pb
-               >> b.inSel >> b.outSel
+            int r=80,g=80,bl=90,pr=0,pg=255,pb=0;
+            ss >> b.id >> b.rect.x >> b.rect.y >> b.rect.w >> b.rect.h
+               >> r >> g >> bl >> b.cmd >> b.a >> b.b >> b.i1
+               >> pr >> pg >> pb >> b.inSel >> b.outSel
                >> std::quoted(b.s1) >> std::quoted(b.s2);
-
             b.color = SDL_Color{(Uint8)r,(Uint8)g,(Uint8)bl,255};
             b.pickColor = SDL_Color{(Uint8)pr,(Uint8)pg,(Uint8)pb,255};
-
             setBlockVisual(b);
-
             maxId = max(maxId, b.id);
             st.getActive().ws.blocks.push_back(b);
             continue;
         }
-
-        if (tag == "SETTINGS") {
-            int drawFlag = 1;
-            ss >> st.runSpeedMs >> drawFlag;
-            st.drawActorWhenStopped = (drawFlag != 0);
-            continue;
-        }
-
-        if (tag == "LOOKS") {
-            ss >> st.getActive().costumeIndex >> st.backdropIndex >> st.getActive().colorEffect;
-            continue;
-        }
-
-        if (tag == "EXT_PEN") {
-            int v=0; ss >> v;
-            st.penExtensionEnabled = (v != 0);
-            continue;
-        }
-
-        if (tag == "PEN_STATE") {
-            int down=0;
-            ss >> down >> st.penHue >> st.penSat >> st.penBri >> st.penSize;
-            st.penDown = (down != 0);
-            penSyncRGB(st);
-            continue;
-        }
-
+        if (tag == "SETTINGS") { int drawFlag=1; ss >> st.runSpeedMs >> drawFlag; st.drawActorWhenStopped = (drawFlag != 0); continue; }
+        if (tag == "LOOKS") { ss >> st.getActive().costumeIndex >> st.backdropIndex >> st.getActive().colorEffect; continue; }
+        if (tag == "EXT_PEN") { int v=0; ss >> v; st.penExtensionEnabled = (v != 0); continue; }
+        if (tag == "PEN_STATE") { int down=0; ss >> down >> st.penHue >> st.penSat >> st.penBri >> st.penSize; st.penDown = (down != 0); penSyncRGB(st); continue; }
         if (tag == "PEN_SEGS") { ss >> expectPenSegs; continue; }
-        if (tag == "SEG") {
-            PenSegment seg;
-            int cr=0,cg=255,cb=0;
-            ss >> seg.x1 >> seg.y1 >> seg.x2 >> seg.y2 >> cr >> cg >> cb >> seg.size;
-            seg.c = SDL_Color{(Uint8)cr,(Uint8)cg,(Uint8)cb,255};
-            st.penSegs.push_back(seg);
-            continue;
-        }
-
+        if (tag == "SEG") { PenSegment seg; int cr=0,cg=255,cb=0; ss >> seg.x1 >> seg.y1 >> seg.x2 >> seg.y2 >> cr >> cg >> cb >> seg.size; seg.c = SDL_Color{(Uint8)cr,(Uint8)cg,(Uint8)cb,255}; st.penSegs.push_back(seg); continue; }
         if (tag == "PEN_STAMPS") { ss >> expectPenStamps; continue; }
-        if (tag == "STAMP") {
-            PenStamp sp;
-            ss >> sp.x >> sp.y >> sp.costumeIndex >> sp.dirDeg >> sp.sizePct;
-            st.penStamps.push_back(sp);
-            continue;
-        }
-
-
+        if (tag == "STAMP") { PenStamp sp; ss >> sp.x >> sp.y >> sp.costumeIndex >> sp.dirDeg >> sp.sizePct; st.penStamps.push_back(sp); continue; }
         if (tag == "VARS") { ss >> expectVars; continue; }
-        if (tag == "VAR") {
-            string name; int isNum=1; double num=0.0; string str;
-            ss >> name >> isNum >> num >> std::quoted(str);
-            if (isNum) st.vars[name] = Value::Num(num);
-            else       st.vars[name] = Value::Str(str);
-            continue;
-        }
-
+        if (tag == "VAR") { string name; int isNum=1; double num=0.0; string str; ss >> name >> isNum >> num >> std::quoted(str); if (isNum) st.vars[name] = Value::Num(num); else st.vars[name] = Value::Str(str); continue; }
         if (tag == "VARVIS") { ss >> expectVarVis; continue; }
-        if (tag == "VARV") {
-            string name; int v=0;
-            ss >> name >> v;
-            st.varVisible[name] = (v!=0);
-            continue;
-        }
-
+        if (tag == "VARV") { string name; int v=0; ss >> name >> v; st.varVisible[name] = (v!=0); continue; }
         if (tag == "LISTS") { ss >> expectLists; continue; }
         if (tag == "LIST") {
-            string name; size_t n=0;
-            ss >> name >> n;
-            auto& L = st.lists[name];
-            L.clear();
-
+            string name; size_t n=0; ss >> name >> n;
+            auto& L = st.lists[name]; L.clear();
             for (size_t i = 0; i < n; i++) {
-                string itemLine;
-                if (!getline(f, itemLine)) break;
-                stringstream is(itemLine);
-                string itag; is >> itag;
+                string itemLine; if (!getline(f, itemLine)) break;
+                stringstream is(itemLine); string itag; is >> itag;
                 if (itag != "ITEM") break;
-
                 int isNum=1; double num=0.0; string s;
                 is >> isNum >> num >> std::quoted(s);
                 if (isNum) L.push_back(Value::Num(num));
@@ -1467,18 +1038,11 @@ static bool loadProjectNamed(const string& saveStem, AppState& st) {
             }
             continue;
         }
-
         if (tag == "LISTVIS") { ss >> expectListVis; continue; }
-        if (tag == "LISTV") {
-            string name; int v=0;
-            ss >> name >> v;
-            st.listVisible[name] = (v!=0);
-            continue;
-        }
+        if (tag == "LISTV") { string name; int v=0; ss >> name >> v; st.listVisible[name] = (v!=0); continue; }
     }
-
     st.getActive().ws.nextId = maxId + 1;
-    st.paletteDirty = true; // because pen enabled affects palette
+    st.paletteDirty = true;
     st.log.log("LOAD", "Loaded: " + path);
     return true;
 }
@@ -1515,13 +1079,10 @@ static void modalRects(int winW, int winH, SDL_Rect& modal, SDL_Rect& listArea) 
 
 static void updateLoadHover(AppState& st, int winW, int winH) {
     if (!st.loadDialogOpen) return;
-
     SDL_Rect modal{}, listArea{};
     modalRects(winW, winH, modal, listArea);
-
     st.loadHoverIndex = -1;
     if (!pointInRect(st.in.mx, st.in.my, listArea)) return;
-
     const int rowH = 28;
     int local = (st.in.my - listArea.y) / rowH;
     int idx = st.loadScroll + local;
@@ -1529,205 +1090,90 @@ static void updateLoadHover(AppState& st, int winW, int winH) {
 }
 
 static bool handleDialogsEvent(AppState& st, const SDL_Event& e, int winW, int winH) {
-    // --- Ask Dialog (highest priority)
-
-    // --- Rename Dialog
     if (st.renameDialogOpen) {
         if (e.type == SDL_KEYDOWN && !e.key.repeat) {
-            if (e.key.keysym.sym == SDLK_ESCAPE) {
-                st.renameDialogOpen = false;
-                SDL_StopTextInput();
-                return true;
-            }
-            if (e.key.keysym.sym == SDLK_BACKSPACE) {
-                if (!st.renameInput.empty()) st.renameInput.pop_back();
-                return true;
-            }
-            if (e.key.keysym.sym == SDLK_RETURN) {
-                if (!st.renameInput.empty()) st.getActive().name = st.renameInput;
-                st.renameDialogOpen = false;
-                SDL_StopTextInput();
-                return true;
-            }
+            if (e.key.keysym.sym == SDLK_ESCAPE) { st.renameDialogOpen = false; SDL_StopTextInput(); return true; }
+            if (e.key.keysym.sym == SDLK_BACKSPACE) { if (!st.renameInput.empty()) st.renameInput.pop_back(); return true; }
+            if (e.key.keysym.sym == SDLK_RETURN) { if (!st.renameInput.empty()) st.getActive().name = st.renameInput; st.renameDialogOpen = false; SDL_StopTextInput(); return true; }
         }
-        if (e.type == SDL_TEXTINPUT) {
-            st.renameInput += e.text.text;
-            return true;
-        }
+        if (e.type == SDL_TEXTINPUT) { st.renameInput += e.text.text; return true; }
         if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
             SDL_Rect modal = {winW/2 - 220, winH/2 - 90, 440, 180};
             SDL_Rect okBtn  = {modal.x + 260, modal.y + 120, 140, 40};
             SDL_Rect canBtn = {modal.x +  40, modal.y + 120, 140, 40};
-
-            if (pointInRect(e.button.x, e.button.y, okBtn)) {
-                if (!st.renameInput.empty()) st.getActive().name = st.renameInput;
-                st.renameDialogOpen = false;
-                SDL_StopTextInput();
-                return true;
-            }
-            if (pointInRect(e.button.x, e.button.y, canBtn)) {
-                st.renameDialogOpen = false;
-                SDL_StopTextInput();
-                return true;
-            }
+            if (pointInRect(e.button.x, e.button.y, okBtn)) { if (!st.renameInput.empty()) st.getActive().name = st.renameInput; st.renameDialogOpen = false; SDL_StopTextInput(); return true; }
+            if (pointInRect(e.button.x, e.button.y, canBtn)) { st.renameDialogOpen = false; SDL_StopTextInput(); return true; }
             return true;
         }
         return true;
     }
+
     if (st.askDialogOpen) {
         if (e.type == SDL_KEYDOWN && !e.key.repeat) {
-            if (e.key.keysym.sym == SDLK_ESCAPE) {
-                st.askDialogOpen = false;
-                SDL_StopTextInput();
-                st.lastAnswer = "";
-                st.getActive().scriptPC = st.askResumePC;
-                st.askResumePC = -1;
-                st.log.warn(st.getActive().scriptPC, "ASK", "Ask cancelled", "");
-                return true;
-            }
-            if (e.key.keysym.sym == SDLK_BACKSPACE) {
-                if (!st.askInput.empty()) st.askInput.pop_back();
-                return true;
-            }
-            if (e.key.keysym.sym == SDLK_RETURN) {
-                st.lastAnswer = st.askInput;
-                st.askDialogOpen = false;
-                SDL_StopTextInput();
-                st.getActive().scriptPC = st.askResumePC;
-                st.askResumePC = -1;
-                st.log.info(st.getActive().scriptPC, "ASK", "Answer received", "ans=" + st.lastAnswer);
-                return true;
-            }
+            if (e.key.keysym.sym == SDLK_ESCAPE) { st.askDialogOpen = false; SDL_StopTextInput(); st.lastAnswer = ""; st.getActive().scriptPC = st.askResumePC; st.askResumePC = -1; st.log.warn(st.getActive().scriptPC, "ASK", "Ask cancelled", ""); return true; }
+            if (e.key.keysym.sym == SDLK_BACKSPACE) { if (!st.askInput.empty()) st.askInput.pop_back(); return true; }
+            if (e.key.keysym.sym == SDLK_RETURN) { st.lastAnswer = st.askInput; st.askDialogOpen = false; SDL_StopTextInput(); st.getActive().scriptPC = st.askResumePC; st.askResumePC = -1; st.log.info(st.getActive().scriptPC, "ASK", "Answer received", "ans=" + st.lastAnswer); return true; }
         }
-        if (e.type == SDL_TEXTINPUT) {
-            st.askInput += e.text.text;
-            return true;
-        }
+        if (e.type == SDL_TEXTINPUT) { st.askInput += e.text.text; return true; }
         if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
             const int mx = e.button.x, my = e.button.y;
-
             SDL_Rect modal = {winW/2 - 260, winH/2 - 120, 520, 240};
             SDL_Rect okBtn  = {modal.x + modal.w - 180, modal.y + modal.h - 60, 140, 40};
-            SDL_Rect canBtn = {modal.x +  40,         modal.y + modal.h - 60, 140, 40};
-
-            if (pointInRect(mx, my, okBtn)) {
-                st.lastAnswer = st.askInput;
-                st.askDialogOpen = false;
-                SDL_StopTextInput();
-                st.getActive().scriptPC = st.askResumePC;
-                st.askResumePC = -1;
-                st.log.info(st.getActive().scriptPC, "ASK", "Answer received (click)", "ans=" + st.lastAnswer);
-                return true;
-            }
-            if (pointInRect(mx, my, canBtn)) {
-                st.askDialogOpen = false;
-                SDL_StopTextInput();
-                st.lastAnswer = "";
-                st.getActive().scriptPC = st.askResumePC;
-                st.askResumePC = -1;
-                st.log.warn(st.getActive().scriptPC, "ASK", "Ask cancelled (click)", "");
-                return true;
-            }
+            SDL_Rect canBtn = {modal.x + 40, modal.y + modal.h - 60, 140, 40};
+            if (pointInRect(mx, my, okBtn)) { st.lastAnswer = st.askInput; st.askDialogOpen = false; SDL_StopTextInput(); st.getActive().scriptPC = st.askResumePC; st.askResumePC = -1; st.log.info(st.getActive().scriptPC, "ASK", "Answer received (click)", "ans=" + st.lastAnswer); return true; }
+            if (pointInRect(mx, my, canBtn)) { st.askDialogOpen = false; SDL_StopTextInput(); st.lastAnswer = ""; st.getActive().scriptPC = st.askResumePC; st.askResumePC = -1; st.log.warn(st.getActive().scriptPC, "ASK", "Ask cancelled (click)", ""); return true; }
             return true;
         }
-
         return true;
     }
 
-    // --- Save Dialog
     if (st.saveDialogOpen) {
         if (e.type == SDL_KEYDOWN && !e.key.repeat) {
-            if (e.key.keysym.sym == SDLK_ESCAPE) {
-                st.saveDialogOpen = false;
-                SDL_StopTextInput();
-                return true;
-            }
-            if (e.key.keysym.sym == SDLK_BACKSPACE) {
-                if (!st.saveNameInput.empty()) st.saveNameInput.pop_back();
-                return true;
-            }
-            if (e.key.keysym.sym == SDLK_RETURN) {
-                string stem = sanitizeStem(st.saveNameInput);
-                bool ok = saveProjectNamed(stem, st);
-                st.saveDialogOpen = false;
-                SDL_StopTextInput();
-                if (ok) infoBox("Saved", "Project saved successfully.");
-                else    infoBox("Save failed", "Could not save the project.");
-                return true;
-            }
+            if (e.key.keysym.sym == SDLK_ESCAPE) { st.saveDialogOpen = false; SDL_StopTextInput(); return true; }
+            if (e.key.keysym.sym == SDLK_BACKSPACE) { if (!st.saveNameInput.empty()) st.saveNameInput.pop_back(); return true; }
+            if (e.key.keysym.sym == SDLK_RETURN) { string stem = sanitizeStem(st.saveNameInput); bool ok = saveProjectNamed(stem, st); st.saveDialogOpen = false; SDL_StopTextInput(); if (ok) infoBox("Saved", "Project saved successfully."); else infoBox("Save failed", "Could not save the project."); return true; }
         }
-        if (e.type == SDL_TEXTINPUT) {
-            st.saveNameInput += e.text.text;
-            return true;
-        }
+        if (e.type == SDL_TEXTINPUT) { st.saveNameInput += e.text.text; return true; }
         if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
             const int mx = e.button.x, my = e.button.y;
-
             SDL_Rect modal = {winW/2 - 220, winH/2 - 90, 440, 180};
             SDL_Rect okBtn  = {modal.x + 260, modal.y + 120, 140, 40};
             SDL_Rect canBtn = {modal.x +  40, modal.y + 120, 140, 40};
-
-            if (pointInRect(mx, my, okBtn)) {
-                string stem = sanitizeStem(st.saveNameInput);
-                bool ok = saveProjectNamed(stem, st);
-                st.saveDialogOpen = false;
-                SDL_StopTextInput();
-                if (ok) infoBox("Saved", "Project saved successfully.");
-                else    infoBox("Save failed", "Could not save the project.");
-                return true;
-            }
-            if (pointInRect(mx, my, canBtn)) {
-                st.saveDialogOpen = false;
-                SDL_StopTextInput();
-                return true;
-            }
+            if (pointInRect(mx, my, okBtn)) { string stem = sanitizeStem(st.saveNameInput); bool ok = saveProjectNamed(stem, st); st.saveDialogOpen = false; SDL_StopTextInput(); if (ok) infoBox("Saved", "Project saved successfully."); else infoBox("Save failed", "Could not save the project."); return true; }
+            if (pointInRect(mx, my, canBtn)) { st.saveDialogOpen = false; SDL_StopTextInput(); return true; }
             return true;
         }
-
         return true;
     }
 
     if (st.loadDialogOpen) {
         if (e.type == SDL_KEYDOWN && !e.key.repeat) {
-            if (e.key.keysym.sym == SDLK_ESCAPE) {
-                st.loadDialogOpen = false;
-                return true;
-            }
+            if (e.key.keysym.sym == SDLK_ESCAPE) { st.loadDialogOpen = false; return true; }
         }
-
         if (e.type == SDL_MOUSEWHEEL) {
             const int rowStep = (e.wheel.y > 0) ? -1 : (e.wheel.y < 0 ? +1 : 0);
             if (rowStep != 0) {
                 SDL_Rect modal{}, listArea{};
                 modalRects(winW, winH, modal, listArea);
-
                 int rowH = 28;
                 int visible = listArea.h / rowH;
                 int maxScroll = max(0, (int)st.saveList.size() - visible);
-
                 st.loadScroll = clampT(st.loadScroll + rowStep, 0, maxScroll);
             }
             return true;
         }
-
         if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
             const int mx = e.button.x, my = e.button.y;
-
             SDL_Rect modal{}, listArea{};
             modalRects(winW, winH, modal, listArea);
-
-            if (!pointInRect(mx, my, modal)) {
-                st.loadDialogOpen = false;
-                return true;
-            }
-
+            if (!pointInRect(mx, my, modal)) { st.loadDialogOpen = false; return true; }
             if (pointInRect(mx, my, listArea)) {
                 const int rowH = 28;
                 int local = (my - listArea.y) / rowH;
                 int idx = st.loadScroll + local;
-
                 if (idx >= 0 && idx < (int)st.saveList.size()) {
                     bool ok = loadProjectNamed(st.saveList[idx], st);
+                    st.loadDialogOpen = false;
                     st.loadDialogOpen = false;
                     if (ok) infoBox("Loaded", "Project loaded successfully.");
                     else    infoBox("Load failed", "Could not load the project.");
@@ -1736,7 +1182,6 @@ static bool handleDialogsEvent(AppState& st, const SDL_Event& e, int winW, int w
             }
             return true;
         }
-
         return true;
     }
 
@@ -1789,6 +1234,7 @@ static void renderDialogs(const AppState& st, SDL_Renderer* r, int winW, int win
         renderTextCentered(r, st.uiFont, "Cancel", canBtn, -6, white);
         renderTextCentered(r, st.uiFont, "Esc", canBtn, +10, white);
     }
+
     if (st.renameDialogOpen) {
         SDL_Rect modal = {winW/2 - 220, winH/2 - 90, 440, 180};
         SDL_SetRenderDrawColor(r, 40, 40, 46, 255);
@@ -1903,6 +1349,8 @@ static void renderDialogs(const AppState& st, SDL_Renderer* r, int winW, int win
         }
     }
 }
+
+
 static SDL_Color hsvToRgb(double h, double s, double v) {
     s = clampT(s, 0.0, 100.0) / 100.0;
     v = clampT(v, 0.0, 100.0) / 100.0;
@@ -2007,6 +1455,7 @@ static void drawThickLine(SDL_Renderer* r, double x1, double y1, double x2, doub
         SDL_RenderFillRect(r, &dot);
     }
 }
+
 static void renderPenLayer(const AppState& st, SDL_Renderer* r) {
 
     for (const auto& seg : st.penSegs) {
@@ -2014,7 +1463,6 @@ static void renderPenLayer(const AppState& st, SDL_Renderer* r) {
     }
 
     for (const auto& sp : st.penStamps) {
-
         SDL_Texture* useTex = nullptr;
 
         if (!st.costumes.empty()) {
@@ -2029,7 +1477,6 @@ static void renderPenLayer(const AppState& st, SDL_Renderer* r) {
         SDL_Rect dst{(int)round(sp.x) - sizePx/2, (int)round(sp.y) - sizePx/2, sizePx, sizePx};
 
         if (useTex) {
-
             double angle = sp.dirDeg - 90.0;
             SDL_RenderCopyEx(r, useTex, nullptr, &dst, angle, nullptr, SDL_FLIP_NONE);
             SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
@@ -2042,6 +1489,7 @@ static void renderPenLayer(const AppState& st, SDL_Renderer* r) {
         }
     }
 }
+
 
 static void openExtensionLibrary(AppState& st) {
     st.extensionLibraryOpen = true;
@@ -2119,6 +1567,7 @@ static void renderExtensionLibrary(const AppState& st, SDL_Renderer* r, int w, i
     SDL_RenderFillRect(r, &penItem);
     SDL_SetRenderDrawColor(r, 15,15,15,255);
     SDL_RenderDrawRect(r, &penItem);
+
     string penLabel = "Pen";
     string penState = st.penExtensionEnabled ? "Installed" : "Click to enable";
     renderText(r, st.uiFont, penLabel, penItem.x + 16, penItem.y + 10, white);
@@ -2131,7 +1580,6 @@ static void renderExtensionLibrary(const AppState& st, SDL_Renderer* r, int w, i
     SDL_RenderDrawRect(r, &sw);
 }
 
-// ---- Pen color picker (minimal preset palette)
 static SDL_Rect colorPickerRect(int w, int h) {
     return SDL_Rect{w/2 - 250, h/2 - 180, 500, 360};
 }
@@ -2248,9 +1696,7 @@ static void renderPenColorPicker(const AppState& st, SDL_Renderer* r, int w, int
     SDL_RenderDrawRect(r, &prev);
 }
 
-// =========================
-// Section 5: Function I/O Menu (Modal)
-// =========================
+
 static SDL_Rect funcIOMenuRect(int w, int h) {
     return SDL_Rect{w/2 - 260, h/2 - 150, 520, 300};
 }
@@ -2260,7 +1706,6 @@ static const vector<string>& funcList() {
     return v;
 }
 static const vector<string>& funcInputList() {
-    // minimal sources
     static vector<string> v = {"last","v","score","msg","mouseX","mouseY","timer","answer","actorX","actorY","dir"};
     return v;
 }
@@ -2441,7 +1886,6 @@ static void renderFuncIOMenu(const AppState& st, SDL_Renderer* r, int w, int h) 
     renderTextCentered(r, st.uiFont, "Esc", canBtn, +10, white);
 }
 
-
 static Button makePaletteBtn(int x, int y, int w, const string& label, const string& sub, function<void()> cb) {
     Button b;
     b.rect = SDL_Rect{x, y, w, 34};
@@ -2538,7 +1982,6 @@ static void setBlockVisual(Block& b) {
 }
 
 static void addTypedBlock(AppState& st, const string& cmd, double a, double bb, const string& s1 = "", const string& s2 = "", int i1 = 0) {
-
     int spawnX = st.in.mx - 120;
     int spawnY = st.in.my - 26;
     st.getActive().ws.addBlock(spawnX, spawnY);
@@ -2552,7 +1995,6 @@ static void addTypedBlock(AppState& st, const string& cmd, double a, double bb, 
         b.s2 = s2;
         b.i1 = i1;
         setBlockVisual(b);
-
 
         b.dragging = true;
         b.offX = st.in.mx - b.rect.x;
@@ -2667,6 +2109,7 @@ static void rebuildPalette(AppState& st, int winW, int winH) {
     placeBtn("letter 2 of \"abc\"", "", [&]{ addTypedBlock(st, "OP_LETTER", 2.0, 0.0, "abc"); });
     placeBtn("join \"a\" \"b\"", "", [&]{ addTypedBlock(st, "OP_JOIN", 0.0, 0.0, "a", "b"); });
 
+    // ===== Section 5: Functions =====
     cat("Functions");
     placeBtn("apply function (sqrt)", "Shift+Click edit I/O", [&]{
         addTypedBlock(st, "FUNC_APPLY", 0.0, 0.0, "sqrt");
@@ -2703,13 +2146,12 @@ static void rebuildPalette(AppState& st, int winW, int winH) {
     placeBtn("clear clones", "", [&]{ addTypedBlock(st, "CLONE_CLEAR", 0.0, 0.0); });
     placeBtn("clone count (to last)", "", [&]{ addTypedBlock(st, "CLONE_COUNT", 0.0, 0.0); });
 
-
     cat("My Blocks");
     placeBtn("Define f(x)", "Shift+Click cycle name", [&]{ addTypedBlock(st, "DEFINE_FN", 0.0, 0.0, "myFunc", "x"); });
     placeBtn("End Function", "", [&]{ addTypedBlock(st, "END_FN", 0.0, 0.0); });
     placeBtn("Call f(n)", "Shift+Click cycle name", [&]{ addTypedBlock(st, "CALL_FN", 10.0, 0.0, "myFunc"); });
     placeBtn("Get param x", "", [&]{ addTypedBlock(st, "GET_PARAM", 0.0, 0.0, "x"); });
-    // Pen at end
+
     if (st.penExtensionEnabled) {
         cat("Pen (Extension)");
         placeBtn("PEN Down", "", [&]{ addTypedBlock(st, "PEN_DOWN", 0.0, 0.0); });
@@ -2726,6 +2168,7 @@ static void rebuildPalette(AppState& st, int winW, int winH) {
             }
         });
     }
+
     int visibleH = (winH - TOP_BAR_H) - 10;
     int contentEnd = contentY + 10;
     st.paletteMaxScroll = max(0, contentEnd - (TOP_BAR_H + visibleH));
@@ -2733,6 +2176,7 @@ static void rebuildPalette(AppState& st, int winW, int winH) {
 
     st.paletteDirty = false;
 }
+
 static void renderPaletteHeader(const AppState& st, SDL_Renderer* r) {
     SDL_Color white{240,240,240,255};
     renderText(r, st.uiFont, "Code", 12, TOP_BAR_H + 6, white);
@@ -2750,6 +2194,7 @@ static void renderPaletteCats(const AppState& st, SDL_Renderer* r) {
         renderText(r, st.uiFont, it.second, 12, y, c);
     }
 }
+
 static SDL_Rect helpMenuRect(const AppState& st) {
     SDL_Rect r;
     r.x = st.helpButtonRect.x;
@@ -2763,6 +2208,7 @@ static SDL_Rect helpMenuItemRect(const SDL_Rect& menu, int i) {
     SDL_Rect r = {menu.x + 5, menu.y + 5 + i * 32, menu.w - 10, 28};
     return r;
 }
+
 static bool updateHelpMenu(AppState& st) {
     if (!st.helpMenuOpen) return false;
 
@@ -2803,4 +2249,1517 @@ static bool updateHelpMenu(AppState& st) {
     return false;
 }
 
+static void renderHelpMenu(const AppState& st, SDL_Renderer* r) {
+    if (!st.helpMenuOpen) return;
 
+    SDL_Rect menu = helpMenuRect(st);
+
+    SDL_SetRenderDrawColor(r, 44, 44, 50, 255);
+    SDL_RenderFillRect(r, &menu);
+    SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
+    SDL_RenderDrawRect(r, &menu);
+
+    SDL_Color white = {240, 240, 240, 255};
+
+    SDL_Rect i0 = helpMenuItemRect(menu, 0);
+    SDL_Rect i1 = helpMenuItemRect(menu, 1);
+    SDL_Rect i2 = helpMenuItemRect(menu, 2);
+
+    SDL_SetRenderDrawColor(r, 35, 35, 40, 255);
+    SDL_RenderFillRect(r, &i0);
+    SDL_RenderFillRect(r, &i1);
+    SDL_RenderFillRect(r, &i2);
+
+    SDL_SetRenderDrawColor(r, 15, 15, 15, 255);
+    SDL_RenderDrawRect(r, &i0);
+    SDL_RenderDrawRect(r, &i1);
+    SDL_RenderDrawRect(r, &i2);
+
+    string s0 = string("Show Logs  ") + (st.showLogsPanel ? "[ON]" : "[OFF]");
+    string s1 = "Clear Logs";
+    string s2 = string("Toggle Step-by-Step  ") + (st.debugStepMode ? "[ON]" : "[OFF]");
+
+    renderText(r, st.uiFont, s0, i0.x + 10, i0.y + 5, white);
+    renderText(r, st.uiFont, s1, i1.x + 10, i1.y + 5, white);
+    renderText(r, st.uiFont, s2, i2.x + 10, i2.y + 5, white);
+}
+
+static void updateLogsPanel(AppState& st) {
+    if (!st.showLogsPanel) return;
+}
+
+static void renderLogsPanel(const AppState& st, SDL_Renderer* r, int winW, int winH) {
+    if (!st.showLogsPanel) return;
+
+    SDL_SetRenderDrawColor(r, 0, 0, 0, 160);
+    SDL_Rect full = {0, 0, winW, winH};
+    SDL_RenderFillRect(r, &full);
+
+    SDL_Rect box = {winW/2 - 420, winH/2 - 240, 840, 480};
+    SDL_SetRenderDrawColor(r, 40, 40, 46, 255);
+    SDL_RenderFillRect(r, &box);
+    SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
+    SDL_RenderDrawRect(r, &box);
+
+    SDL_Color white = {240, 240, 240, 255};
+    renderText(r, st.uiFont, "Logs (Esc to close)", box.x + 16, box.y + 12, white);
+
+    SDL_Rect area = {box.x + 16, box.y + 44, box.w - 32, box.h - 60};
+    SDL_SetRenderDrawColor(r, 25, 25, 28, 255);
+    SDL_RenderFillRect(r, &area);
+    SDL_SetRenderDrawColor(r, 120, 120, 120, 255);
+    SDL_RenderDrawRect(r, &area);
+
+    const vector<string>& lines = st.log.lines();
+    const int lineH = 18;
+    int visible = area.h / lineH;
+
+    int end = (int)lines.size();
+    int start = max(0, end - visible);
+
+    int y = area.y + 6;
+    for (int i = start; i < end; i++) {
+        renderText(r, st.uiFont, lines[i], area.x + 8, y, white);
+        y += lineH;
+        if (y > area.y + area.h - lineH) break;
+    }
+}
+
+
+static void stopScript(AppState& st, Sprite& sp, const string& reason, const string& level = "WARNING") {
+    if (!sp.scriptRunning) return;
+    sp.scriptRunning = false;
+    sp.waiting = false;
+    sp.waitUntilMs = 0;
+    st.soundBusyUntilMs = 0;
+    if (level == "ERROR") st.log.error(sp.scriptPC, "RUN", "Stop script", reason);
+    else                  st.log.warn(sp.scriptPC, "RUN", "Stop script", reason);
+}
+
+static bool safeDiv(AppState& st, int blockIndex, double a, double b, double& out) {
+    if (b == 0.0) {
+        st.log.error(blockIndex, "DIV", "Divide by zero prevented",
+                     "a=" + to_string(a) + " b=" + to_string(b));
+        fatalBox("Math Error", "Division by zero prevented.");
+        return false;
+    }
+    out = a / b;
+    return true;
+}
+
+static bool safeSqrt(AppState& st, int blockIndex, double v, double& out) {
+    if (v < 0.0) {
+        st.log.error(blockIndex, "SQRT", "sqrt(negative) prevented",
+                     "v=" + to_string(v));
+        fatalBox("Math Error", "sqrt of negative prevented.");
+        return false;
+    }
+    out = std::sqrt(v);
+    return true;
+}
+
+static void clampActorPos(AppState& st, int blockIndex, const string& cmd, double beforeX, double beforeY, Sprite& sp) {
+    double minX = st.stageBounds.x;
+    double maxX = st.stageBounds.x + st.stageBounds.w;
+    double minY = st.stageBounds.y;
+    double maxY = st.stageBounds.y + st.stageBounds.h;
+
+    double ox = sp.x, oy = sp.y;
+
+    if (sp.x < minX) sp.x = minX;
+    if (sp.x > maxX) sp.x = maxX;
+    if (sp.y < minY) sp.y = minY;
+    if (sp.y > maxY) sp.y = maxY;
+
+    bool clamped = (sp.x != ox) || (sp.y != oy);
+    if (clamped) {
+        st.log.warn(blockIndex, cmd, "Boundary clamp",
+                    "pos(" + to_string(beforeX) + "," + to_string(beforeY) + ")->(" +
+                    to_string(sp.x) + "," + to_string(sp.y) + ")");
+    }
+}
+
+static double degToRad(double d) { return d * 3.14159265358979323846 / 180.0; }
+
+static double scratchRad(double dirDeg) {
+    return degToRad(90.0 - dirDeg);
+}
+
+static double scratchToSDLAangle(double dirDeg) {
+    return dirDeg - 90.0;
+}
+
+static void runnerPreScan(AppState& st, Sprite& sp) {
+    int n = (int)sp.ws.blocks.size();
+    sp.jumpTo.assign(n, -1);
+    sp.jumpElse.assign(n, -1);
+    sp.jumpEnd.assign(n, -1);
+    sp.loopEnd.assign(n, -1);
+    sp.loopStart.assign(n, -1);
+    sp.repeatCounter.assign(n, 0);
+
+    vector<int> ifStack;
+    vector<int> ifElseStack;
+    vector<int> repeatStack;
+    vector<int> foreverStack;
+    vector<int> repeatUntilStack;
+    vector<int> funcStack;
+
+    for (int i = 0; i < n; i++) {
+        const string& c = sp.ws.blocks[i].cmd;
+
+        if (c == "DEFINE_FN") {
+            funcStack.push_back(i);
+            sp.funcDefs[sp.ws.blocks[i].s1] = i;
+            continue;
+        }
+        if (c == "END_FN") {
+            if (!funcStack.empty()) {
+                int start = funcStack.back();
+                funcStack.pop_back();
+                sp.jumpEnd[start] = i;
+            }
+            continue;
+        }
+
+        if (c == "IF" || c == "IFELSE") {
+            ifStack.push_back(i);
+            if (c == "IFELSE") ifElseStack.push_back(i);
+            continue;
+        }
+
+        if (c == "ELSE") {
+            if (!ifStack.empty()) {
+                int start = ifStack.back();
+                sp.jumpElse[start] = i;
+            }
+            continue;
+        }
+
+        if (c == "END_IF") {
+            if (!ifStack.empty()) {
+                int start = ifStack.back();
+                ifStack.pop_back();
+                sp.jumpEnd[start] = i;
+                if (sp.jumpElse[start] != -1) {
+                    int elseIdx = sp.jumpElse[start];
+                    sp.jumpTo[elseIdx] = i;
+                }
+            }
+            continue;
+        }
+
+        if (c == "REPEAT") {
+            repeatStack.push_back(i);
+            continue;
+        }
+        if (c == "REPEAT_UNTIL") {
+            repeatUntilStack.push_back(i);
+            continue;
+        }
+        if (c == "END_REPEAT") {
+            if (!repeatUntilStack.empty() && (repeatStack.empty() || repeatUntilStack.back() > repeatStack.back())) {
+                int start = repeatUntilStack.back();
+                repeatUntilStack.pop_back();
+                sp.loopEnd[start] = i;
+                sp.loopStart[i] = start;
+            } else if (!repeatStack.empty()) {
+                int start = repeatStack.back();
+                repeatStack.pop_back();
+                sp.loopEnd[start] = i;
+                sp.loopStart[i] = start;
+            }
+            continue;
+        }
+
+        if (c == "FOREVER") {
+            foreverStack.push_back(i);
+            continue;
+        }
+        if (c == "END_FOREVER") {
+            if (!foreverStack.empty()) {
+                int start = foreverStack.back();
+                foreverStack.pop_back();
+                sp.loopEnd[start] = i;
+                sp.loopStart[i] = start;
+            }
+            continue;
+        }
+    }
+
+    for (int idx : ifStack) st.log.warn(idx, "IF", "Unmatched IF (missing END_IF)", "");
+    for (int idx : repeatStack) st.log.warn(idx, "REPEAT", "Unmatched REPEAT (missing END_REPEAT)", "");
+    for (int idx : repeatUntilStack) st.log.warn(idx, "REPEAT_UNTIL", "Unmatched REPEAT_UNTIL (missing END_REPEAT)", "");
+    for (int idx : foreverStack) st.log.warn(idx, "FOREVER", "Unmatched FOREVER (missing END_FOREVER)", "");
+    for (int idx : funcStack) st.log.warn(idx, "DEFINE_FN", "Unmatched DEFINE_FN (missing END_FN)", ""); // <--- این خط جدید
+}
+
+static void startScript(AppState& st) {
+    st.timerStartMs = SDL_GetTicks();
+    st.soundBusyUntilMs = 0;
+
+    st.clones.clear();
+    st.penSegs.clear();
+    st.penStamps.clear();
+
+    for (auto& sp : st.sprites) {
+        sp.x = sp.backupX;
+        sp.y = sp.backupY;
+        sp.dirDeg = sp.backupDirDeg;
+        sp.visible = sp.backupVisible;
+        sp.sizePct = sp.backupSizePct;
+        sp.colorEffect = sp.backupColorEffect;
+        sp.costumeIndex = sp.backupCostumeIndex;
+        sp.zOrder = sp.backupZOrder;
+
+
+        if (!sp.ws.blocks.empty() && sp.ws.blocks.front().cmd == "EVENT_FLAG") {
+            sp.scriptRunning = true;
+        } else {
+            sp.scriptRunning = false;
+        }
+        sp.scriptPC = 0;
+        sp.stepRequested = false;
+        sp.waiting = false;
+        sp.waitUntilMs = 0;
+
+        sp.funcDefs.clear();
+        sp.callStack.clear();
+        sp.currentParam = 0.0;
+
+        runnerPreScan(st, sp);
+    }
+}
+
+static SDL_Color applyLookEffect(SDL_Color base, double hueShiftDeg) {
+    double h,s,v;
+    rgbToHsv(base, h,s,v);
+    h = fmod(h + hueShiftDeg, 360.0);
+    if (h < 0) h += 360.0;
+    return hsvToRgb(h,s,v);
+}
+
+
+static void destroyTextureAsset(TextureAsset& a) {
+    if (a.tex) SDL_DestroyTexture(a.tex);
+    a.tex = nullptr; a.w = 0; a.h = 0;
+}
+
+static TextureAsset loadBMPTexture(SDL_Renderer* r, const string& path, Logger& log) {
+    TextureAsset out;
+    SDL_Surface* s = SDL_LoadBMP(path.c_str());
+    if (!s) {
+        log.warn(-1, "ASSET", "SDL_LoadBMP failed", path + " err=" + SDL_GetError());
+        return out;
+    }
+
+    Uint32 key = SDL_MapRGB(s->format, 255, 0, 255);
+    SDL_SetColorKey(s, SDL_TRUE, key);
+
+    out.w = s->w; out.h = s->h;
+    out.tex = SDL_CreateTextureFromSurface(r, s);
+    SDL_FreeSurface(s);
+
+    if (!out.tex) {
+        log.warn(-1, "ASSET", "CreateTextureFromSurface failed", path + " err=" + SDL_GetError());
+        out.w = out.h = 0;
+        return out;
+    }
+
+    SDL_SetTextureBlendMode(out.tex, SDL_BLENDMODE_BLEND);
+    log.info(-1, "ASSET", "Loaded BMP texture", path);
+    return out;
+}
+
+
+static string openBMPDialog(SDL_Window* owner) {
+#ifdef _WIN32
+    OPENFILENAMEA ofn;
+    char szFile[260] = {0};
+
+    ZeroMemory(&ofn, sizeof(ofn));
+    ofn.lStructSize = sizeof(ofn);
+    SDL_SysWMinfo wmInfo;
+    SDL_VERSION(&wmInfo.version);
+    SDL_GetWindowWMInfo(owner, &wmInfo);
+    ofn.hwndOwner = wmInfo.info.win.window;
+
+    ofn.lpstrFile = szFile;
+    ofn.nMaxFile = sizeof(szFile);
+    ofn.lpstrFilter = "BMP Files\0*.bmp\0All Files\0*.*\0";
+    ofn.nFilterIndex = 1;
+    ofn.lpstrFileTitle = NULL;
+    ofn.nMaxFileTitle = 0;
+    ofn.lpstrInitialDir = NULL;
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
+
+    if (GetOpenFileNameA(&ofn) == TRUE) {
+        return string(ofn.lpstrFile);
+    }
+#endif
+    return "";
+}
+
+
+static void initAssets(AppState& st, SDL_Renderer* r) {
+    destroyTextureAsset(st.actorIcon);
+    st.actorIcon = loadBMPTexture(r, st.actorIconFile, st.log);
+
+    st.costumes.clear();
+    st.costumes.push_back(loadBMPTexture(r, "costume0.bmp", st.log));
+    st.costumes.push_back(loadBMPTexture(r, "costume1.bmp", st.log));
+
+    st.backdrops.clear();
+}
+
+static void shutdownAssets(AppState& st) {
+    destroyTextureAsset(st.actorIcon);
+
+    for (auto& t : st.costumes) destroyTextureAsset(t);
+    st.costumes.clear();
+
+    for (auto& t : st.backdrops) destroyTextureAsset(t);
+    st.backdrops.clear();
+}
+
+
+static uint32_t computeAudioMs(const SDL_AudioSpec& spec, uint32_t lenBytes) {
+    int bytesPerSample = (SDL_AUDIO_BITSIZE(spec.format) / 8) * (int)spec.channels;
+    if (bytesPerSample <= 0 || spec.freq <= 0) return 0;
+    double samples = (double)lenBytes / (double)bytesPerSample;
+    double sec = samples / (double)spec.freq;
+    if (sec < 0) sec = 0;
+    return (uint32_t)llround(sec * 1000.0);
+}
+
+static bool initAudioSystem(AppState& st) {
+    SDL_AudioSpec want{};
+    want.freq = 44100;
+    want.format = AUDIO_S16SYS;
+    want.channels = 2;
+    want.samples = 4096;
+    want.callback = nullptr;
+
+    SDL_AudioSpec have{};
+    st.audioDev = SDL_OpenAudioDevice(nullptr, 0, &want, &have, SDL_AUDIO_ALLOW_ANY_CHANGE);
+    if (!st.audioDev) {
+        st.audioReady = false;
+        st.log.warn(-1, "AUDIO", "OpenAudioDevice failed", SDL_GetError());
+        return false;
+    }
+    st.audioSpec = have;
+    st.audioReady = true;
+    SDL_PauseAudioDevice(st.audioDev, 0);
+
+    st.log.info(-1, "AUDIO", "Audio ready",
+                "freq=" + to_string(have.freq) + " ch=" + to_string((int)have.channels));
+    return true;
+}
+
+static void shutdownAudioSystem(AppState& st) {
+    if (st.audioDev) {
+        SDL_ClearQueuedAudio(st.audioDev);
+        SDL_CloseAudioDevice(st.audioDev);
+    }
+    st.audioDev = 0;
+    st.audioReady = false;
+    st.soundBusyUntilMs = 0;
+}
+
+
+
+static uint32_t playWavOneShot(AppState& st, const string& wavFile) {
+    if (!st.audioReady || !st.audioDev) {
+        st.log.warn(-1, "AUDIO", "Audio not ready", "skip " + wavFile);
+        return 0;
+    }
+
+    SDL_AudioSpec srcSpec{};
+    Uint8* srcBuf = nullptr;
+    Uint32 srcLen = 0;
+
+    if (!SDL_LoadWAV(wavFile.c_str(), &srcSpec, &srcBuf, &srcLen)) {
+        st.log.warn(-1, "AUDIO", "LoadWAV failed", wavFile + " err=" + SDL_GetError());
+        return 0;
+    }
+
+    Uint8* buf = srcBuf;
+    Uint32 len = srcLen;
+    Uint8* cvtBuf = nullptr;
+
+
+    if (srcSpec.format != st.audioSpec.format ||
+        srcSpec.channels != st.audioSpec.channels ||
+        srcSpec.freq != st.audioSpec.freq) {
+
+        SDL_AudioCVT cvt;
+        if (SDL_BuildAudioCVT(&cvt,
+                              srcSpec.format, srcSpec.channels, srcSpec.freq,
+                              st.audioSpec.format, st.audioSpec.channels, st.audioSpec.freq) >= 0 && cvt.needed) {
+
+            cvt.len = (int)srcLen;
+            cvtBuf = (Uint8*)SDL_malloc((size_t)cvt.len * (size_t)cvt.len_mult);
+            if (cvtBuf) {
+                SDL_memcpy(cvtBuf, srcBuf, srcLen);
+                cvt.buf = cvtBuf;
+
+                if (SDL_ConvertAudio(&cvt) == 0) {
+                    buf = cvt.buf;
+                    len = (Uint32)cvt.len_cvt;
+                } else {
+                    st.log.warn(-1, "AUDIO", "ConvertAudio failed", wavFile);
+                }
+            }
+        }
+    }
+
+    int vol = st.soundMuted ? 0 : clampT(st.soundVolume, 0, 100);
+    if (vol <= 0) {
+        SDL_FreeWAV(srcBuf);
+        if (cvtBuf) SDL_free(cvtBuf);
+        st.log.info(-1, "AUDIO", "Muted/zero volume", wavFile);
+        return 0;
+    }
+
+
+    SDL_ClearQueuedAudio(st.audioDev);
+
+    Uint8* mixBuf = (Uint8*)SDL_malloc(len);
+    if (!mixBuf) {
+        SDL_FreeWAV(srcBuf);
+        if (cvtBuf) SDL_free(cvtBuf);
+        st.log.warn(-1, "AUDIO", "malloc failed", "len=" + to_string(len));
+        return 0;
+    }
+    SDL_memset(mixBuf, 0, len);
+
+    int sdlVol = (int)llround((vol / 100.0) * SDL_MIX_MAXVOLUME);
+    SDL_MixAudioFormat(mixBuf, buf, st.audioSpec.format, len, sdlVol);
+    SDL_QueueAudio(st.audioDev, mixBuf, len);
+
+    uint32_t ms = computeAudioMs(st.audioSpec, len);
+    st.log.info(-1, "AUDIO", "Play WAV", wavFile + " ms=" + to_string(ms));
+
+    SDL_free(mixBuf);
+    SDL_FreeWAV(srcBuf);
+    if (cvtBuf) SDL_free(cvtBuf);
+
+    return ms;
+}
+
+
+static vector<Value>& getList(AppState& st, const string& name) {
+    return st.lists[name]; // auto-create if missing
+}
+
+static Value listItemFromBlock(const Block& b) {
+    if (!b.s2.empty()) return Value::Str(b.s2);
+    return Value::Num(b.a);
+}
+
+static bool listIndexOk1(int idx1, int n) {
+    return (idx1 >= 1 && idx1 <= n);
+}
+
+
+static void cloneCreateFromActor(AppState& st) {
+    CloneSprite c;
+    c.x = st.getActive().x;
+    c.y = st.getActive().y;
+    c.dirDeg = st.getActive().dirDeg;
+    c.visible = st.getActive().visible;
+    c.sizePct = st.getActive().sizePct;
+    st.clones.push_back(c);
+}
+
+static void cloneDeleteLast(AppState& st) {
+    if (!st.clones.empty()) st.clones.pop_back();
+}
+
+static void cloneClearAll(AppState& st) {
+    st.clones.clear();
+}
+
+
+static void drawSprite(SDL_Renderer* r, const AppState& st, const Sprite& sp) {
+    if (!sp.visible) return;
+
+    int sizePx = (int)clampT((int)round(80.0 * (sp.sizePct / 100.0)), 10, 300);
+    SDL_Rect dst{(int)round(sp.x) - sizePx/2, (int)round(sp.y) - sizePx/2, sizePx, sizePx};
+
+    SDL_Texture* useTex = sp.icon.tex;
+    if (useTex) {
+        double angle = scratchToSDLAangle(sp.dirDeg);
+        SDL_Color mod = applyLookEffect(SDL_Color{255,255,255,255}, sp.colorEffect);
+        SDL_SetTextureColorMod(useTex, mod.r, mod.g, mod.b);
+        SDL_RenderCopyEx(r, useTex, nullptr, &dst, angle, nullptr, SDL_FLIP_NONE);
+        SDL_SetTextureColorMod(useTex, 255, 255, 255);
+
+        SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
+        SDL_RenderDrawRect(r, &dst);
+    } else {
+        SDL_SetRenderDrawColor(r, 240, 240, 240, 255);
+        SDL_RenderFillRect(r, &dst);
+        SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
+        SDL_RenderDrawRect(r, &dst);
+    }
+
+    double rad = scratchRad(sp.dirDeg);
+    int x2 = (int)round(sp.x + cos(rad) * (sizePx/2 + 10));
+    int y2 = (int)round(sp.y - sin(rad) * (sizePx/2 + 10));
+    SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
+    SDL_RenderDrawLine(r, (int)round(sp.x), (int)round(sp.y), x2, y2);
+}
+
+static double funcReadInput(AppState& st, const string& inSel) {
+    if (inSel == "last") return asNum(st.lastValue);
+    if (inSel == "mouseX") return (double)st.in.mx;
+    if (inSel == "mouseY") return (double)st.in.my;
+    if (inSel == "timer")  return (SDL_GetTicks() - st.timerStartMs) / 1000.0;
+    if (inSel == "answer") {
+        char* endp = nullptr;
+        double x = strtod(st.lastAnswer.c_str(), &endp);
+        if (endp && endp != st.lastAnswer.c_str()) return x;
+        return 0.0;
+    }
+    if (inSel == "actorX") return st.getActive().x;
+    if (inSel == "actorY") return st.getActive().y;
+    if (inSel == "dir")    return st.getActive().dirDeg;
+
+    if (st.vars.count(inSel)) return asNum(st.vars[inSel]);
+    return 0.0;
+}
+
+static void funcWriteOutput(AppState& st, const string& outSel, double v) {
+    if (outSel == "last") {
+        st.lastValue = Value::Num(v);
+        return;
+    }
+    if (outSel == "msg") {
+        ostringstream ss; ss << v;
+        st.vars["msg"] = Value::Str(ss.str());
+        return;
+    }
+    st.vars[outSel] = Value::Num(v);
+}
+
+static bool funcApplyBuiltin(AppState& st, int blockIndex, const string& fn, double x, double& out) {
+    if (fn == "sqrt") {
+        return safeSqrt(st, blockIndex, x, out);
+    }
+    if (fn == "abs") {
+        out = fabs(x);
+        return true;
+    }
+    if (fn == "sin") {
+        out = sin(degToRad(x));
+        return true;
+    }
+    if (fn == "cos") {
+        out = cos(degToRad(x));
+        return true;
+    }
+    if (fn == "tan") {
+        out = tan(degToRad(x));
+        return true;
+    }
+    if (fn == "round") {
+        out = (double)llround(x);
+        return true;
+    }
+    if (fn == "floor") {
+        out = floor(x);
+        return true;
+    }
+    if (fn == "ceil") {
+        out = ceil(x);
+        return true;
+    }
+
+    out = x;
+    return true;
+}
+
+static string cycleName3(const string& cur) {
+    if (cur == "v") return "score";
+    if (cur == "score") return "msg";
+    return "v";
+}
+
+static string cycleFuncName(const string& cur) {
+    if (cur == "myFunc") return "drawShape";
+    if (cur == "drawShape") return "jumpUp";
+    return "myFunc";
+}
+
+static string cycleListName3(const string& cur) {
+    if (cur == "list") return "list2";
+    if (cur == "list2") return "list3";
+    return "list";
+}
+
+enum class StepResult { Advanced, Yielded, Stopped };
+
+static StepResult executeOneBlock(AppState& st, Sprite& sp) {
+    if (!sp.scriptRunning) return StepResult::Stopped;
+    if (st.askDialogOpen)  return StepResult::Yielded;
+
+    if (sp.waiting) {
+        if (SDL_GetTicks() < sp.waitUntilMs) return StepResult::Yielded;
+        sp.waiting = false;
+        sp.waitUntilMs = 0;
+    }
+
+    if (sp.scriptPC < 0 || sp.scriptPC >= (int)sp.ws.blocks.size()) {
+        stopScript(st, sp, "Reached end", "WARNING");
+        return StepResult::Stopped;
+    }
+
+    Block& b = sp.ws.blocks[sp.scriptPC];
+    int idx = sp.scriptPC;
+    string cmd = b.cmd;
+
+    if (cmd == "EVENT_FLAG" || cmd == "EVENT_KEY" || cmd == "EVENT_CLICK") {
+        st.log.info(idx, cmd, "Event block", "pass");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "BROADCAST") {
+        st.lastBroadcast = b.s1.empty() ? "msg" : b.s1;
+        st.log.info(idx, cmd, "Broadcast", "msg=" + st.lastBroadcast);
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "WHEN_RECEIVE") {
+        st.log.info(idx, cmd, "When receive", "msg=" + b.s1);
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "MOVE") {
+        double bx = sp.x, by = sp.y;
+        sp.x += b.a;
+        clampActorPos(st, idx, cmd, bx, by, sp);
+
+        if (st.penExtensionEnabled && st.penDown) penAddSegment(st, bx, by, sp.x, sp.y);
+
+        st.log.info(idx, cmd, "Change X", "x:" + to_string(bx) + "->" + to_string(sp.x));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "MOVE_STEPS") {
+        double bx = sp.x, by = sp.y;
+        double rad = scratchRad(sp.dirDeg);
+        sp.x += cos(rad) * b.a;
+        sp.y -= sin(rad) * b.a;
+        clampActorPos(st, idx, cmd, bx, by, sp);
+
+        if (st.penExtensionEnabled && st.penDown) penAddSegment(st, bx, by, sp.x, sp.y);
+
+        st.log.info(idx, cmd, "Move steps",
+                    "pos(" + to_string(bx) + "," + to_string(by) + ")->(" +
+                    to_string(sp.x) + "," + to_string(sp.y) + ")");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "TURN_R" || cmd == "TURN_L") {
+        double before = sp.dirDeg;
+        double delta = (cmd == "TURN_R") ? b.a : -b.a;
+        sp.dirDeg = fmod(sp.dirDeg + delta, 360.0);
+        if (sp.dirDeg < 0) sp.dirDeg += 360.0;
+        st.log.info(idx, cmd, "Turn", "dir:" + to_string(before) + "->" + to_string(sp.dirDeg));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "SET_DIR") {
+        double before = sp.dirDeg;
+        sp.dirDeg = fmod(b.a, 360.0);
+        if (sp.dirDeg < 0) sp.dirDeg += 360.0;
+        st.log.info(idx, cmd, "Set direction", "dir:" + to_string(before) + "->" + to_string(sp.dirDeg));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "GOTO_XY") {
+        double bx = sp.x, by = sp.y;
+        sp.x = b.a;
+        sp.y = b.b;
+        clampActorPos(st, idx, cmd, bx, by, sp);
+
+        if (st.penExtensionEnabled && st.penDown) penAddSegment(st, bx, by, sp.x, sp.y);
+
+        st.log.info(idx, cmd, "Go to",
+                    "pos(" + to_string(bx) + "," + to_string(by) + ")->(" +
+                    to_string(sp.x) + "," + to_string(sp.y) + ")");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "CHANGE_X") {
+        double bx = sp.x, by = sp.y;
+        sp.x += b.a;
+        clampActorPos(st, idx, cmd, bx, by, sp);
+        if (st.penExtensionEnabled && st.penDown) penAddSegment(st, bx, by, sp.x, sp.y);
+
+        st.log.info(idx, cmd, "Change X", "x:" + to_string(bx) + "->" + to_string(sp.x));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "CHANGE_Y") {
+        double bx = sp.x, by = sp.y;
+        sp.y += b.a;
+        clampActorPos(st, idx, cmd, bx, by, sp);
+        if (st.penExtensionEnabled && st.penDown) penAddSegment(st, bx, by, sp.x, sp.y);
+
+        st.log.info(idx, cmd, "Change Y", "y:" + to_string(by) + "->" + to_string(sp.y));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "GOTO_RANDOM") {
+        double bx = sp.x, by = sp.y;
+        double minX = st.stageBounds.x;
+        double maxX = st.stageBounds.x + st.stageBounds.w;
+        double minY = st.stageBounds.y;
+        double maxY = st.stageBounds.y + st.stageBounds.h;
+
+        sp.x = minX + (rand() / (double)RAND_MAX) * (maxX - minX);
+        sp.y = minY + (rand() / (double)RAND_MAX) * (maxY - minY);
+
+        if (st.penExtensionEnabled && st.penDown) penAddSegment(st, bx, by, sp.x, sp.y);
+        st.log.info(idx, cmd, "Go random", "pos(" + to_string(sp.x) + "," + to_string(sp.y) + ")");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "GOTO_MOUSE") {
+        double bx = sp.x, by = sp.y;
+        sp.x = st.in.mx;
+        sp.y = st.in.my;
+        clampActorPos(st, idx, cmd, bx, by, sp);
+
+        if (st.penExtensionEnabled && st.penDown) penAddSegment(st, bx, by, sp.x, sp.y);
+
+        st.log.info(idx, cmd, "Go mouse", "pos(" + to_string(sp.x) + "," + to_string(sp.y) + ")");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "BOUNCE_EDGE") {
+        bool onEdge = (sp.x <= st.stageBounds.x + 0.5) ||
+                      (sp.x >= st.stageBounds.x + st.stageBounds.w - 0.5) ||
+                      (sp.y <= st.stageBounds.y + 0.5) ||
+                      (sp.y >= st.stageBounds.y + st.stageBounds.h - 0.5);
+
+        if (onEdge) {
+            double before = sp.dirDeg;
+            sp.dirDeg = fmod(180.0 - sp.dirDeg, 360.0);
+            if (sp.dirDeg < 0) sp.dirDeg += 360.0;
+            st.log.warn(idx, cmd, "Bounce", "dir:" + to_string(before) + "->" + to_string(sp.dirDeg));
+        } else {
+            st.log.info(idx, cmd, "Bounce", "not on edge");
+        }
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+
+    if (cmd == "LAYER_FRONT") {
+        int maxZ = sp.zOrder;
+        for (const auto& s : st.sprites) if (s.zOrder > maxZ) maxZ = s.zOrder;
+        sp.zOrder = maxZ + 1;
+        st.log.info(idx, cmd, "Front layer", "z=" + to_string(sp.zOrder));
+        sp.scriptPC++; return StepResult::Advanced;
+    }
+    if (cmd == "LAYER_BACK") {
+        int minZ = sp.zOrder;
+        for (const auto& s : st.sprites) if (s.zOrder < minZ) minZ = s.zOrder;
+        sp.zOrder = minZ - 1;
+        st.log.info(idx, cmd, "Back layer", "z=" + to_string(sp.zOrder));
+        sp.scriptPC++; return StepResult::Advanced;
+    }
+    if (cmd == "LAYER_FWD") {
+        sp.zOrder += (int)round(b.a);
+        st.log.info(idx, cmd, "Forward layer", "z=" + to_string(sp.zOrder));
+        sp.scriptPC++; return StepResult::Advanced;
+    }
+    if (cmd == "LAYER_BWD") {
+        sp.zOrder -= (int)round(b.a);
+        st.log.info(idx, cmd, "Backward layer", "z=" + to_string(sp.zOrder));
+        sp.scriptPC++; return StepResult::Advanced;
+    }
+    auto setBubble = [&](bool think, const string& text, double seconds) {
+        st.bubbleThink = think;
+        st.bubbleText = text;
+        if (seconds <= 0.0) st.bubbleUntilMs = 0;
+        else st.bubbleUntilMs = SDL_GetTicks() + (uint32_t)max(0.0, seconds * 1000.0);
+    };
+
+    if (cmd == "SAY")      { setBubble(false, b.s1, 0.0); st.log.info(idx, cmd, "Say", "text=" + b.s1); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "SAY_T")    { setBubble(false, b.s1, b.a); st.log.info(idx, cmd, "Say for", "t=" + to_string(b.a) + " text=" + b.s1); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "THINK")    { setBubble(true,  b.s1, 0.0); st.log.info(idx, cmd, "Think", "text=" + b.s1); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "THINK_T")  { setBubble(true,  b.s1, b.a); st.log.info(idx, cmd, "Think for", "t=" + to_string(b.a) + " text=" + b.s1); sp.scriptPC++; return StepResult::Advanced; }
+
+    if (cmd == "SHOW") { sp.visible = true;  st.log.info(idx, cmd, "Show", ""); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "HIDE") { sp.visible = false; st.log.info(idx, cmd, "Hide", ""); sp.scriptPC++; return StepResult::Advanced; }
+
+    if (cmd == "SIZE_SET") {
+        double before = sp.sizePct;
+        sp.sizePct = clampT(b.a, 0.0, 300.0);
+        st.log.info(idx, cmd, "Set size", "size:" + to_string(before) + "->" + to_string(sp.sizePct));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "SIZE_CHANGE") {
+        double before = sp.sizePct;
+        sp.sizePct = clampT(sp.sizePct + b.a, 0.0, 300.0);
+        st.log.info(idx, cmd, "Change size", "size:" + to_string(before) + "->" + to_string(sp.sizePct));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "FX_COLOR_SET") {
+        double before = sp.colorEffect;
+        sp.colorEffect = fmod(b.a, 360.0);
+        if (sp.colorEffect < 0) sp.colorEffect += 360.0;
+        st.log.info(idx, cmd, "Set color effect", "h:" + to_string(before) + "->" + to_string(sp.colorEffect));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "FX_COLOR_CHANGE") {
+        double before = sp.colorEffect;
+        sp.colorEffect = fmod(sp.colorEffect + b.a, 360.0);
+        if (sp.colorEffect < 0) sp.colorEffect += 360.0;
+        st.log.info(idx, cmd, "Change color effect", "h:" + to_string(before) + "->" + to_string(sp.colorEffect));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "FX_CLEAR") {
+        sp.colorEffect = 0.0;
+        st.log.info(idx, cmd, "Clear effects", "");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "COSTUME_SET")  { sp.costumeIndex = (int)round(b.a); st.log.info(idx, cmd, "Set costume", "idx=" + to_string(sp.costumeIndex)); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "COSTUME_NEXT") { sp.costumeIndex++;                 st.log.info(idx, cmd, "Next costume", "idx=" + to_string(sp.costumeIndex)); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "BACKDROP_SET") { st.backdropIndex = (int)round(b.a); st.log.info(idx, cmd, "Set backdrop", "idx=" + to_string(st.backdropIndex)); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "BACKDROP_NEXT"){ st.backdropIndex++;                 st.log.info(idx, cmd, "Next backdrop", "idx=" + to_string(st.backdropIndex)); sp.scriptPC++; return StepResult::Advanced; }
+
+    if (cmd == "SOUND_PLAY") {
+        string name = b.s1.empty() ? "pop" : b.s1;
+        string wav = name + ".wav";
+        uint32_t ms = playWavOneShot(st, wav);
+        st.soundBusyUntilMs = (ms > 0) ? (SDL_GetTicks() + ms) : 0;
+        st.log.info(idx, cmd, "Play sound", "file=" + wav);
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "SOUND_PLAY_UNTIL") {
+        string name = b.s1.empty() ? "pop" : b.s1;
+        string wav = name + ".wav";
+        uint32_t now = SDL_GetTicks();
+
+        if (st.soundBusyUntilMs != 0 && now < st.soundBusyUntilMs) {
+            return StepResult::Yielded;
+        }
+
+        st.soundBusyUntilMs = 0;
+        uint32_t ms = playWavOneShot(st, wav);
+        st.soundBusyUntilMs = (ms > 0) ? (SDL_GetTicks() + ms) : 0;
+
+        st.log.info(idx, cmd, "Play until done", "file=" + wav);
+
+        if (st.soundBusyUntilMs != 0 && SDL_GetTicks() < st.soundBusyUntilMs) {
+            return StepResult::Yielded;
+        }
+
+        st.soundBusyUntilMs = 0;
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "SOUND_STOP_ALL") {
+        if (st.audioReady && st.audioDev) SDL_ClearQueuedAudio(st.audioDev);
+        st.soundBusyUntilMs = 0;
+        st.log.info(idx, cmd, "Stop all sounds", "");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "SOUND_SET_VOL") {
+        int before = st.soundVolume;
+        st.soundVolume = clampT((int)round(b.a), 0, 100);
+        st.log.info(idx, cmd, "Set volume", "vol:" + to_string(before) + "->" + to_string(st.soundVolume));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "SOUND_CHANGE_VOL") {
+        int before = st.soundVolume;
+        st.soundVolume = clampT((int)round(st.soundVolume + b.a), 0, 100);
+        st.log.info(idx, cmd, "Change volume", "vol:" + to_string(before) + "->" + to_string(st.soundVolume));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+
+    if (cmd == "TOUCH_SPRITE") {
+        bool touching = false;
+        string targetName = b.s1;
+        int sizeA = (int)clampT((int)round(80.0 * (sp.sizePct / 100.0)), 10, 300);
+        SDL_Rect rA{(int)round(sp.x) - sizeA/2, (int)round(sp.y) - sizeA/2, sizeA, sizeA};
+
+        for (const auto& other : st.sprites) {
+            if (&other == &sp) continue; // با خودش برخورد نکند
+            if (other.name == targetName && other.visible) {
+                int sizeB = (int)clampT((int)round(80.0 * (other.sizePct / 100.0)), 10, 300);
+                SDL_Rect rB{(int)round(other.x) - sizeB/2, (int)round(other.y) - sizeB/2, sizeB, sizeB};
+
+                if (!(rA.x + rA.w <= rB.x || rB.x + rB.w <= rA.x || rA.y + rA.h <= rB.y || rB.y + rB.h <= rA.y)) {
+                    touching = true; break;
+                }
+            }
+        }
+        st.lastValue = Value::Num(touching ? 1.0 : 0.0);
+        st.log.info(idx, cmd, "Touch Sprite?", targetName + " -> " + st.lastValue.toString());
+        sp.scriptPC++; return StepResult::Advanced;
+    }
+    if (cmd == "TOUCH_EDGE") {
+        bool onEdge = (sp.x <= st.stageBounds.x + 0.5) ||
+                      (sp.x >= st.stageBounds.x + st.stageBounds.w - 0.5) ||
+                      (sp.y <= st.stageBounds.y + 0.5) ||
+                      (sp.y >= st.stageBounds.y + st.stageBounds.h - 0.5);
+        st.lastValue = Value::Num(onEdge ? 1.0 : 0.0);
+        st.lastValue = Value::Num(onEdge ? 1.0 : 0.0);
+        st.log.info(idx, cmd, "Touch edge?", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "TOUCH_MOUSE") {
+        double dx = sp.x - st.in.mx;
+        double dy = sp.y - st.in.my;
+        double dist = sqrt(dx*dx + dy*dy);
+        bool touching = dist <= 10.0;
+        st.lastValue = Value::Num(touching ? 1.0 : 0.0);
+        st.log.info(idx, cmd, "Touch mouse?", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "DIST_MOUSE") {
+        double dx = sp.x - st.in.mx;
+        double dy = sp.y - st.in.my;
+        double dist = sqrt(dx*dx + dy*dy);
+        st.lastValue = Value::Num(dist);
+        st.log.info(idx, cmd, "Distance mouse", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "KEY_PRESSED") {
+        int sc = b.i1;
+        bool down = (sc >= 0 && sc < SDL_NUM_SCANCODES) ? st.in.keyDown[sc] : false;
+        st.lastValue = Value::Num(down ? 1.0 : 0.0);
+        st.log.info(idx, cmd, "Key pressed?", "sc=" + to_string(sc) + " -> " + st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "MOUSE_DOWN") {
+        st.lastValue = Value::Num(st.in.mouseDown ? 1.0 : 0.0);
+        st.log.info(idx, cmd, "Mouse down?", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "MOUSE_X") {
+        st.lastValue = Value::Num((double)st.in.mx);
+        st.log.info(idx, cmd, "Mouse x", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "MOUSE_Y") {
+        st.lastValue = Value::Num((double)st.in.my);
+        st.log.info(idx, cmd, "Mouse y", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "ASK") {
+        beginAskDialog(st, b.s1.empty() ? "?" : b.s1, idx + 1);
+        return StepResult::Yielded;
+    }
+    if (cmd == "ANSWER") {
+        st.lastValue = Value::Str(st.lastAnswer);
+        st.log.info(idx, cmd, "Answer", "val=" + st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "TIMER") {
+        double secs = (SDL_GetTicks() - st.timerStartMs) / 1000.0;
+        st.lastValue = Value::Num(secs);
+        st.log.info(idx, cmd, "Timer", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "RESET_TIMER") {
+        st.timerStartMs = SDL_GetTicks();
+        st.log.info(idx, cmd, "Reset timer", "0");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+
+    if (cmd == "OP_ADD") { st.lastValue = Value::Num(b.a + b.b); st.log.info(idx, cmd, "Add", st.lastValue.toString()); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "OP_SUB") { st.lastValue = Value::Num(b.a - b.b); st.log.info(idx, cmd, "Sub", st.lastValue.toString()); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "OP_MUL") { st.lastValue = Value::Num(b.a * b.b); st.log.info(idx, cmd, "Mul", st.lastValue.toString()); sp.scriptPC++; return StepResult::Advanced; }
+
+    if (cmd == "DIV") {
+        double out = 0.0;
+        if (safeDiv(st, idx, b.a, b.b, out)) st.lastValue = Value::Num(out);
+        st.log.info(idx, cmd, "Div", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "OP_EQ") { st.lastValue = Value::Num((b.a == b.b) ? 1.0 : 0.0); st.log.info(idx, cmd, "Eq", st.lastValue.toString()); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "OP_LT") { st.lastValue = Value::Num((b.a <  b.b) ? 1.0 : 0.0); st.log.info(idx, cmd, "Lt", st.lastValue.toString()); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "OP_GT") { st.lastValue = Value::Num((b.a >  b.b) ? 1.0 : 0.0); st.log.info(idx, cmd, "Gt", st.lastValue.toString()); sp.scriptPC++; return StepResult::Advanced; }
+
+    if (cmd == "OP_AND") { st.lastValue = Value::Num(((b.a != 0.0) && (b.b != 0.0)) ? 1.0 : 0.0); st.log.info(idx, cmd, "AND", st.lastValue.toString()); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "OP_OR")  { st.lastValue = Value::Num(((b.a != 0.0) || (b.b != 0.0)) ? 1.0 : 0.0); st.log.info(idx, cmd, "OR", st.lastValue.toString()); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "OP_NOT") { st.lastValue = Value::Num((b.a == 0.0) ? 1.0 : 0.0); st.log.info(idx, cmd, "NOT", st.lastValue.toString()); sp.scriptPC++; return StepResult::Advanced; }
+
+    if (cmd == "OP_STRLEN") {
+        st.lastValue = Value::Num((double)b.s1.size());
+        st.log.info(idx, cmd, "strlen", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "OP_LETTER") {
+        int n = (int)round(b.a);
+        if (n <= 0 || n > (int)b.s1.size()) st.lastValue = Value::Str("");
+        else st.lastValue = Value::Str(string(1, b.s1[n-1]));
+        st.log.info(idx, cmd, "letter", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "OP_JOIN") {
+        st.lastValue = Value::Str(b.s1 + b.s2);
+        st.log.info(idx, cmd, "join", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "FUNC_APPLY") {
+        string fn = b.s1.empty() ? "sqrt" : b.s1;
+        string inSel = b.inSel.empty() ? "last" : b.inSel;
+        string outSel = b.outSel.empty() ? "last" : b.outSel;
+
+        double x = funcReadInput(st, inSel);
+        double y = 0.0;
+
+        if (!funcApplyBuiltin(st, idx, fn, x, y)) {
+            sp.scriptPC++;
+            return StepResult::Advanced;
+        }
+
+        funcWriteOutput(st, outSel, y);
+
+        st.log.info(idx, cmd, "Apply " + fn,
+                    "in=" + inSel + " x=" + to_string(x) +
+                    " -> out=" + outSel + " y=" + to_string(y));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+
+    if (cmd == "DEFINE_FN") {
+
+        int endIdx = (idx >= 0 && idx < (int)sp.jumpEnd.size()) ? sp.jumpEnd[idx] : -1;
+        if (endIdx != -1) {
+            st.log.info(idx, cmd, "Skip function definition", "jump to END_FN");
+            sp.scriptPC = endIdx + 1;
+        } else {
+            sp.scriptPC++;
+        }
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "CALL_FN") {
+        string fnName = b.s1.empty() ? "myFunc" : b.s1;
+        if (sp.funcDefs.count(fnName)) {
+            sp.callStack.push_back(sp.scriptPC + 1);
+            sp.currentParam = b.a;
+            sp.scriptPC = sp.funcDefs[fnName] + 1;
+            st.log.info(idx, cmd, "Call function", fnName + " arg=" + to_string(b.a));
+        } else {
+            st.log.warn(idx, cmd, "Function not found", fnName);
+            sp.scriptPC++;
+        }
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "END_FN") {
+        if (!sp.callStack.empty()) {
+
+            int retAddr = sp.callStack.back();
+            sp.callStack.pop_back();
+            sp.scriptPC = retAddr;
+            st.log.info(idx, cmd, "Return from function", "to line " + to_string(retAddr));
+        } else {
+            sp.scriptPC++;
+        }
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "GET_PARAM") {
+
+        st.lastValue = Value::Num(sp.currentParam);
+        st.log.info(idx, cmd, "Get param", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "VAR_SET_NUM") {
+        string name = b.s1.empty() ? "v" : b.s1;
+        Value before = st.vars.count(name) ? st.vars[name] : Value::Num(0);
+        st.vars[name] = Value::Num(b.a);
+        st.log.info(idx, cmd, "Set var", name + ":" + before.toString() + "->" + st.vars[name].toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "VAR_SET_STR") {
+        string name = b.s1.empty() ? "msg" : b.s1;
+        Value before = st.vars.count(name) ? st.vars[name] : Value::Str("");
+        st.vars[name] = Value::Str(b.s2);
+        st.log.info(idx, cmd, "Set var", name + ":" + before.toString() + "->" + st.vars[name].toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "VAR_CHANGE") {
+        string name = b.s1.empty() ? "v" : b.s1;
+        double before = st.vars.count(name) ? asNum(st.vars[name]) : 0.0;
+        double after = before + b.a;
+        st.vars[name] = Value::Num(after);
+        st.log.info(idx, cmd, "Change var", name + ":" + to_string(before) + "->" + to_string(after));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "VAR_SHOW") {
+        string name = b.s1.empty() ? "v" : b.s1;
+        st.varVisible[name] = true;
+        st.log.info(idx, cmd, "Show var", name);
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "VAR_HIDE") {
+        string name = b.s1.empty() ? "v" : b.s1;
+        st.varVisible[name] = false;
+        st.log.info(idx, cmd, "Hide var", name);
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "VAR_GET") {
+        string name = b.s1.empty() ? "v" : b.s1;
+        if (st.vars.count(name)) st.lastValue = st.vars[name];
+        else st.lastValue = Value::Num(0.0);
+        st.log.info(idx, cmd, "Get var", name + " -> " + st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "LIST_ADD") {
+        string name = b.s1.empty() ? "list" : b.s1;
+        Value item = listItemFromBlock(b);
+        getList(st, name).push_back(item);
+        st.log.info(idx, cmd, "Add to list", name + " <- " + item.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "LIST_DELETE") {
+        string name = b.s1.empty() ? "list" : b.s1;
+        auto& L = getList(st, name);
+        int i1 = (int)round(b.a);
+        if (listIndexOk1(i1, (int)L.size())) {
+            Value removed = L[i1 - 1];
+            L.erase(L.begin() + (i1 - 1));
+            st.log.info(idx, cmd, "Delete from list", name + " idx=" + to_string(i1) + " val=" + removed.toString());
+        } else {
+            st.log.warn(idx, cmd, "Delete out of range", name + " idx=" + to_string(i1));
+        }
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "LIST_CLEAR") {
+        string name = b.s1.empty() ? "list" : b.s1;
+        getList(st, name).clear();
+        st.log.info(idx, cmd, "Clear list", name);
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "LIST_LENGTH") {
+        string name = b.s1.empty() ? "list" : b.s1;
+        st.lastValue = Value::Num((double)getList(st, name).size());
+        st.log.info(idx, cmd, "List length", name + " -> " + st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "LIST_ITEM") {
+        string name = b.s1.empty() ? "list" : b.s1;
+        auto& L = getList(st, name);
+        int i1 = (int)round(b.a);
+        if (listIndexOk1(i1, (int)L.size())) st.lastValue = L[i1 - 1];
+        else st.lastValue = Value::Str("");
+        st.log.info(idx, cmd, "List item", name + "[" + to_string(i1) + "] -> " + st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "LIST_CONTAINS") {
+        string name = b.s1.empty() ? "list" : b.s1;
+        auto& L = getList(st, name);
+        string needle = b.s2;
+        bool ok = false;
+        for (auto& it : L) {
+            if (it.toString() == needle) { ok = true; break; }
+        }
+        st.lastValue = Value::Num(ok ? 1.0 : 0.0);
+        st.log.info(idx, cmd, "List contains?", name + " \"" + needle + "\" -> " + st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "LIST_SHOW") {
+        string name = b.s1.empty() ? "list" : b.s1;
+        st.listVisible[name] = true;
+        st.log.info(idx, cmd, "Show list", name);
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "LIST_HIDE") {
+        string name = b.s1.empty() ? "list" : b.s1;
+        st.listVisible[name] = false;
+        st.log.info(idx, cmd, "Hide list", name);
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "CLONE_CREATE") {
+        cloneCreateFromActor(st);
+        st.log.info(idx, cmd, "Create clone", "count=" + to_string((int)st.clones.size()));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "CLONE_DELETE_LAST") {
+        int before = (int)st.clones.size();
+        cloneDeleteLast(st);
+        st.log.info(idx, cmd, "Delete last clone", "count:" + to_string(before) + "->" + to_string((int)st.clones.size()));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "CLONE_CLEAR") {
+        cloneClearAll(st);
+        st.log.info(idx, cmd, "Clear clones", "");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "CLONE_COUNT") {
+        st.lastValue = Value::Num((double)st.clones.size());
+        st.log.info(idx, cmd, "Clone count", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "WAIT") {
+        int ms = (int)max(0.0, b.a * 1000.0);
+        sp.waiting = true;
+        sp.waitUntilMs = SDL_GetTicks() + (uint32_t)ms;
+        st.log.info(idx, cmd, "Wait", "ms=" + to_string(ms));
+        sp.scriptPC++;
+        return StepResult::Yielded;
+    }
+
+    if (cmd == "STOP_ALL") {
+        st.log.warn(idx, cmd, "Stop all scripts", "stop");
+        stopScript(st,sp, "STOP_ALL");
+        return StepResult::Stopped;
+    }
+
+    if (cmd == "WAIT_UNTIL") {
+        if (!st.lastValue.truthy()) {
+            st.log.info(idx, cmd, "Wait until", "blocked (last=false)");
+            return StepResult::Yielded;
+        }
+        st.log.info(idx, cmd, "Wait until", "pass");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "IF" || cmd == "IFELSE") {
+        bool cond = st.lastValue.truthy();
+        int endIdx  = (idx >= 0 && idx < (int)sp.jumpEnd.size())  ? sp.jumpEnd[idx]  : -1;
+        int elseIdx = (idx >= 0 && idx < (int)sp.jumpElse.size()) ? sp.jumpElse[idx] : -1;
+
+        if (!cond) {
+            if (cmd == "IFELSE" && elseIdx != -1) {
+                st.log.info(idx, cmd, "IF false", "jump to ELSE");
+                sp.scriptPC = elseIdx + 1;
+                return StepResult::Advanced;
+            }
+            if (endIdx != -1) {
+                st.log.info(idx, cmd, "IF false", "jump to END_IF");
+                sp.scriptPC = endIdx + 1;
+                return StepResult::Advanced;
+            }
+        }
+
+        st.log.info(idx, cmd, "IF true", "enter");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "ELSE") {
+        int endIdx = (idx >= 0 && idx < (int)sp.jumpTo.size()) ? sp.jumpTo[idx] : -1;
+        if (endIdx != -1) {
+            st.log.info(idx, cmd, "ELSE", "jump END_IF");
+            sp.scriptPC = endIdx + 1;
+            return StepResult::Advanced;
+        }
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "END_IF") {
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "REPEAT") {
+        int endIdx = (idx >= 0 && idx < (int)sp.loopEnd.size()) ? sp.loopEnd[idx] : -1;
+        int count = clampT((int)round(b.a), 0, 1000000);
+
+        if (sp.repeatCounter[idx] == 0) sp.repeatCounter[idx] = count;
+
+        if (count == 0 || sp.repeatCounter[idx] <= 0) {
+            sp.repeatCounter[idx] = 0;
+            if (endIdx != -1) {
+                st.log.info(idx, cmd, "Repeat skip", "count=0");
+                sp.scriptPC = endIdx + 1;
+                return StepResult::Advanced;
+            }
+        }
+
+        st.log.info(idx, cmd, "Repeat enter", "left=" + to_string(sp.repeatCounter[idx]));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "REPEAT_UNTIL") {
+        int endIdx = (idx >= 0 && idx < (int)sp.loopEnd.size()) ? sp.loopEnd[idx] : -1;
+        if (st.lastValue.truthy()) {
+            st.log.info(idx, cmd, "RepeatUntil", "cond true -> exit");
+            sp.scriptPC = (endIdx != -1) ? (endIdx + 1) : (idx + 1);
+            return StepResult::Advanced;
+        }
+        st.log.info(idx, cmd, "RepeatUntil", "cond false -> enter");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "END_REPEAT") {
+        int startIdx = (idx >= 0 && idx < (int)sp.loopStart.size()) ? sp.loopStart[idx] : -1;
+        if (startIdx != -1) {
+            string startCmd = sp.ws.blocks[startIdx].cmd;
+            if (startCmd == "REPEAT") {
+                sp.repeatCounter[startIdx] = max(0, sp.repeatCounter[startIdx] - 1);
+                if (sp.repeatCounter[startIdx] > 0) {
+                    st.log.info(idx, cmd, "Repeat loop", "back to start");
+                    sp.scriptPC = startIdx + 1;
+                    return StepResult::Advanced;
+                }
+                sp.repeatCounter[startIdx] = 0;
+                st.log.info(idx, cmd, "Repeat end", "done");
+                sp.scriptPC++;
+                return StepResult::Advanced;
+            }
+            if (startCmd == "REPEAT_UNTIL") {
+                st.log.info(idx, cmd, "RepeatUntil loop", "back to start");
+                sp.scriptPC = startIdx;
+                return StepResult::Advanced;
+            }
+        }
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "FOREVER") {
+        st.log.info(idx, cmd, "Forever enter", "");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "END_FOREVER") {
+        int startIdx = (idx >= 0 && idx < (int)sp.loopStart.size()) ? sp.loopStart[idx] : -1;
+        if (startIdx != -1) {
+            st.log.warn(idx, cmd, "Forever loop", "back to start");
+            sp.scriptPC = startIdx + 1;
+            return StepResult::Advanced;
+        }
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    // ---- Legacy extra
+    if (cmd == "SQRT") {
+        double out = 0.0;
+        if (safeSqrt(st, idx, b.a, out)) st.lastValue = Value::Num(out);
+        st.log.info(idx, cmd, "Sqrt", st.lastValue.toString());
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "LOOP") {
+        st.log.warn(idx, cmd, "Infinite loop block", "pc stays same");
+        return StepResult::Yielded; // keep yielding so UI doesn't watchdog
+    }
+
+    // ---- Pen extension blocks
+    if (isPenCmd(cmd) && !st.penExtensionEnabled) {
+        st.log.warn(idx, cmd, "Pen extension not enabled", "skipped");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+
+    if (cmd == "PEN_DOWN") { st.penDown = true;  st.log.info(idx, cmd, "Pen down", ""); sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "PEN_UP")   { st.penDown = false; st.log.info(idx, cmd, "Pen up", "");   sp.scriptPC++; return StepResult::Advanced; }
+    if (cmd == "PEN_ERASE_ALL") {
+        penClearAll(st);
+        st.penDown = false; // optional: prevent immediate redraw
+        st.log.info(idx, cmd, "All erase", "cleared");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "PEN_STAMP") { penAddStamp(st); st.log.info(idx, cmd, "Stamp", "count=" + to_string((int)st.penStamps.size())); sp.scriptPC++; return StepResult::Advanced; }
+
+    if (cmd == "PEN_SET_SIZE") {
+        int before = st.penSize;
+        st.penSize = clampT((int)round(b.a), 1, 30);
+        st.log.info(idx, cmd, "Set size", "size:" + to_string(before) + "->" + to_string(st.penSize));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "PEN_CHANGE_SIZE") {
+        int before = st.penSize;
+        st.penSize = clampT((int)round(st.penSize + b.a), 1, 30);
+        st.log.info(idx, cmd, "Change size", "size:" + to_string(before) + "->" + to_string(st.penSize));
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
+    if (cmd == "PEN_SET_COLOR") {
+        SDL_Color c = b.pickColor;
+        rgbToHsv(c, st.penHue, st.penSat, st.penBri);
+        penSyncRGB(st);
+        st.log.info(idx, cmd, "Set color (direct)",
+                    "rgb=(" + to_string((int)c.r) + "," + to_string((int)c.g) + "," + to_string((int)c.b) + ")");
+        sp.scriptPC++;
+        return StepResult::Advanced;
+    }
