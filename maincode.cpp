@@ -16,14 +16,14 @@
 
 #ifdef _WIN32
 #ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#include <direct.h>
-#include <commdlg.h>
+  #define NOMINMAX
+  #endif
+  #include <windows.h>
+  #include <direct.h>
+  #include <commdlg.h>
 #else
 #include <sys/stat.h>
-  #include <dirent.h>
+#include <dirent.h>
 #endif
 
 using namespace std;
@@ -52,6 +52,8 @@ static void fatalBox(const string& title, const string& msg) {
 static void infoBox(const string& title, const string& msg) {
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, title.c_str(), msg.c_str(), nullptr);
 }
+
+
 struct Logger {
     ofstream out;
     uint64_t cycle = 0;
@@ -114,6 +116,265 @@ struct Logger {
         logLine("ERROR", idx, cmd, op, data);
     }
 };
+
+
+struct InputState {
+    int mx = 0, my = 0;
+    bool mouseDown = false;
+    bool mousePressed = false;
+    bool mouseReleased = false;
+
+    bool keyDown[SDL_NUM_SCANCODES];
+    bool keyPressed[SDL_NUM_SCANCODES];
+
+    InputState() {
+        for (int i = 0; i < SDL_NUM_SCANCODES; i++) {
+            keyDown[i] = false;
+            keyPressed[i] = false;
+        }
+    }
+
+    void beginFrame() {
+        mousePressed = false;
+        mouseReleased = false;
+        for (int i = 0; i < SDL_NUM_SCANCODES; i++) keyPressed[i] = false;
+    }
+};
+
+
+static void renderText(SDL_Renderer* r, TTF_Font* font, const string& text, int x, int y, SDL_Color c) {
+    if (!font || text.empty()) return;
+    SDL_Surface* s = TTF_RenderUTF8_Blended(font, text.c_str(), c);
+    if (!s) return;
+    SDL_Texture* t = SDL_CreateTextureFromSurface(r, s);
+    SDL_Rect dst = {x, y, s->w, s->h};
+    SDL_FreeSurface(s);
+    if (!t) return;
+    SDL_RenderCopy(r, t, nullptr, &dst);
+    SDL_DestroyTexture(t);
+}
+
+static void renderTextCentered(SDL_Renderer* r, TTF_Font* font, const string& text, const SDL_Rect& box, int dy, SDL_Color c) {
+    if (!font || text.empty()) return;
+    int tw = 0, th = 0;
+    if (TTF_SizeUTF8(font, text.c_str(), &tw, &th) != 0) return;
+    int x = box.x + (box.w - tw) / 2;
+    int y = box.y + (box.h - th) / 2 + dy;
+    renderText(r, font, text, x, y, c);
+}
+
+static TTF_Font* loadUIFont(int pt) {
+#ifdef _WIN32
+    const char* candidates[] = {
+        "C:\\Windows\\Fonts\\consola.ttf",
+        "C:\\Windows\\Fonts\\arial.ttf",
+        "C:\\Windows\\Fonts\\tahoma.ttf"
+    };
+#else
+    const char* candidates[] = {
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeSans.ttf"
+    };
+#endif
+    for (size_t i = 0; i < sizeof(candidates)/sizeof(candidates[0]); i++) {
+        TTF_Font* f = TTF_OpenFont(candidates[i], pt);
+        if (f) return f;
+    }
+
+    TTF_Font* f2 = TTF_OpenFont("font.ttf", pt);
+    if (f2) return f2;
+
+    return nullptr;
+}
+
+
+struct Button {
+    SDL_Rect rect{};
+    string text;
+    string sub;
+    function<void()> onClick;
+    function<void()> onPress;
+
+    bool hovered = false;
+    bool down = false;
+
+    void update(const InputState& in) {
+        hovered = pointInRect(in.mx, in.my, rect);
+
+        if (hovered && in.mousePressed) {
+            down = true;
+            if (onPress) onPress();
+        }
+
+        if (down && in.mouseReleased) {
+            down = false;
+            if (hovered && onClick) onClick();
+        }
+
+        if (!in.mouseDown) down = false;
+    }
+    void draw(SDL_Renderer* r, TTF_Font* font) const {
+        SDL_Color bg = {70, 70, 70, 255};
+        if (down) bg = SDL_Color{120, 120, 120, 255};
+        else if (hovered) bg = SDL_Color{90, 90, 90, 255};
+
+        SDL_SetRenderDrawColor(r, bg.r, bg.g, bg.b, bg.a);
+        SDL_RenderFillRect(r, &rect);
+
+        SDL_SetRenderDrawColor(r, 15, 15, 15, 255);
+        SDL_RenderDrawRect(r, &rect);
+
+        SDL_Color fg = {235, 235, 235, 255};
+        renderTextCentered(r, font, text, rect, sub.empty() ? 0 : -7, fg);
+        if (!sub.empty()) renderTextCentered(r, font, sub, rect, +10, fg);
+    }
+};
+
+
+struct Block {
+    int id = 0;
+    SDL_Rect rect{};
+    SDL_Color color = {60, 150, 220, 255};
+
+    bool dragging = false;
+    int offX = 0, offY = 0;
+
+
+    string cmd = "MOVE";   // extended commands in section 4
+    double a = 40.0;       // numeric param A
+    double b = 0.0;        // numeric param B
+    string s1 = "";        // string param
+    string s2 = "";        // string param 2
+    int i1 = 0;            // int param
+
+
+    string opt = "";                 // dropdown: "COLOR", "SAT", "BRI"
+    SDL_Color pickColor = {0, 255, 0, 255}; // for PEN_SET_COLOR block
+
+
+    string inSel = "last";
+    string outSel = "last";
+};
+
+struct Workspace {
+    SDL_Rect bounds{};
+    vector<Block> blocks;
+    int nextId = 1;
+
+    void reset() {
+        blocks.clear();
+        nextId = 1;
+    }
+
+    void addBlock(int x, int y) {
+        Block b;
+        b.id = nextId++;
+        b.rect = SDL_Rect{x, y, 240, 52};
+        blocks.push_back(b);
+    }
+
+    int hitTest(int mx, int my) const {
+        for (int i = (int)blocks.size() - 1; i >= 0; --i) {
+            if (pointInRect(mx, my, blocks[i].rect)) return i;
+        }
+        return -1;
+    }
+
+    void bringToFront(int idx) {
+        if (idx < 0 || idx >= (int)blocks.size()) return;
+        Block b = blocks[idx];
+        blocks.erase(blocks.begin() + idx);
+        blocks.push_back(b);
+    }
+
+    void clampIntoBounds(Block& b) const {
+        b.rect.x = clampT(b.rect.x, bounds.x, bounds.x + bounds.w - b.rect.w);
+        b.rect.y = clampT(b.rect.y, bounds.y, bounds.y + bounds.h - b.rect.h);
+    }
+
+    void update(const InputState& in, Logger& log) {
+        if (in.mousePressed) {
+            int hit = hitTest(in.mx, in.my);
+            if (hit != -1) {
+                bringToFront(hit);
+                Block& top = blocks.back();
+                top.dragging = true;
+                top.offX = in.mx - top.rect.x;
+                top.offY = in.my - top.rect.y;
+                log.log("DRAG", "Pick block id=" + to_string(top.id));
+            }
+        }
+
+        if (in.mouseDown) {
+            for (size_t i = 0; i < blocks.size(); i++) {
+                Block& b = blocks[i];
+                if (!b.dragging) continue;
+
+
+                b.rect.x = in.mx - b.offX;
+                b.rect.y = in.my - b.offY;
+            }
+        }
+
+        if (in.mouseReleased) {
+
+            for (int i = (int)blocks.size() - 1; i >= 0; --i) {
+                Block& b = blocks[i];
+                if (b.dragging) {
+                    b.dragging = false;
+
+
+                    if (!pointInRect(in.mx, in.my, bounds)) {
+                        log.log("DRAG", "Deleted block id=" + to_string(b.id) + " (dropped outside)");
+                        blocks.erase(blocks.begin() + i);
+                    } else {
+
+                        int snapDist = 35;
+                        for (size_t j = 0; j < blocks.size(); ++j) {
+                            if (i == (int)j) continue;
+                            const Block& other = blocks[j];
+
+
+                            if (abs(b.rect.x - other.rect.x) < snapDist &&
+                                abs(b.rect.y - (other.rect.y + other.rect.h)) < snapDist) {
+                                b.rect.x = other.rect.x;
+                                b.rect.y = other.rect.y + other.rect.h;
+                                break;
+                            }
+
+                            if (abs(b.rect.x - other.rect.x) < snapDist &&
+                                abs((b.rect.y + b.rect.h) - other.rect.y) < snapDist) {
+                                b.rect.x = other.rect.x;
+                                b.rect.y = other.rect.y - b.rect.h;
+                                break;
+                            }
+                        }
+
+                        clampIntoBounds(b);
+                        log.log("DRAG", "Drop block id=" + to_string(b.id));
+                    }
+                }
+            }
+
+
+            std::stable_sort(blocks.begin(), blocks.end(), [](const Block& a1, const Block& a2) {
+                return a1.rect.y < a2.rect.y;
+            });
+        }
+    }
+
+    void draw(SDL_Renderer* r) const {
+        for (size_t i = 0; i < blocks.size(); i++) {
+            const Block& b = blocks[i];
+            SDL_SetRenderDrawColor(r, b.color.r, b.color.g, b.color.b, b.color.a);
+            SDL_RenderFillRect(r, &b.rect);
+            SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
+            SDL_RenderDrawRect(r, &b.rect);
+        }
+    }
+};
+
+
 struct PenSegment {
     double x1=0, y1=0, x2=0, y2=0;
     SDL_Color c{0,255,0,255};
@@ -126,6 +387,7 @@ struct PenStamp {
     double dirDeg = 90.0;
     double sizePct = 100.0;
 };
+
 
 struct TextureAsset {
     SDL_Texture* tex = nullptr;
@@ -196,3 +458,705 @@ static string buildSavePath(const string& stem) {
 #endif
 }
 
+static vector<string> listSaveStems() {
+    vector<string> out;
+    string dir = getSaveDir();
+
+#ifdef _WIN32
+    string pattern = dir + "\\*.txt";
+    WIN32_FIND_DATAA fd;
+    HANDLE h = FindFirstFileA(pattern.c_str(), &fd);
+    if (h == INVALID_HANDLE_VALUE) return out;
+
+    do {
+        string name = fd.cFileName;
+        if (name.size() >= 4) {
+            string tail = name.substr(name.size() - 4);
+            for (size_t i = 0; i < tail.size(); i++) tail[i] = (char)tolower(tail[i]);
+            if (tail == ".txt") out.push_back(name.substr(0, name.size() - 4));
+        }
+    } while (FindNextFileA(h, &fd));
+
+    FindClose(h);
+#else
+    DIR* d = opendir(dir.c_str());
+    if (!d) return out;
+    while (auto* ent = readdir(d)) {
+        string name = ent->d_name;
+        if (name.size() >= 4) {
+            string tail = name.substr(name.size() - 4);
+            for (size_t i = 0; i < tail.size(); i++) tail[i] = (char)tolower(tail[i]);
+            if (tail == ".txt") out.push_back(name.substr(0, name.size() - 4));
+        }
+    }
+    closedir(d);
+#endif
+
+    sort(out.begin(), out.end());
+    out.erase(unique(out.begin(), out.end()), out.end());
+    return out;
+}
+
+
+
+
+
+struct Value {
+    bool isNum = true;
+    double num = 0.0;
+    string str;
+
+    static Value Num(double v) { Value x; x.isNum = true; x.num = v; return x; }
+    static Value Str(const string& s) { Value x; x.isNum = false; x.str = s; return x; }
+
+    string toString() const {
+        if (isNum) {
+            ostringstream ss;
+            ss << num;
+            return ss.str();
+        }
+        return str;
+    }
+
+    bool truthy() const {
+        if (isNum) return num != 0.0;
+        return !str.empty();
+    }
+};
+
+static double asNum(const Value& v) {
+    if (v.isNum) return v.num;
+    char* endp = nullptr;
+    double x = strtod(v.str.c_str(), &endp);
+    if (endp && endp != v.str.c_str()) return x;
+    return 0.0;
+}
+
+
+struct Sprite {
+    string name = "Sprite";
+    TextureAsset icon;
+
+    bool isDragging = false;
+    double dragOffX = 0.0;
+    double dragOffY = 0.0;
+
+    double backupX = 0.0;
+    double backupY = 0.0;
+    double backupDirDeg = 90.0;
+    bool backupVisible = true;
+    double backupSizePct = 100.0;
+    double backupColorEffect = 0.0;
+    int backupCostumeIndex = 0;
+    int backupZOrder = 0;
+
+
+    double x = 0.0;
+    double y = 0.0;
+    double dirDeg = 90.0;
+    bool visible = true;
+    double sizePct = 100.0;
+    double colorEffect = 0.0;
+    int costumeIndex = 0;
+    int zOrder = 0;
+
+
+    Workspace ws;
+
+
+    bool scriptRunning = false;
+    int scriptPC = 0;
+    bool stepRequested = false;
+    uint32_t waitUntilMs = 0;
+    bool waiting = false;
+
+
+    vector<int> jumpTo;
+    vector<int> jumpElse;
+    vector<int> jumpEnd;
+    vector<int> loopEnd;
+    vector<int> loopStart;
+    vector<int> repeatCounter;
+
+
+    map<string, int> funcDefs;
+    vector<int> callStack;
+    double currentParam = 0.0;
+};
+
+
+
+struct AppState {
+
+    vector<Sprite> sprites;
+    int activeSprite = 0;
+
+
+
+    Sprite& getActive() {
+        return sprites[activeSprite];
+    }
+
+
+    const Sprite& getActive() const {
+        return sprites[activeSprite];
+    }
+
+    bool quit = false;
+
+    bool isPaused = false;
+
+
+    bool settingsOpen = false;
+    int  runSpeedMs = 30;
+    bool drawActorWhenStopped = true;
+
+
+    uint32_t nextStepAtMs = 0;
+
+
+    vector<TextureAsset> costumes;
+    vector<TextureAsset> backdrops;
+
+
+    string actorIconFile = "costume0.bmp";
+
+    InputState in;
+    Logger log = Logger("log.txt");
+
+
+    bool isFullscreen = false;
+    SDL_Rect stageBounds {};
+    vector<Button> buttons;
+
+    string baseTitle = "YKP Base (SDL2)";
+
+    TTF_Font* uiFont = nullptr;
+
+    bool saveDialogOpen = false;
+    bool loadDialogOpen = false;
+
+    bool renameDialogOpen = false;
+    string renameInput = "";
+
+    string saveNameInput = "";
+    vector<string> saveList;
+    int loadHoverIndex = -1;
+    int loadScroll = 0;
+
+    bool helpMenuOpen = false;
+    SDL_Rect helpButtonRect{0,0,0,0};
+    bool showLogsPanel = false;
+    int logsScroll = 0;
+
+    bool debugStepMode = false;
+
+
+    int backdropIndex = 0;
+
+
+    string bubbleText = "";
+    bool bubbleThink = false;
+    uint32_t bubbleUntilMs = 0;
+
+
+    bool askDialogOpen = false;
+    string askQuestion = "";
+    string askInput = "";
+    string lastAnswer = "";
+    int askResumePC = -1;
+
+
+    uint32_t timerStartMs = 0;
+
+
+    int soundVolume = 100;
+    bool soundMuted = false;
+    bool bgmReady = false;
+    SDL_AudioDeviceID bgmDev = 0;
+    SDL_AudioSpec bgmSpec{};
+
+    Uint8* bgmBuf = nullptr;
+    Uint32 bgmLen = 0;
+    Uint32 bgmPos = 0;
+
+    int  musicVolume = 100;
+    bool musicMuted  = false;
+
+
+    string bgmFile = "bgm.wav";
+
+
+    map<string, Value> vars;
+    map<string, bool> varVisible;
+
+
+    Value lastValue = Value::Num(0.0);
+
+
+
+    string lastBroadcast = "";
+
+
+    bool extensionLibraryOpen = false;
+    bool penExtensionEnabled = false;
+
+    vector<Button> palette;
+    bool paletteDirty = true;
+    int paletteLastW = 0, paletteLastH = 0;
+    bool paletteLastPenEnabled = false;
+
+
+    int paletteScroll = 0;
+    int paletteMaxScroll = 0;
+    vector<pair<int,string>> paletteCats;
+
+
+    bool penDown = false;
+    double penHue = 120.0;
+    double penSat = 100.0;
+    double penBri = 100.0;
+    SDL_Color penRGB{0,255,0,255};
+    int penSize = 3;
+
+    vector<PenSegment> penSegs;
+    vector<PenStamp> penStamps;
+
+    bool penColorPickerOpen = false;
+    int  penColorPickerBlockIndex = -1;
+
+
+    bool funcIOMenuOpen = false;
+    int  funcIOMenuBlockIndex = -1;
+
+
+    TextureAsset actorIcon;
+
+
+    bool audioReady = false;
+    SDL_AudioDeviceID audioDev = 0;
+    SDL_AudioSpec audioSpec{};
+    uint32_t soundBusyUntilMs = 0;
+
+
+    map<string, vector<Value>> lists;
+    map<string, bool> listVisible;
+
+
+    vector<CloneSprite> clones;
+};
+
+
+static bool initBGMSystem(AppState& st) {
+    SDL_AudioSpec want{};
+    want.freq = 44100;
+    want.format = AUDIO_S16SYS;
+    want.channels = 2;
+    want.samples = 4096;
+    want.callback = nullptr;
+
+    SDL_AudioSpec have{};
+    st.bgmDev = SDL_OpenAudioDevice(nullptr, 0, &want, &have, SDL_AUDIO_ALLOW_ANY_CHANGE);
+    if (!st.bgmDev) {
+        st.bgmReady = false;
+        st.log.warn(-1, "BGM", "OpenAudioDevice failed", SDL_GetError());
+        return false;
+    }
+
+    st.bgmSpec = have;
+    st.bgmReady = true;
+    SDL_PauseAudioDevice(st.bgmDev, 0);
+
+    st.log.info(-1, "BGM", "BGM device ready",
+                "freq=" + to_string(have.freq) + " ch=" + to_string((int)have.channels));
+    return true;
+}
+
+static bool loadBGM(AppState& st, const string& wavFile) {
+    if (!st.bgmReady || !st.bgmDev) return false;
+
+    // free old
+    if (st.bgmBuf) { SDL_free(st.bgmBuf); st.bgmBuf = nullptr; }
+    st.bgmLen = 0;
+    st.bgmPos = 0;
+
+    SDL_AudioSpec srcSpec{};
+    Uint8* srcBuf = nullptr;
+    Uint32 srcLen = 0;
+
+    if (!SDL_LoadWAV(wavFile.c_str(), &srcSpec, &srcBuf, &srcLen)) {
+        st.log.warn(-1, "BGM", "LoadWAV failed", wavFile + " err=" + SDL_GetError());
+        return false;
+    }
+
+
+    Uint8* outBuf = srcBuf;
+    Uint32 outLen = srcLen;
+
+    if (srcSpec.format != st.bgmSpec.format ||
+        srcSpec.channels != st.bgmSpec.channels ||
+        srcSpec.freq != st.bgmSpec.freq) {
+
+        SDL_AudioCVT cvt;
+        if (SDL_BuildAudioCVT(&cvt,
+                              srcSpec.format, srcSpec.channels, srcSpec.freq,
+                              st.bgmSpec.format, st.bgmSpec.channels, st.bgmSpec.freq) < 0) {
+            st.log.warn(-1, "BGM", "BuildAudioCVT failed", wavFile);
+            SDL_FreeWAV(srcBuf);
+            return false;
+        }
+
+        if (cvt.needed) {
+            cvt.len = (int)srcLen;
+            Uint8* cvtBuf = (Uint8*)SDL_malloc((size_t)cvt.len * (size_t)cvt.len_mult);
+            if (!cvtBuf) {
+                st.log.warn(-1, "BGM", "malloc failed", "cvt");
+                SDL_FreeWAV(srcBuf);
+                return false;
+            }
+
+            SDL_memcpy(cvtBuf, srcBuf, srcLen);
+            cvt.buf = cvtBuf;
+
+            if (SDL_ConvertAudio(&cvt) != 0) {
+                st.log.warn(-1, "BGM", "ConvertAudio failed", wavFile);
+                SDL_free(cvtBuf);
+                SDL_FreeWAV(srcBuf);
+                return false;
+            }
+
+            outBuf = cvtBuf;
+            outLen = (Uint32)cvt.len_cvt;
+
+            SDL_FreeWAV(srcBuf);
+        } else {
+
+        }
+    }
+
+
+    Uint8* finalBuf = (Uint8*)SDL_malloc(outLen);
+    if (!finalBuf) {
+        st.log.warn(-1, "BGM", "malloc failed", "finalBuf");
+        if (outBuf == srcBuf) SDL_FreeWAV(srcBuf);
+        else SDL_free(outBuf);
+        return false;
+    }
+    SDL_memcpy(finalBuf, outBuf, outLen);
+
+    if (outBuf == srcBuf) SDL_FreeWAV(srcBuf);
+    else SDL_free(outBuf);
+
+    st.bgmBuf = finalBuf;
+    st.bgmLen = outLen;
+    st.bgmPos = 0;
+
+    st.log.info(-1, "BGM", "Loaded BGM", wavFile + " bytes=" + to_string(outLen));
+    return true;
+}
+
+static void shutdownBGMSystem(AppState& st) {
+    if (st.bgmDev) {
+        SDL_ClearQueuedAudio(st.bgmDev);
+        SDL_CloseAudioDevice(st.bgmDev);
+    }
+    st.bgmDev = 0;
+    st.bgmReady = false;
+
+    if (st.bgmBuf) {
+        SDL_free(st.bgmBuf);
+        st.bgmBuf = nullptr;
+    }
+    st.bgmLen = 0;
+    st.bgmPos = 0;
+}
+
+static void bgmClearQueue(AppState& st) {
+    if (st.bgmReady && st.bgmDev) SDL_ClearQueuedAudio(st.bgmDev);
+}
+Uint32 queuedBytes = SDL_GetQueuedAudioSize(st.bgmDev);
+
+int bytesPerSample = (SDL_AUDIO_BITSIZE(st.bgmSpec.format) / 8) * (int)st.bgmSpec.channels;
+if (bytesPerSample <= 0 || st.bgmSpec.freq <= 0) return;
+
+Uint32 targetMs = 300;
+Uint32 targetBytes = (Uint32)((st.bgmSpec.freq * bytesPerSample) * (targetMs / 1000.0));
+
+if (queuedBytes >= targetBytes) return;
+
+
+Uint32 chunkMs = 100;
+Uint32 chunkBytes = (Uint32)((st.bgmSpec.freq * bytesPerSample) * (chunkMs / 1000.0));
+if (chunkBytes < 256) chunkBytes = 256;
+
+
+Uint8* tmp = (Uint8*)SDL_malloc(chunkBytes);
+if (!tmp) return;
+SDL_memset(tmp, 0, chunkBytes);
+
+
+Uint32 remaining = chunkBytes;
+Uint32 writePos = 0;
+
+while (remaining > 0) {
+Uint32 avail = st.bgmLen - st.bgmPos;
+Uint32 take = (avail < remaining) ? avail : remaining;
+
+
+int sdlVol = (int)llround((vol / 100.0) * SDL_MIX_MAXVOLUME); // 0..128
+SDL_MixAudioFormat(tmp + writePos, st.bgmBuf + st.bgmPos, st.bgmSpec.format, take, sdlVol);
+
+st.bgmPos += take;
+if (st.bgmPos >= st.bgmLen) st.bgmPos = 0;
+
+writePos += take;
+remaining -= take;
+}
+
+SDL_QueueAudio(st.bgmDev, tmp, chunkBytes);
+SDL_free(tmp);
+}
+
+static SDL_Rect settingsRect(int w, int h) {
+    return SDL_Rect{w/2 - 260, h/2 - 170, 520, 340};
+}
+
+static void openSettings(AppState& st) {
+    st.settingsOpen = true;
+    st.helpMenuOpen = false;
+    st.showLogsPanel = false;
+    st.extensionLibraryOpen = false;
+    st.penColorPickerOpen = false;
+    st.funcIOMenuOpen = false;
+    st.saveDialogOpen = false;
+    st.loadDialogOpen = false;
+    st.askDialogOpen = false;
+    SDL_StopTextInput();
+    st.log.info(-1, "SET", "Open settings", "");
+}
+
+static bool handleSettingsEvent(AppState& st, const SDL_Event& e, int w, int h) {
+    if (!st.settingsOpen) return false;
+
+    if (e.type == SDL_KEYDOWN && !e.key.repeat) {
+        if (e.key.keysym.sym == SDLK_ESCAPE) {
+            st.settingsOpen = false;
+            st.log.info(-1, "SET", "Close settings (Esc)", "");
+            return true;
+        }
+    }
+
+    if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+        int mx = e.button.x, my = e.button.y;
+        SDL_Rect box = settingsRect(w,h);
+
+        if (!pointInRect(mx, my, box)) {
+            st.settingsOpen = false;
+            st.log.info(-1, "SET", "Close settings (outside)", "");
+            return true;
+        }
+
+        SDL_Rect rowSpeedDec = {box.x + 30, box.y + 90, 60, 40};
+        SDL_Rect rowSpeedInc = {box.x + box.w - 90, box.y + 90, 60, 40};
+        SDL_Rect rowToggle   = {box.x + 30, box.y + 150, box.w - 60, 44};
+
+        SDL_Rect okBtn  = {box.x + box.w - 180, box.y + box.h - 60, 140, 40};
+        // NEW rows
+        SDL_Rect rowCostPrev = {box.x + 30,           box.y + 210, 60, 38};
+        SDL_Rect rowCostNext = {box.x + box.w - 90,   box.y + 210, 60, 38};
+        SDL_Rect rowCostMid  = {box.x + 100,          box.y + 210, box.w - 200, 38};
+
+        SDL_Rect rowBackPrev = {box.x + 30,           box.y + 255, 60, 38};
+        SDL_Rect rowBackNext = {box.x + box.w - 90,   box.y + 255, 60, 38};
+        SDL_Rect rowBackMid  = {box.x + 100,          box.y + 255, box.w - 200, 38};
+
+        SDL_Rect rowMusicDec = {box.x + 30,           box.y + 300, 60, 32};
+        SDL_Rect rowMusicInc = {box.x + box.w - 90,   box.y + 300, 60, 32};
+        SDL_Rect rowMusicMid = {box.x + 100,          box.y + 300, box.w - 320, 32}; // smaller to fit mute btn
+        SDL_Rect rowMusicMute= {box.x + box.w - 250,  box.y + 300, 150, 32};
+
+
+        if (pointInRect(mx,my,rowSpeedDec)) {
+            st.runSpeedMs = clampT(st.runSpeedMs - 10, 0, 300);
+            st.log.info(-1, "SET", "Speed -10", "runSpeedMs=" + to_string(st.runSpeedMs));
+            return true;
+        }
+        if (pointInRect(mx,my,rowSpeedInc)) {
+            st.runSpeedMs = clampT(st.runSpeedMs + 10, 0, 300);
+            st.log.info(-1, "SET", "Speed +10", "runSpeedMs=" + to_string(st.runSpeedMs));
+            return true;
+        }
+        if (pointInRect(mx,my,rowToggle)) {
+            st.drawActorWhenStopped = !st.drawActorWhenStopped;
+            st.log.info(-1, "SET", "Toggle draw actor when stopped", st.drawActorWhenStopped ? "ON" : "OFF");
+            return true;
+        }
+        if (pointInRect(mx,my,okBtn)) {
+            st.settingsOpen = false;
+            st.log.info(-1, "SET", "Close settings (OK)", "");
+            return true;
+        }
+
+        if (pointInRect(mx,my,rowCostPrev)) {
+            if (!st.costumes.empty()) {
+                st.getActive().costumeIndex--;
+                if (st.getActive().costumeIndex < 0) st.getActive().costumeIndex = (int)st.costumes.size() - 1;
+            }
+            st.log.info(-1, "SET", "Costume prev", "idx=" + to_string(st.getActive().costumeIndex));
+            return true;
+        }
+        if (pointInRect(mx,my,rowCostNext)) {
+            if (!st.costumes.empty()) {
+                st.getActive().costumeIndex = (st.getActive().costumeIndex + 1) % (int)st.costumes.size();
+            }
+            st.log.info(-1, "SET", "Costume next", "idx=" + to_string(st.getActive().costumeIndex));
+            return true;
+        }
+
+
+        if (pointInRect(mx,my,rowBackPrev)) {
+            if (!st.backdrops.empty()) {
+                st.backdropIndex--;
+                if (st.backdropIndex < 0) st.backdropIndex = (int)st.backdrops.size() - 1;
+            }
+            st.log.info(-1, "SET", "Backdrop prev", "idx=" + to_string(st.backdropIndex));
+            return true;
+        }
+        if (pointInRect(mx,my,rowBackNext)) {
+            if (!st.backdrops.empty()) {
+                st.backdropIndex = (st.backdropIndex + 1) % (int)st.backdrops.size();
+            }
+            st.log.info(-1, "SET", "Backdrop next", "idx=" + to_string(st.backdropIndex));
+            return true;
+        }
+
+
+        if (pointInRect(mx,my,rowMusicDec)) {
+            st.musicVolume = clampT(st.musicVolume - 10, 0, 100);
+            st.log.info(-1, "SET", "Music volume -10", "musicVolume=" + to_string(st.musicVolume));
+            return true;
+        }
+        if (pointInRect(mx,my,rowMusicInc)) {
+            st.musicVolume = clampT(st.musicVolume + 10, 0, 100);
+            st.log.info(-1, "SET", "Music volume +10", "musicVolume=" + to_string(st.musicVolume));
+            return true;
+        }
+
+
+        if (pointInRect(mx,my,rowMusicMid)) {
+            int rel = mx - rowMusicMid.x;
+            int v = (int)llround((rel / (double)max(1, rowMusicMid.w)) * 100.0);
+            st.musicVolume = clampT(v, 0, 100);
+            st.log.info(-1, "SET", "Music volume set", "musicVolume=" + to_string(st.musicVolume));
+            return true;
+        }
+
+
+        if (pointInRect(mx,my,rowMusicMute)) {
+            st.musicMuted = !st.musicMuted;
+            if (st.musicMuted) bgmClearQueue(st); // instantly silence
+            st.log.info(-1, "SET", "Music mute toggle", st.musicMuted ? "MUTED" : "UNMUTED");
+            return true;
+        }
+
+
+        return true;
+    }
+
+    return true;
+}
+
+static void renderSettings(const AppState& st, SDL_Renderer* r, int w, int h) {
+    if (!st.settingsOpen) return;
+
+    SDL_SetRenderDrawColor(r, 0,0,0,170);
+    SDL_Rect full{0,0,w,h};
+    SDL_RenderFillRect(r, &full);
+
+    SDL_Rect box = settingsRect(w,h);
+    SDL_SetRenderDrawColor(r, 40,40,46,255);
+    SDL_RenderFillRect(r, &box);
+    SDL_SetRenderDrawColor(r, 200,200,200,255);
+    SDL_RenderDrawRect(r, &box);
+
+    SDL_Color white{240,240,240,255};
+    renderText(r, st.uiFont, "Settings (Esc to close)", box.x + 20, box.y + 18, white);
+
+    // speed row
+    SDL_Rect dec = {box.x + 30, box.y + 90, 60, 40};
+    SDL_Rect inc = {box.x + box.w - 90, box.y + 90, 60, 40};
+    SDL_Rect mid = {box.x + 100, box.y + 90, box.w - 200, 40};
+
+    SDL_SetRenderDrawColor(r, 80,80,90,255);
+    SDL_RenderFillRect(r, &dec);
+    SDL_RenderFillRect(r, &inc);
+    SDL_SetRenderDrawColor(r, 25,25,28,255);
+    SDL_RenderFillRect(r, &mid);
+
+    SDL_SetRenderDrawColor(r, 15,15,15,255);
+    SDL_RenderDrawRect(r, &dec);
+    SDL_RenderDrawRect(r, &inc);
+    SDL_RenderDrawRect(r, &mid);
+
+    renderTextCentered(r, st.uiFont, "-", dec, 0, white);
+    renderTextCentered(r, st.uiFont, "+", inc, 0, white);
+
+    string sp = "Run speed delay: " + to_string(st.runSpeedMs) + " ms per block";
+    renderText(r, st.uiFont, sp, mid.x + 10, mid.y + 10, white);
+
+
+    SDL_Rect tog = {box.x + 30, box.y + 150, box.w - 60, 44};
+    SDL_SetRenderDrawColor(r, 25,25,28,255);
+    SDL_RenderFillRect(r, &tog);
+    SDL_SetRenderDrawColor(r, 120,120,120,255);
+    SDL_RenderDrawRect(r, &tog);
+
+    string tv = string("Show actor when stopped: ") + (st.drawActorWhenStopped ? "ON" : "OFF");
+    renderText(r, st.uiFont, tv, tog.x + 12, tog.y + 12, white);
+
+    SDL_Rect costPrev = {box.x + 30,         box.y + 210, 60, 38};
+    SDL_Rect costNext = {box.x + box.w - 90, box.y + 210, 60, 38};
+    SDL_Rect costMid  = {box.x + 100,        box.y + 210, box.w - 200, 38};
+
+    SDL_SetRenderDrawColor(r, 80,80,90,255);
+    SDL_RenderFillRect(r, &costPrev);
+    SDL_RenderFillRect(r, &costNext);
+    SDL_SetRenderDrawColor(r, 25,25,28,255);
+    SDL_RenderFillRect(r, &costMid);
+
+    SDL_SetRenderDrawColor(r, 15,15,15,255);
+    SDL_RenderDrawRect(r, &costPrev);
+    SDL_RenderDrawRect(r, &costNext);
+    SDL_RenderDrawRect(r, &costMid);
+
+    renderTextCentered(r, st.uiFont, "<", costPrev, 0, white);
+    renderTextCentered(r, st.uiFont, ">", costNext, 0, white);
+
+    int cCount = (int)st.costumes.size();
+    int cIdx = cCount > 0 ? ((st.getActive().costumeIndex % cCount) + cCount) % cCount : 0;
+    string cLabel = "Costume: " + to_string(cIdx) + " / " + to_string(max(0, cCount - 1));
+    renderText(r, st.uiFont, cLabel, costMid.x + 10, costMid.y + 10, white);
+
+
+    SDL_Rect backPrev = {box.x + 30,         box.y + 255, 60, 38};
+    SDL_Rect backNext = {box.x + box.w - 90, box.y + 255, 60, 38};
+    SDL_Rect backMid  = {box.x + 100,        box.y + 255, box.w - 200, 38};
+
+    SDL_SetRenderDrawColor(r, 80,80,90,255);
+    SDL_RenderFillRect(r, &backPrev);
+    SDL_RenderFillRect(r, &backNext);
+    SDL_SetRenderDrawColor(r, 25,25,28,255);
+    SDL_RenderFillRect(r, &backMid);
+
+    SDL_SetRenderDrawColor(r, 15,15,15,255);
+    SDL_RenderDrawRect(r, &backPrev);
+    SDL_RenderDrawRect(r, &backNext);
+    SDL_RenderDrawRect(r, &backMid);
+
+    renderTextCentered(r, st.uiFont, "<", backPrev, 0, white);
+    renderTextCentered(r, st.uiFont, ">", backNext, 0, white);
+
+    int bCount = (int)st.backdrops.size();
+    int bIdx = bCount > 0 ? ((st.backdropIndex % bCount) + bCount) % bCount : 0;
+    string bLabel = "Backdrop: " + to_string(bIdx) + " / " + to_string(max(0, bCount - 1));
+    renderText(r, st.uiFont, bLabel, backMid.x + 10, backMid.y + 10, white);
