@@ -1,4 +1,3 @@
-// maincode.cpp
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 #include <algorithm>
@@ -15,8 +14,6 @@
 #include <map>
 #include <SDL2/SDL_syswm.h>
 
-//windows+open files
-
 #ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -25,7 +22,6 @@
 #include <direct.h>
 #include <commdlg.h>
 
-//linux+open file,...
 #else
 #include <sys/stat.h>
   #include <dirent.h>
@@ -33,32 +29,32 @@
 
 using namespace std;
 
-//window size
+
 static const int WINDOW_W = 1200;
 static const int WINDOW_H = 720;
 
-//pannel and top bar size
+
 static const int TOP_BAR_H = 52;
 static const int LEFT_PANEL_W = 320; // was 280, now larger
 
-//is mouse on the rect?
+
 static bool pointInRect(int x, int y, const SDL_Rect& r) {
     return (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
 }
 
-//جلوگیری از خروج اسپرایت از محدوده
+
 template <typename T>
 static T clampT(T v, T lo, T hi) {
     return max(lo, min(v, hi));
 }
 
-//ERROR box
+
 static void fatalBox(const string& title, const string& msg) {
     cerr << title << ": " << msg << "\n";
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, title.c_str(), msg.c_str(), nullptr);
 }
 
-//Information box
+
 static void infoBox(const string& title, const string& msg) {
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, title.c_str(), msg.c_str(), nullptr);
 }
@@ -149,34 +145,34 @@ struct InputState {
     }
 };
 
-// رسم متن در مختصات (x,y) با فونت و رنگ مشخص — نوشته‌های صفحه
+
 static void renderText(SDL_Renderer* r, TTF_Font* font, const string& text, int x, int y, SDL_Color c) {
     if (!font || text.empty()) return;
-    SDL_Surface* s = TTF_RenderUTF8_Blended(font, text.c_str(), c);  // رندر نرم با anti-aliasing
+    SDL_Surface* s = TTF_RenderUTF8_Blended(font, text.c_str(), c);
     if (!s) return;
-    SDL_Texture* t = SDL_CreateTextureFromSurface(r, s);  // انتقال به GPU
+    SDL_Texture* t = SDL_CreateTextureFromSurface(r, s);
     SDL_Rect dst = {x, y, s->w, s->h};
-    SDL_FreeSurface(s);  // حافظه RAM آزاد می‌شود
+    SDL_FreeSurface(s);
     if (!t) return;
     SDL_RenderCopy(r, t, nullptr, &dst);
-    SDL_DestroyTexture(t);  // حافظه GPU آزاد می‌شود
+    SDL_DestroyTexture(t);
 }
 
-// رسم متن دقیقاً وسط یک مستطیل — برای نوشته روی دکمه‌ها
+
 static void renderTextCentered(SDL_Renderer* r, TTF_Font* font, const string& text, const SDL_Rect& box, int dy, SDL_Color c) {
     if (!font || text.empty()) return;
     int tw = 0, th = 0;
-    if (TTF_SizeUTF8(font, text.c_str(), &tw, &th) != 0) return;  // اندازه‌گیری متن
-    int x = box.x + (box.w - tw) / 2;   // محاسبه مرکز افقی
-    int y = box.y + (box.h - th) / 2 + dy;  // محاسبه مرکز عمودی + offset اختیاری
+    if (TTF_SizeUTF8(font, text.c_str(), &tw, &th) != 0) return;
+    int x = box.x + (box.w - tw) / 2;
+    int y = box.y + (box.h - th) / 2 + dy;
     renderText(r, font, text, x, y, c);
 }
 
-// جستجو بین فونت‌های سیستمی و لود اولین فونتی که پیدا شود
+
 static TTF_Font* loadUIFont(int pt) {
 #ifdef _WIN32
     const char* candidates[] = {
-            "C:\\Windows\\Fonts\\consola.ttf",  // Consolas — مونواسپیس
+            "C:\\Windows\\Fonts\\consola.ttf",
             "C:\\Windows\\Fonts\\arial.ttf",
             "C:\\Windows\\Fonts\\tahoma.ttf"
     };
@@ -188,48 +184,47 @@ static TTF_Font* loadUIFont(int pt) {
 #endif
     for (size_t i = 0; i < sizeof(candidates)/sizeof(candidates[0]); i++) {
         TTF_Font* f = TTF_OpenFont(candidates[i], pt);
-        if (f) return f;  // اولین فونت موجود را برمی‌گرداند
+        if (f) return f;
     }
-    TTF_Font* f2 = TTF_OpenFont("font.ttf", pt);  // fallback: فایل کنار exe
+    TTF_Font* f2 = TTF_OpenFont("font.ttf", pt);
     if (f2) return f2;
-    return nullptr;  // هیچ فونتی پیدا نشد
+    return nullptr;
 }
 
-// ساختار یک دکمه کامل: موقعیت، متن، میانبر، حالت hover/click و رویداد کلیک
+
 struct Button {
     SDL_Rect rect{};
     string text;
-    string sub;              // متن کوچک‌تر زیر (مثلاً "F5" برای Run)
+    string sub;
     function<void()> onClick;
 
-    bool hovered = false;    // موس روی دکمه است؟
-    bool down = false;       // دکمه فشرده شده؟
+    bool hovered = false;
+    bool down = false;
 
-    // هر فریم صدا می‌شود — وضعیت hover و کلیک را آپدیت می‌کند
     void update(const InputState& in) {
         hovered = pointInRect(in.mx, in.my, rect);
         if (hovered && in.mousePressed) down = true;
         if (down && in.mouseReleased) {
             down = false;
-            if (hovered && onClick) onClick();  // فقط اگر هنوز روی دکمه بودیم
+            if (hovered && onClick) onClick();
         }
-        if (!in.mouseDown) down = false;  // جلوگیری از bug اگر موس از دکمه خارج شد
+        if (!in.mouseDown) down = false;
     }
 
-    // رسم دکمه با سه حالت رنگی: عادی / hover / فشرده
+
     void draw(SDL_Renderer* r, TTF_Font* font) const {
         SDL_Color bg = {70, 70, 70, 255};
-        if (down) bg = SDL_Color{120, 120, 120, 255};        // فشرده: روشن‌تر
-        else if (hovered) bg = SDL_Color{90, 90, 90, 255};  // hover: کمی روشن‌تر
+        if (down) bg = SDL_Color{120, 120, 120, 255};
+        else if (hovered) bg = SDL_Color{90, 90, 90, 255};
 
         SDL_SetRenderDrawColor(r, bg.r, bg.g, bg.b, bg.a);
-        SDL_RenderFillRect(r, &rect);    // پر کردن داخل دکمه
+        SDL_RenderFillRect(r, &rect);
         SDL_SetRenderDrawColor(r, 15, 15, 15, 255);
-        SDL_RenderDrawRect(r, &rect);    // رسم کادر دور دکمه
+        SDL_RenderDrawRect(r, &rect);
 
         SDL_Color fg = {235, 235, 235, 255};
-        renderTextCentered(r, font, text, rect, sub.empty() ? 0 : -7, fg);  // متن اصلی
-        if (!sub.empty()) renderTextCentered(r, font, sub, rect, +10, fg);  // میانبر پایین
+        renderTextCentered(r, font, text, rect, sub.empty() ? 0 : -7, fg);
+        if (!sub.empty()) renderTextCentered(r, font, sub, rect, +10, fg);
     }
 };
 
@@ -521,17 +516,14 @@ static double asNum(const Value& v) {
     return 0.0;
 }
 
-// هر اسپرایت یه شخصیت مستقله با تصویر، موقعیت، کد و وضعیت اجرای خودش
 struct Sprite {
     string name = "Sprite";
-    TextureAsset icon; // تصویر کوچیک پایین صفحه
-
-    // برای وقتی که کاربر اسپرایت رو با موس میکشه
+    TextureAsset icon;
     bool isDragging = false;
     double dragOffX = 0.0;
     double dragOffY = 0.0;
 
-    // وضعیت اسپرایت قبل از Run — بعد از Stop برمیگرده به اینا
+
     double backupX = 0.0;
     double backupY = 0.0;
     double backupDirDeg = 90.0;
@@ -541,7 +533,7 @@ struct Sprite {
     int backupCostumeIndex = 0;
     int backupZOrder = 0;
 
-    // موقعیت، جهت، اندازه و ظاهر اسپرایت روی Stage
+
     double x = 0.0;
     double y = 0.0;
     double dirDeg = 90.0;
@@ -551,17 +543,17 @@ struct Sprite {
     int costumeIndex = 0;
     int zOrder = 0;
 
-    // محیط کدنویسی اختصاصی این اسپرایت (بلاک‌هاش اینجاست)
+
     Workspace ws;
 
-    // وضعیت اجرای کد — scriptPC میگه الان کدوم بلاک داره اجرا میشه
+
     bool scriptRunning = false;
     int scriptPC = 0;
     bool stepRequested = false;
     uint32_t waitUntilMs = 0;
     bool waiting = false;
 
-    // جداول jump برای IF، REPEAT، FOREVER — موتور اجرا از اینا استفاده میکنه
+
     vector<int> jumpTo;
     vector<int> jumpElse;
     vector<int> jumpEnd;
@@ -569,48 +561,42 @@ struct Sprite {
     vector<int> loopStart;
     vector<int> repeatCounter;
 
-    // پشتیبانی از تابع‌های دلخواه (My Blocks)
-    map<string, int> funcDefs; // اسم تابع → شماره بلاک شروعش
-    vector<int> callStack;     // برای برگشتن بعد از اتمام تابع
-    double currentParam = 0.0; // مقداری که به تابع پاس داده شده
+
+    map<string, int> funcDefs;
+    vector<int> callStack;
+    double currentParam = 0.0;
 };
 
 
-// AppState حافظه مرکزی کل برنامه‌ست — همه چیز اینجا نگه داشته میشه
 struct AppState {
 
-    // لیست همه اسپرایت‌ها + اینکه الان کدوم انتخابه
     vector<Sprite> sprites;
     int activeSprite = 0;
 
-    // دسترسی سریع به اسپرایت فعال
     Sprite& getActive() { return sprites[activeSprite]; }
     const Sprite& getActive() const { return sprites[activeSprite]; }
 
     bool quit = false;
     bool isPaused = false;
 
-    // تنظیمات: سرعت اجرا، پنجره Settings
     bool settingsOpen = false;
     int  runSpeedMs = 30;
     bool drawActorWhenStopped = true;
     uint32_t nextStepAtMs = 0;
 
-    // تصاویر لباس‌ها و پس‌زمینه‌ها
     vector<TextureAsset> costumes;
     vector<TextureAsset> backdrops;
     string actorIconFile = "costume0.bmp";
 
-    InputState in;               // وضعیت موس و کیبورد این فریم
+    InputState in;
     Logger log = Logger("log.txt");
 
     bool isFullscreen = false;
-    SDL_Rect stageBounds {};     // مختصات کادر سفید Stage
-    vector<Button> buttons;      // دکمه‌های نوار بالا
+    SDL_Rect stageBounds {};
+    vector<Button> buttons;
     string baseTitle = "YKP Base (SDL2)";
     TTF_Font* uiFont = nullptr;
 
-    // وضعیت دیالوگ‌های Save، Load و Rename
     bool saveDialogOpen = false;
     bool loadDialogOpen = false;
     bool renameDialogOpen = false;
@@ -620,54 +606,50 @@ struct AppState {
     int loadHoverIndex = -1;
     int loadScroll = 0;
 
-    // وضعیت منوی Help و پنل لاگ‌ها
     bool helpMenuOpen = false;
     SDL_Rect helpButtonRect{0,0,0,0};
     bool showLogsPanel = false;
     int logsScroll = 0;
     bool debugStepMode = false;
 
-    int backdropIndex = 0; // کدوم پس‌زمینه الان نمایش داده میشه
+    int backdropIndex = 0;
 
-    // حباب Say/Think — متن، نوع و زمان نمایش
     string bubbleText = "";
     bool bubbleThink = false;
     uint32_t bubbleUntilMs = 0;
 
-    // دیالوگ Ask — سوال، ورودی کاربر، آخرین جواب
+
     bool askDialogOpen = false;
     string askQuestion = "";
     string askInput = "";
     string lastAnswer = "";
     int askResumePC = -1;
 
-    uint32_t timerStartMs = 0; // زمان شروع تایمر Scratch
+    uint32_t timerStartMs = 0;
 
-    // تنظیمات صدا
+
     int soundVolume = 100;
     bool soundMuted = false;
     bool bgmReady = false;
     SDL_AudioDeviceID bgmDev = 0;
     SDL_AudioSpec bgmSpec{};
-    Uint8* bgmBuf = nullptr; // buffer موسیقی که تبدیل فرمت شده
+    Uint8* bgmBuf = nullptr;
     Uint32 bgmLen = 0;
     Uint32 bgmPos = 0;
     int  musicVolume = 100;
     bool musicMuted  = false;
     string bgmFile = "bgm.wav";
 
-    // متغیرهای Scratch و آخرین مقدار محاسبه شده
     map<string, Value> vars;
     map<string, bool> varVisible;
     Value lastValue = Value::Num(0.0);
 
-    string lastBroadcast = ""; // آخرین broadcast ارسال شده
+    string lastBroadcast = "";
 
-    // وضعیت کتابخانه افزونه‌ها و Pen
+
     bool extensionLibraryOpen = false;
     bool penExtensionEnabled = false;
 
-    // palette بلاک‌ها در پنل چپ — paletteDirty یعنی باید دوباره ساخته بشه
     vector<Button> palette;
     bool paletteDirty = true;
     int paletteLastW = 0, paletteLastH = 0;
@@ -676,7 +658,6 @@ struct AppState {
     int paletteMaxScroll = 0;
     vector<pair<int,string>> paletteCats;
 
-    // وضعیت قلم: پایین/بالا، رنگ (HSV+RGB)، ضخامت، خطوط و stampها
     bool penDown = false;
     double penHue = 120.0;
     double penSat = 100.0;
@@ -688,35 +669,31 @@ struct AppState {
     bool penColorPickerOpen = false;
     int  penColorPickerBlockIndex = -1;
 
-    // وضعیت منوی Function I/O
+
     bool funcIOMenuOpen = false;
     int  funcIOMenuBlockIndex = -1;
 
-    TextureAsset actorIcon; // آیکون پیش‌فرض اسپرایت
+    TextureAsset actorIcon;
 
-    // سیستم صدا برای جلوه‌های صوتی (WAV)
     bool audioReady = false;
     SDL_AudioDeviceID audioDev = 0;
     SDL_AudioSpec audioSpec{};
     uint32_t soundBusyUntilMs = 0;
 
-    // لیست‌های Scratch
     map<string, vector<Value>> lists;
     map<string, bool> listVisible;
 
-    // کلون‌های اسپرایت
     vector<CloneSprite> clones;
 };
 
 
-// دستگاه صوتی جداگانه برای موسیقی پس‌زمینه باز میکنه (44100Hz استریو)
 static bool initBGMSystem(AppState& st) {
     SDL_AudioSpec want{};
     want.freq = 44100;
     want.format = AUDIO_S16SYS;
     want.channels = 2;
     want.samples = 4096;
-    want.callback = nullptr; // push mode — داده رو دستی میفرستیم
+    want.callback = nullptr;
 
     SDL_AudioSpec have{};
     st.bgmDev = SDL_OpenAudioDevice(nullptr, 0, &want, &have, SDL_AUDIO_ALLOW_ANY_CHANGE);
@@ -728,18 +705,16 @@ static bool initBGMSystem(AppState& st) {
 
     st.bgmSpec = have;
     st.bgmReady = true;
-    SDL_PauseAudioDevice(st.bgmDev, 0); // شروع پخش
+    SDL_PauseAudioDevice(st.bgmDev, 0);
 
     st.log.info(-1, "BGM", "BGM device ready",
                 "freq=" + to_string(have.freq) + " ch=" + to_string((int)have.channels));
     return true;
 }
 
-// فایل WAV رو لود میکنه و اگه فرمتش با دستگاه فرق داشت تبدیلش میکنه
 static bool loadBGM(AppState& st, const string& wavFile) {
     if (!st.bgmReady || !st.bgmDev) return false;
 
-    // buffer قدیمی رو آزاد کن
     if (st.bgmBuf) { SDL_free(st.bgmBuf); st.bgmBuf = nullptr; }
     st.bgmLen = 0;
     st.bgmPos = 0;
@@ -756,7 +731,6 @@ static bool loadBGM(AppState& st, const string& wavFile) {
     Uint8* outBuf = srcBuf;
     Uint32 outLen = srcLen;
 
-    // اگه فرمت WAV با دستگاه صوتی فرق داشت، تبدیلش کن
     if (srcSpec.format != st.bgmSpec.format ||
         srcSpec.channels != st.bgmSpec.channels ||
         srcSpec.freq != st.bgmSpec.freq) {
@@ -795,7 +769,6 @@ static bool loadBGM(AppState& st, const string& wavFile) {
         }
     }
 
-    // یه buffer یکدست میسازیم که همیشه با SDL_free آزاد بشه
     Uint8* finalBuf = (Uint8*)SDL_malloc(outLen);
     if (!finalBuf) {
         st.log.warn(-1, "BGM", "malloc failed", "finalBuf");
@@ -816,7 +789,6 @@ static bool loadBGM(AppState& st, const string& wavFile) {
     return true;
 }
 
-// دستگاه صوتی BGM رو میبنده و حافظه‌اش رو آزاد میکنه
 static void shutdownBGMSystem(AppState& st) {
     if (st.bgmDev) {
         SDL_ClearQueuedAudio(st.bgmDev);
@@ -833,7 +805,6 @@ static void shutdownBGMSystem(AppState& st) {
     st.bgmPos = 0;
 }
 
-// queue صوتی BGM رو خالی میکنه — مثلاً وقتی صدا رو mute میکنیم
 static void bgmClearQueue(AppState& st) {
     if (st.bgmReady && st.bgmDev) SDL_ClearQueuedAudio(st.bgmDev);
 }
