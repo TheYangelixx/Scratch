@@ -2667,7 +2667,6 @@ static void rebuildPalette(AppState& st, int winW, int winH) {
     placeBtn("letter 2 of \"abc\"", "", [&]{ addTypedBlock(st, "OP_LETTER", 2.0, 0.0, "abc"); });
     placeBtn("join \"a\" \"b\"", "", [&]{ addTypedBlock(st, "OP_JOIN", 0.0, 0.0, "a", "b"); });
 
-    // ===== Section 5: Functions =====
     cat("Functions");
     placeBtn("apply function (sqrt)", "Shift+Click edit I/O", [&]{
         addTypedBlock(st, "FUNC_APPLY", 0.0, 0.0, "sqrt");
