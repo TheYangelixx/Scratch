@@ -386,7 +386,7 @@ static string sanitizeStem(string s) {
 }
 
 static string getSaveDir() {
-    const string dir = "SMemory";
+    string dir = "SMemory";
     makeDir(dir);
     return dir;
 }
@@ -2548,11 +2548,25 @@ static void destroyTextureAsset(TextureAsset& a) {
 static TextureAsset loadBMPTexture(SDL_Renderer* r, const string& path, Logger& log) {
     TextureAsset out;
     SDL_Surface* s = SDL_LoadBMP(path.c_str());
+
+    if (!s) {
+        char* basePath = SDL_GetBasePath();
+        if (basePath) {
+            string fullPath = string(basePath) + path;
+            SDL_free(basePath);
+            s = SDL_LoadBMP(fullPath.c_str());
+        }
+    }
+
+    if (!s) {
+        string upPath = "../" + path;
+        s = SDL_LoadBMP(upPath.c_str());
+    }
+
     if (!s) {
         log.warn(-1, "ASSET", "SDL_LoadBMP failed", path + " err=" + SDL_GetError());
         return out;
     }
-
     Uint32 key = SDL_MapRGB(s->format, 255, 0, 255);
     SDL_SetColorKey(s, SDL_TRUE, key);
 
@@ -2787,7 +2801,17 @@ static void drawSprite(SDL_Renderer* r, const AppState& st, const Sprite& sp) {
     int sizePx = (int)clampT((int)round(80.0 * (sp.sizePct / 100.0)), 10, 300);
     SDL_Rect dst{(int)round(sp.x) - sizePx/2, (int)round(sp.y) - sizePx/2, sizePx, sizePx};
 
-    SDL_Texture* useTex = sp.icon.tex;
+    SDL_Texture* useTex = nullptr;
+
+    if (!st.costumes.empty()) {
+        int ci = sp.costumeIndex;
+        if (ci < 0) ci = 0;
+        ci %= (int)st.costumes.size();
+        if (st.costumes[ci].tex) useTex = st.costumes[ci].tex;
+    }
+
+    if (!useTex && sp.icon.tex) useTex = sp.icon.tex;
+
     if (useTex) {
         double angle = scratchToSDLAangle(sp.dirDeg);
         SDL_Color mod = applyLookEffect(SDL_Color{255,255,255,255}, sp.colorEffect);
@@ -4046,6 +4070,7 @@ static void handleShortcuts(AppState& st) {
         penClearAll(st);
         st.log.log("NEW", "Reset (shortcut)");
     }
+
     if (ctrl && st.in.keyPressed[SDL_SCANCODE_N]) {
         st.getActive().ws.reset();
         st.penDown = false;
@@ -4079,6 +4104,7 @@ static void handleShortcuts(AppState& st) {
 }
 
 
+
 static void update(AppState& st, SDL_Window* window) {
     int w = 0, h = 0;
     SDL_GetWindowSize(window, &w, &h);
@@ -4086,3 +4112,616 @@ static void update(AppState& st, SDL_Window* window) {
 
     int stageW = 480;
     int stageH = 360;
+    int padding = 10;
+    int rightPanelW = stageW + (padding * 2);
+
+    if (!st.sprites.empty()) {
+        st.getActive().ws.bounds = SDL_Rect{LEFT_PANEL_W, TOP_BAR_H, w - LEFT_PANEL_W - rightPanelW, h - TOP_BAR_H};
+    }
+
+    if (st.isFullscreen) {
+        st.stageBounds = SDL_Rect{0, 0, w, h};
+    } else {
+        st.stageBounds = SDL_Rect{w - stageW - padding, TOP_BAR_H + padding, stageW, stageH};
+    }
+
+    if (w != st.paletteLastW || h != st.paletteLastH || st.penExtensionEnabled != st.paletteLastPenEnabled) {
+        st.paletteDirty = true;
+        st.paletteLastW = w; st.paletteLastH = h;
+        st.paletteLastPenEnabled = st.penExtensionEnabled;
+    }
+    if (st.paletteDirty) rebuildPalette(st, w, h);
+
+    if (st.loadDialogOpen) updateLoadHover(st, w, h);
+
+    if (st.askDialogOpen || st.saveDialogOpen || st.loadDialogOpen || st.renameDialogOpen) return;
+    if (st.extensionLibraryOpen || st.penColorPickerOpen || st.funcIOMenuOpen) return;
+    if (st.settingsOpen) return;
+
+    if (updateHelpMenu(st)) return;
+
+    if (st.showLogsPanel) {
+        updateLogsPanel(st);
+        handleShortcuts(st);
+        return;
+    }
+
+    for (size_t i = 0; i < st.buttons.size(); i++) st.buttons[i].update(st.in);
+    for (size_t i = 0; i < st.palette.size(); i++) st.palette[i].update(st.in);
+
+    handleShortcuts(st);
+
+    bool shift = st.in.keyDown[SDL_SCANCODE_LSHIFT] || st.in.keyDown[SDL_SCANCODE_RSHIFT];
+    if (shift && st.in.mousePressed && !st.sprites.empty()) {
+        int hit = st.getActive().ws.hitTest(st.in.mx, st.in.my);
+        if (hit != -1) {
+            Block& b = st.getActive().ws.blocks[hit];
+            if (b.cmd == "FUNC_APPLY") { openFuncIOMenu(st, hit); return; }
+            if (b.cmd == "TOUCH_SPRITE") {
+                if (!st.sprites.empty()) {
+                    int idxx = -1;
+                    for (size_t k=0; k<st.sprites.size(); k++) {
+                        if (st.sprites[k].name == b.s1) { idxx = k; break; }
+                    }
+                    idxx = (idxx + 1) % st.sprites.size();
+                    b.s1 = st.sprites[idxx].name;
+                }
+                return;
+            }
+            if (b.cmd == "PEN_SET_COLOR") {
+                st.penColorPickerOpen = true;
+                st.penColorPickerBlockIndex = hit;
+                return;
+            }
+            if (b.cmd.rfind("VAR_", 0) == 0) { b.s1 = cycleName3(b.s1.empty() ? "v" : b.s1); return; }
+            if (b.cmd.rfind("LIST_", 0) == 0) { b.s1 = cycleListName3(b.s1.empty() ? "list" : b.s1); return; }
+            if (b.cmd == "DEFINE_FN" || b.cmd == "CALL_FN") { b.s1 = cycleFuncName(b.s1.empty() ? "myFunc" : b.s1); return; }
+        }
+    }
+
+    if (st.bubbleUntilMs != 0 && SDL_GetTicks() >= st.bubbleUntilMs) {
+        st.bubbleText.clear();
+        st.bubbleUntilMs = 0;
+    }
+
+
+    if (pointInRect(st.in.mx, st.in.my, st.stageBounds) || st.in.mouseDown) {
+
+
+        if (st.in.mousePressed) {
+
+            for (int i = (int)st.sprites.size() - 1; i >= 0; i--) {
+                Sprite& sp = st.sprites[i];
+                if (!sp.visible) continue;
+
+
+                int sizePx = (int)clampT((int)round(80.0 * (sp.sizePct / 100.0)), 10, 300);
+                SDL_Rect spRect{(int)round(sp.x) - sizePx/2, (int)round(sp.y) - sizePx/2, sizePx, sizePx};
+
+
+                if (pointInRect(st.in.mx, st.in.my, spRect)) {
+                    st.activeSprite = i;
+                    sp.isDragging = true;
+                    sp.dragOffX = st.in.mx - sp.x;
+                    sp.dragOffY = st.in.my - sp.y;
+                    break;
+                }
+            }
+        }
+
+        if (st.in.mouseDown) {
+            for (auto& sp : st.sprites) {
+                if (sp.isDragging) {
+                    sp.x = st.in.mx - sp.dragOffX;
+                    sp.y = st.in.my - sp.dragOffY;
+
+                    double minX = st.stageBounds.x;
+                    double maxX = st.stageBounds.x + st.stageBounds.w;
+                    double minY = st.stageBounds.y;
+                    double maxY = st.stageBounds.y + st.stageBounds.h;
+
+                    if (sp.x < minX) sp.x = minX;
+                    if (sp.x > maxX) sp.x = maxX;
+                    if (sp.y < minY) sp.y = minY;
+                    if (sp.y > maxY) sp.y = maxY;
+                }
+            }
+        }
+    }
+
+
+    if (st.in.mouseReleased) {
+        for (auto& sp : st.sprites) {
+            if (sp.isDragging) {
+                sp.isDragging = false;
+
+                sp.backupX = sp.x;
+                sp.backupY = sp.y;
+            }
+        }
+    }
+
+
+    st.log.cycle++;
+    if (!st.sprites.empty()) {
+        st.getActive().ws.update(st.in, st.log);
+    }
+    runScriptTick(st);
+
+
+    if (st.isFullscreen) {
+        SDL_Rect exitBtn = {20, 20, 150, 40};
+        if (st.in.mousePressed && pointInRect(st.in.mx, st.in.my, exitBtn)) {
+            st.isFullscreen = false;
+        }
+    } else {
+        SDL_Rect uploadBtn = { st.stageBounds.x, st.stageBounds.y + st.stageBounds.h + 10, 160, 30 };
+        if (st.in.mousePressed && pointInRect(st.in.mx, st.in.my, uploadBtn)) {
+            string path = openBMPDialog(window);
+            if (!path.empty()) {
+                SDL_Renderer* r = SDL_GetRenderer(window);
+                TextureAsset newBg = loadBMPTexture(r, path, st.log);
+                if (newBg.tex) {
+                    for(auto& bg : st.backdrops) if(bg.tex) SDL_DestroyTexture(bg.tex);
+                    st.backdrops.clear();
+                    st.backdrops.push_back(newBg);
+                    st.backdropIndex = 0;
+                }
+            }
+        }
+
+        SDL_Rect fullBtn = { st.stageBounds.x + 170, st.stageBounds.y + st.stageBounds.h + 10, 150, 30 };
+        if (st.in.mousePressed && pointInRect(st.in.mx, st.in.my, fullBtn)) {
+            st.isFullscreen = true;
+        }
+
+        int thumbY = st.stageBounds.y + st.stageBounds.h + 50;
+        SDL_Rect addSpriteBtn = {st.stageBounds.x, thumbY, 40, 40};
+        if (st.in.mousePressed && pointInRect(st.in.mx, st.in.my, addSpriteBtn)) {
+            string path = openBMPDialog(window);
+            if (!path.empty()) {
+                Sprite newSp;
+                newSp.name = "Sprite " + to_string(st.sprites.size() + 1);
+                newSp.x = st.stageBounds.x + st.stageBounds.w / 2.0;
+                newSp.y = st.stageBounds.y + st.stageBounds.h / 2.0;
+                newSp.backupX = newSp.x;
+                newSp.backupY = newSp.y;
+                newSp.icon = loadBMPTexture(SDL_GetRenderer(window), path, st.log);
+                st.sprites.push_back(newSp);
+                st.activeSprite = st.sprites.size() - 1;
+            }
+        }
+
+        int cx = st.stageBounds.x + 50;
+        for (size_t i = 0; i < st.sprites.size(); i++) {
+            SDL_Rect thumbRect = {cx, thumbY, 40, 40};
+            if (st.in.mousePressed && pointInRect(st.in.mx, st.in.my, thumbRect)) {
+                st.activeSprite = i;
+            }
+            cx += 50;
+        }
+
+        if (!st.sprites.empty() && st.in.mousePressed) {
+            SDL_Rect infoBox = { st.stageBounds.x + 330, st.stageBounds.y + st.stageBounds.h + 10, 150, 135 };
+            SDL_Rect renameBtn = { infoBox.x + 10, infoBox.y + 10, 130, 20 };
+            SDL_Rect dirLeftBtn = { infoBox.x + 90, infoBox.y + 60, 22, 22 };
+            SDL_Rect dirRightBtn = { infoBox.x + 118, infoBox.y + 60, 22, 22 };
+            SDL_Rect visBtn = { infoBox.x + 10, infoBox.y + 85, 130, 20 };
+            SDL_Rect deleteBtn = { infoBox.x + 10, infoBox.y + 110, 130, 20 };
+
+
+            if (pointInRect(st.in.mx, st.in.my, renameBtn)) {
+                st.renameDialogOpen = true;
+                st.renameInput = st.getActive().name;
+                SDL_StartTextInput();
+            }
+
+            else if (pointInRect(st.in.mx, st.in.my, dirLeftBtn)) {
+                st.getActive().dirDeg = fmod(st.getActive().dirDeg - 15.0 + 360.0, 360.0);
+                st.getActive().backupDirDeg = st.getActive().dirDeg;
+            }
+
+            else if (pointInRect(st.in.mx, st.in.my, dirRightBtn)) {
+                st.getActive().dirDeg = fmod(st.getActive().dirDeg + 15.0, 360.0);
+                st.getActive().backupDirDeg = st.getActive().dirDeg;
+            }
+
+            else if (pointInRect(st.in.mx, st.in.my, visBtn)) {
+                st.getActive().visible = !st.getActive().visible;
+                st.getActive().backupVisible = st.getActive().visible;
+            }
+
+            else if (pointInRect(st.in.mx, st.in.my, deleteBtn)) {
+                st.sprites.erase(st.sprites.begin() + st.activeSprite);
+                if (!st.sprites.empty() && st.activeSprite >= (int)st.sprites.size()) {
+                    st.activeSprite = (int)st.sprites.size() - 1;
+                } else if (st.sprites.empty()) {
+                    st.activeSprite = 0;
+                }
+            }
+        }
+    }
+}
+
+
+static void renderBlockLabels(const AppState& st, SDL_Renderer* r) {
+    SDL_Color t{10,10,10,255};
+    SDL_Color w{240,240,240,255};
+
+    for (size_t i = 0; i < st.getActive().ws.blocks.size(); i++) {
+        const Block& b = st.getActive().ws.blocks[i];
+        string label = b.cmd;
+
+        if (b.cmd == "MOVE_STEPS") label = "move " + to_string((int)round(b.a)) + " steps";
+        else if (b.cmd == "LAYER_FRONT") label = "go to front layer";
+        else if (b.cmd == "LAYER_BACK") label = "go to back layer";
+        else if (b.cmd == "LAYER_FWD") label = "go forward " + to_string((int)round(b.a)) + " layers";
+        else if (b.cmd == "LAYER_BWD") label = "go backward " + to_string((int)round(b.a)) + " layers";
+        else if (b.cmd == "TOUCH_SPRITE") label = "touching " + b.s1 + "?";
+        else if (b.cmd == "TURN_R") label = "turn right " + to_string((int)round(b.a));
+        else if (b.cmd == "TURN_L") label = "turn left " + to_string((int)round(b.a));
+        else if (b.cmd == "GOTO_XY") label = "go to (" + to_string((int)round(b.a)) + "," + to_string((int)round(b.b)) + ")";
+        else if (b.cmd == "SAY") label = "say " + b.s1;
+        else if (b.cmd == "THINK") label = "think " + b.s1;
+        else if (b.cmd == "ASK") label = "ask " + b.s1;
+        else if (b.cmd == "BROADCAST") label = "broadcast " + b.s1;
+        else if (b.cmd == "WHEN_RECEIVE") label = "when receive " + b.s1;
+        else if (b.cmd == "VAR_SET_NUM") label = "set " + b.s1 + " = " + to_string((int)round(b.a));
+        else if (b.cmd == "VAR_SET_STR") label = "set " + b.s1 + " = \"" + b.s2 + "\"";
+        else if (b.cmd == "VAR_CHANGE") label = "change " + b.s1 + " by " + to_string((int)round(b.a));
+        else if (b.cmd == "FUNC_APPLY") {
+            string fn = b.s1.empty() ? "sqrt" : b.s1;
+            string inSel = b.inSel.empty() ? "last" : b.inSel;
+            string outSel = b.outSel.empty() ? "last" : b.outSel;
+            label = fn + "(" + inSel + ") -> " + outSel;
+        }
+        else if (b.cmd == "LIST_ADD") label = "add " + (b.s2.empty() ? to_string((int)round(b.a)) : "\"" + b.s2 + "\"") + " to " + b.s1;
+        else if (b.cmd == "LIST_DELETE") label = "delete " + to_string((int)round(b.a)) + " of " + b.s1;
+        else if (b.cmd == "LIST_CLEAR") label = "clear " + b.s1;
+        else if (b.cmd == "LIST_LENGTH") label = "length of " + b.s1;
+        else if (b.cmd == "LIST_ITEM") label = "item " + to_string((int)round(b.a)) + " of " + b.s1;
+        else if (b.cmd == "LIST_CONTAINS") label = b.s1 + " contains \"" + b.s2 + "\"?";
+        else if (b.cmd == "LIST_SHOW") label = "show " + b.s1;
+        else if (b.cmd == "LIST_HIDE") label = "hide " + b.s1;
+        else if (b.cmd == "CLONE_CREATE") label = "create clone";
+        else if (b.cmd == "CLONE_DELETE_LAST") label = "delete last clone";
+        else if (b.cmd == "CLONE_CLEAR") label = "clear clones";
+        else if (b.cmd == "CLONE_COUNT") label = "clone count";
+        else if (b.cmd == "DEFINE_FN") label = "define " + b.s1 + " (param: " + b.s2 + ")";
+        else if (b.cmd == "END_FN") label = "end function";
+        else if (b.cmd == "CALL_FN") label = "call " + b.s1 + " (arg: " + to_string((int)round(b.a)) + ")";
+        else if (b.cmd == "GET_PARAM") label = "get param " + b.s1 + " (to last)";
+
+        renderText(r, st.uiFont, label, b.rect.x + 10 + 1, b.rect.y + 16 + 1, t);
+        renderText(r, st.uiFont, label, b.rect.x + 10, b.rect.y + 16, w);
+    }
+}
+
+
+
+static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
+    int w = 0, h = 0;
+    SDL_GetWindowSize(window, &w, &h);
+
+    SDL_SetRenderDrawColor(r, 25, 25, 28, 255);
+    SDL_RenderClear(r);
+
+    if (!st.isFullscreen) {
+        SDL_Rect top = {0, 0, w, TOP_BAR_H};
+        SDL_SetRenderDrawColor(r, 20, 20, 22, 255);
+        SDL_RenderFillRect(r, &top);
+
+        SDL_Rect left = {0, TOP_BAR_H, LEFT_PANEL_W, h - TOP_BAR_H};
+        SDL_SetRenderDrawColor(r, 24, 24, 26, 255);
+        SDL_RenderFillRect(r, &left);
+        SDL_SetRenderDrawColor(r, 12, 12, 12, 255);
+        SDL_RenderDrawRect(r, &left);
+
+        for (size_t i = 0; i < st.buttons.size(); i++) st.buttons[i].draw(r, st.uiFont);
+
+        renderPaletteHeader(st, r);
+        renderPaletteCats(st, r);
+        for (size_t i = 0; i < st.palette.size(); i++) st.palette[i].draw(r, st.uiFont);
+
+        if (!st.sprites.empty()) {
+            SDL_SetRenderDrawColor(r, 30, 30, 30, 255);
+            SDL_RenderFillRect(r, &st.getActive().ws.bounds);
+            SDL_SetRenderDrawColor(r, 60, 60, 60, 255);
+            SDL_RenderDrawRect(r, &st.getActive().ws.bounds);
+
+            st.getActive().ws.draw(r);
+            renderBlockLabels(st, r);
+
+            if (st.getActive().scriptRunning && st.getActive().scriptPC >= 0 && st.getActive().scriptPC < (int)st.getActive().ws.blocks.size()) {
+                SDL_Rect hi = st.getActive().ws.blocks[st.getActive().scriptPC].rect;
+                SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+                SDL_RenderDrawRect(r, &hi);
+            }
+        }
+    }
+
+
+    bool bgDrawn = false;
+    if (!st.backdrops.empty()) {
+        int bi = st.backdropIndex;
+        if (bi >= 0 && bi < (int)st.backdrops.size() && st.backdrops[bi].tex) {
+            SDL_RenderCopy(r, st.backdrops[bi].tex, nullptr, &st.stageBounds);
+            bgDrawn = true;
+        }
+    }
+
+    if (!bgDrawn) {
+        SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+        SDL_RenderFillRect(r, &st.stageBounds);
+    }
+
+    if (!st.isFullscreen) {
+        SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
+        SDL_RenderDrawRect(r, &st.stageBounds);
+    }
+
+    SDL_RenderSetClipRect(r, &st.stageBounds);
+    renderPenLayer(st, r);
+
+    bool shouldDrawActor = false;
+    if (!st.sprites.empty()) {
+        shouldDrawActor = st.getActive().scriptRunning || st.drawActorWhenStopped;
+    }
+
+
+    if (shouldDrawActor) {
+        vector<const Sprite*> sortedSprites;
+        for (const auto& sp : st.sprites) {
+            sortedSprites.push_back(&sp);
+        }
+
+        std::stable_sort(sortedSprites.begin(), sortedSprites.end(), [](const Sprite* a, const Sprite* b) {
+            return a->zOrder < b->zOrder;
+        });
+
+        for (const Sprite* pSp : sortedSprites) {
+            drawSprite(r, st, *pSp);
+        }
+    }
+
+    if (!st.sprites.empty() && !st.bubbleText.empty() && st.getActive().scriptRunning && st.getActive().visible) {
+        SDL_Rect box{(int)st.getActive().x + 16, (int)st.getActive().y - 40, 240, 46};
+        SDL_SetRenderDrawColor(r, 245,245,245,255);
+        SDL_RenderFillRect(r, &box);
+        SDL_SetRenderDrawColor(r, 10,10,10,255);
+        SDL_RenderDrawRect(r, &box);
+        renderText(r, st.uiFont, st.bubbleThink ? ("(think) " + st.bubbleText) : st.bubbleText, box.x + 8, box.y + 12, SDL_Color{10,10,10,255});
+    }
+
+    SDL_RenderSetClipRect(r, nullptr);
+
+
+    if (st.isFullscreen) {
+        SDL_Rect exitBtn = {20, 20, 150, 40};
+        SDL_SetRenderDrawColor(r, 200, 50, 50, 255);
+        SDL_RenderFillRect(r, &exitBtn);
+        renderTextCentered(r, st.uiFont, "Exit Fullscreen", exitBtn, 0, SDL_Color{255, 255, 255, 255});
+    } else {
+        SDL_Color white = {255, 255, 255, 255};
+
+        SDL_Rect uploadBtn = { st.stageBounds.x, st.stageBounds.y + st.stageBounds.h + 10, 160, 30 };
+        SDL_SetRenderDrawColor(r, 60, 100, 180, 255);
+        SDL_RenderFillRect(r, &uploadBtn);
+        renderTextCentered(r, st.uiFont, "Upload BG", uploadBtn, 0, white);
+
+        SDL_Rect fullBtn = { st.stageBounds.x + 170, st.stageBounds.y + st.stageBounds.h + 10, 150, 30 };
+        SDL_SetRenderDrawColor(r, 60, 180, 100, 255);
+        SDL_RenderFillRect(r, &fullBtn);
+        renderTextCentered(r, st.uiFont, "Fullscreen", fullBtn, 0, white);
+
+        int thumbY = st.stageBounds.y + st.stageBounds.h + 50;
+        SDL_Rect addBtn = { st.stageBounds.x, thumbY, 40, 40 };
+        SDL_SetRenderDrawColor(r, 60, 180, 100, 255);
+        SDL_RenderFillRect(r, &addBtn);
+        renderTextCentered(r, st.uiFont, "+", addBtn, 0, white);
+
+        int cx = st.stageBounds.x + 50;
+        for (size_t i = 0; i < st.sprites.size(); i++) {
+            SDL_Rect thumb = { cx, thumbY, 40, 40 };
+
+            if (i == st.activeSprite) {
+                SDL_Rect outline = { cx - 3, thumbY - 3, 46, 46 };
+                SDL_SetRenderDrawColor(r, 255, 200, 0, 255);
+                SDL_RenderFillRect(r, &outline);
+            }
+
+            if (st.sprites[i].icon.tex) {
+                SDL_RenderCopy(r, st.sprites[i].icon.tex, nullptr, &thumb);
+            } else {
+                SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
+                SDL_RenderFillRect(r, &thumb);
+            }
+            cx += 50;
+        }
+
+
+        if (!st.sprites.empty()) {
+            int centerX = st.stageBounds.x + st.stageBounds.w / 2;
+            int centerY = st.stageBounds.y + st.stageBounds.h / 2;
+            int scratchX = (int)round(st.getActive().x - centerX);
+            int scratchY = (int)round(centerY - st.getActive().y);
+
+            SDL_Rect infoBox = { st.stageBounds.x + 330, st.stageBounds.y + st.stageBounds.h + 10, 150, 135 };
+            SDL_SetRenderDrawColor(r, 40, 40, 46, 255);
+            SDL_RenderFillRect(r, &infoBox);
+            SDL_SetRenderDrawColor(r, 100, 100, 100, 255);
+            SDL_RenderDrawRect(r, &infoBox);
+
+            SDL_Rect renameBtn = { infoBox.x + 10, infoBox.y + 10, 130, 20 };
+            SDL_SetRenderDrawColor(r, 60, 100, 180, 255);
+            SDL_RenderFillRect(r, &renameBtn);
+            SDL_SetRenderDrawColor(r, 20, 20, 20, 255);
+            SDL_RenderDrawRect(r, &renameBtn);
+
+            string spName = st.getActive().name;
+            if (spName.length() > 12) spName = spName.substr(0, 10) + "..";
+            renderTextCentered(r, st.uiFont, spName, renameBtn, 0, white);
+
+            string xyText = "X: " + to_string(scratchX) + "  Y: " + to_string(scratchY);
+            renderText(r, st.uiFont, xyText, infoBox.x + 10, infoBox.y + 38, white);
+
+            string dirText = "Dir: " + to_string((int)st.getActive().dirDeg);
+            renderText(r, st.uiFont, dirText, infoBox.x + 10, infoBox.y + 63, white);
+
+            SDL_Rect dirLeftBtn = { infoBox.x + 90, infoBox.y + 60, 22, 22 };
+            SDL_Rect dirRightBtn = { infoBox.x + 118, infoBox.y + 60, 22, 22 };
+            SDL_SetRenderDrawColor(r, 80, 80, 90, 255);
+            SDL_RenderFillRect(r, &dirLeftBtn);
+            SDL_RenderFillRect(r, &dirRightBtn);
+            SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
+            SDL_RenderDrawRect(r, &dirLeftBtn);
+            SDL_RenderDrawRect(r, &dirRightBtn);
+            renderTextCentered(r, st.uiFont, "<", dirLeftBtn, 0, white);
+            renderTextCentered(r, st.uiFont, ">", dirRightBtn, 0, white);
+
+            SDL_Rect visBtn = { infoBox.x + 10, infoBox.y + 85, 130, 20 };
+            if (st.getActive().visible) {
+                SDL_SetRenderDrawColor(r, 60, 160, 100, 255);
+            } else {
+                SDL_SetRenderDrawColor(r, 120, 120, 120, 255);
+            }
+            SDL_RenderFillRect(r, &visBtn);
+            SDL_SetRenderDrawColor(r, 20, 20, 20, 255);
+            SDL_RenderDrawRect(r, &visBtn);
+            string visText = st.getActive().visible ? "Visible: ON" : "Visible: OFF";
+            renderTextCentered(r, st.uiFont, visText, visBtn, 0, white);
+
+
+            SDL_Rect deleteBtn = { infoBox.x + 10, infoBox.y + 110, 130, 20 };
+            SDL_SetRenderDrawColor(r, 180, 60, 60, 255);
+            SDL_RenderFillRect(r, &deleteBtn);
+            SDL_SetRenderDrawColor(r, 20, 20, 20, 255);
+            SDL_RenderDrawRect(r, &deleteBtn);
+            renderTextCentered(r, st.uiFont, "Delete Sprite", deleteBtn, 0, white);
+        }
+
+        int vy = TOP_BAR_H + 8;
+        for (auto& kv : st.varVisible) {
+            if (!kv.second) continue;
+            string val = st.vars.count(kv.first) ? st.vars.at(kv.first).toString() : "0";
+            renderText(r, st.uiFont, kv.first + " = " + val, LEFT_PANEL_W + 12, vy, SDL_Color{220,220,220,255});
+            vy += 18;
+            if (vy > TOP_BAR_H + 140) break;
+        }
+    }
+
+    renderHelpMenu(st, r);
+    renderLogsPanel(st, r, w, h);
+    renderExtensionLibrary(st, r, w, h);
+    renderPenColorPicker(st, r, w, h);
+    renderFuncIOMenu(st, r, w, h);
+    renderDialogs(st, r, w, h);
+    renderSettings(st, r, w, h);
+
+    SDL_RenderPresent(r);
+}
+
+static int RunApp() {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO) != 0) {
+        fatalBox("SDL_Init failed", SDL_GetError());
+        return 1;
+    }
+
+    if (TTF_Init() != 0) {
+        fatalBox("TTF_Init failed", TTF_GetError());
+        SDL_Quit();
+        return 1;
+    }
+
+    SDL_Window* window = SDL_CreateWindow(
+            "YKP Base (SDL2)",
+            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+            WINDOW_W, WINDOW_H,
+            SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
+    );
+
+    if (!window) {
+        fatalBox("SDL_CreateWindow failed", SDL_GetError());
+        TTF_Quit();
+        SDL_Quit();
+        return 1;
+    }
+
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (!renderer) renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+
+    if (!renderer) {
+        fatalBox("SDL_CreateRenderer failed", SDL_GetError());
+        SDL_DestroyWindow(window);
+        TTF_Quit();
+        SDL_Quit();
+        return 1;
+    }
+
+    AppState st;
+    st.uiFont = loadUIFont(16);
+    if (!st.uiFont) {
+        fatalBox("Font load failed", "Could not load a system font.");
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        TTF_Quit();
+        SDL_Quit();
+        return 1;
+    }
+
+    penSyncRGB(st);
+    initAudioSystem(st);
+    initBGMSystem(st);
+    loadBGM(st, st.bgmFile);
+    initAssets(st, renderer);
+
+
+    int stageW = 480, stageH = 360, padding = 10;
+    st.stageBounds = SDL_Rect{WINDOW_W - stageW - padding, TOP_BAR_H + padding, stageW, stageH};
+
+    Sprite s1;
+    s1.name = "Sprite 1";
+    s1.x = st.stageBounds.x + st.stageBounds.w / 2.0;
+    s1.y = st.stageBounds.y + st.stageBounds.h / 2.0;
+    s1.backupX = s1.x;
+    s1.backupY = s1.y;
+    s1.icon = loadBMPTexture(renderer, st.actorIconFile, st.log);
+    st.sprites.push_back(s1);
+    st.activeSprite = 0;
+
+
+    st.getActive().ws.bounds = SDL_Rect{LEFT_PANEL_W, TOP_BAR_H, WINDOW_W - LEFT_PANEL_W, WINDOW_H - TOP_BAR_H};
+
+
+
+
+    setupUI(st);
+
+    while (!st.quit) {
+        st.in.beginFrame();
+        processEvents(st, window);
+        update(st, window);
+        render(st, renderer, window);
+        SDL_Delay(1);
+    }
+
+    SDL_StopTextInput();
+
+    shutdownAssets(st);
+    shutdownBGMSystem(st);
+    shutdownAudioSystem(st);
+
+    if (st.uiFont) TTF_CloseFont(st.uiFont);
+
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+
+    TTF_Quit();
+    SDL_Quit();
+    return 0;
+}
+
+int main(int argc, char** argv) {
+    (void)argc; (void)argv;
+    return RunApp();
+}
