@@ -4596,3 +4596,105 @@ static void render(const AppState& st, SDL_Renderer* r, SDL_Window* window) {
 
     SDL_RenderPresent(r);
 }
+
+static int RunApp() {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO) != 0) {
+        fatalBox("SDL_Init failed", SDL_GetError());
+        return 1;
+    }
+
+    if (TTF_Init() != 0) {
+        fatalBox("TTF_Init failed", TTF_GetError());
+        SDL_Quit();
+        return 1;
+    }
+
+    SDL_Window* window = SDL_CreateWindow(
+            "YKP Base (SDL2)",
+            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+            WINDOW_W, WINDOW_H,
+            SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
+    );
+
+    if (!window) {
+        fatalBox("SDL_CreateWindow failed", SDL_GetError());
+        TTF_Quit();
+        SDL_Quit();
+        return 1;
+    }
+
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (!renderer) renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+
+    if (!renderer) {
+        fatalBox("SDL_CreateRenderer failed", SDL_GetError());
+        SDL_DestroyWindow(window);
+        TTF_Quit();
+        SDL_Quit();
+        return 1;
+    }
+
+    AppState st;
+    st.uiFont = loadUIFont(16);
+    if (!st.uiFont) {
+        fatalBox("Font load failed", "Could not load a system font.");
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        TTF_Quit();
+        SDL_Quit();
+        return 1;
+    }
+
+    penSyncRGB(st);
+    initAudioSystem(st);
+    initBGMSystem(st);
+    loadBGM(st, st.bgmFile);
+    initAssets(st, renderer);
+
+
+    int stageW = 480, stageH = 360, padding = 10;
+    st.stageBounds = SDL_Rect{WINDOW_W - stageW - padding, TOP_BAR_H + padding, stageW, stageH};
+
+    Sprite s1;
+    s1.name = "Sprite 1";
+    s1.x = st.stageBounds.x + st.stageBounds.w / 2.0;
+    s1.y = st.stageBounds.y + st.stageBounds.h / 2.0;
+    s1.backupX = s1.x;
+    s1.backupY = s1.y;
+    s1.icon = loadBMPTexture(renderer, st.actorIconFile, st.log);
+    st.sprites.push_back(s1);
+    st.activeSprite = 0;
+
+
+    st.getActive().ws.bounds = SDL_Rect{LEFT_PANEL_W, TOP_BAR_H, WINDOW_W - LEFT_PANEL_W, WINDOW_H - TOP_BAR_H};
+
+    setupUI(st);
+
+    while (!st.quit) {
+        st.in.beginFrame();
+        processEvents(st, window);
+        update(st, window);
+        render(st, renderer, window);
+        SDL_Delay(1);
+    }
+
+    SDL_StopTextInput();
+
+    shutdownAssets(st);
+    shutdownBGMSystem(st);
+    shutdownAudioSystem(st);
+
+    if (st.uiFont) TTF_CloseFont(st.uiFont);
+
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+
+    TTF_Quit();
+    SDL_Quit();
+    return 0;
+}
+
+int main(int argc, char** argv) {
+    (void)argc; (void)argv;
+    return RunApp();
+}
