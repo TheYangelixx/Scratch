@@ -232,3 +232,137 @@ struct Button {
         if (!sub.empty()) renderTextCentered(r, font, sub, rect, +10, fg);  // میانبر پایین
     }
 };
+
+
+struct Block {
+    int id = 0;
+    SDL_Rect rect{};
+    SDL_Color color = {60, 150, 220, 255};
+
+    bool dragging = false;
+    int offX = 0, offY = 0;
+
+    string cmd = "MOVE";
+    double a = 40.0;
+    double b = 0.0;
+    string s1 = "";
+    string s2 = "";
+    int i1 = 0;
+
+    string opt = "";
+    SDL_Color pickColor = {0, 255, 0, 255};
+
+
+    string outSel = "last";
+};
+
+struct Workspace {
+    SDL_Rect bounds{};
+    vector<Block> blocks;
+    int nextId = 1;
+
+    void reset() {
+        blocks.clear();
+        nextId = 1;
+    }
+
+    void addBlock(int x, int y) {
+        Block b;
+        b.id = nextId++;
+        b.rect = SDL_Rect{x, y, 240, 52};
+        blocks.push_back(b);
+    }
+
+    int hitTest(int mx, int my) const {
+        for (int i = (int)blocks.size() - 1; i >= 0; --i) {
+            if (pointInRect(mx, my, blocks[i].rect)) return i;
+        }
+        return -1;
+    }
+
+    void bringToFront(int idx) {
+        if (idx < 0 || idx >= (int)blocks.size()) return;
+        Block b = blocks[idx];
+        blocks.erase(blocks.begin() + idx);
+        blocks.push_back(b);
+    }
+
+    void clampIntoBounds(Block& b) const {
+        b.rect.x = clampT(b.rect.x, bounds.x, bounds.x + bounds.w - b.rect.w);
+        b.rect.y = clampT(b.rect.y, bounds.y, bounds.y + bounds.h - b.rect.h);
+    }
+
+    void update(const InputState& in, Logger& log) {
+        if (in.mousePressed) {
+            int hit = hitTest(in.mx, in.my);
+            if (hit != -1) {
+                bringToFront(hit);
+                Block& top = blocks.back();
+                top.dragging = true;
+                top.offX = in.mx - top.rect.x;
+                top.offY = in.my - top.rect.y;
+                log.log("DRAG", "Pick block id=" + to_string(top.id));
+            }
+        }
+
+        if (in.mouseDown) {
+            for (size_t i = 0; i < blocks.size(); i++) {
+                Block& b = blocks[i];
+                if (!b.dragging) continue;
+
+                b.rect.x = in.mx - b.offX;
+                b.rect.y = in.my - b.offY;
+            }
+        }
+
+        if (in.mouseReleased) {
+            for (int i = (int)blocks.size() - 1; i >= 0; --i) {
+                Block& b = blocks[i];
+                if (b.dragging) {
+                    b.dragging = false;
+
+
+                    if (!pointInRect(in.mx, in.my, bounds)) {
+                        log.log("DRAG", "Deleted block id=" + to_string(b.id) + " (dropped outside)");
+                        blocks.erase(blocks.begin() + i);
+                    } else {
+                        int snapDist = 35;
+                        for (size_t j = 0; j < blocks.size(); ++j) {
+                            if (i == (int)j) continue;
+                            const Block& other = blocks[j];
+
+
+                            if (abs(b.rect.x - other.rect.x) < snapDist &&
+                                abs(b.rect.y - (other.rect.y + other.rect.h)) < snapDist) {
+                                b.rect.x = other.rect.x;
+                                b.rect.y = other.rect.y + other.rect.h;
+                                break;
+                            }
+                            if (abs(b.rect.x - other.rect.x) < snapDist &&
+                                abs((b.rect.y + b.rect.h) - other.rect.y) < snapDist) {
+                                b.rect.x = other.rect.x;
+                                b.rect.y = other.rect.y - b.rect.h;
+                                break;
+                            }
+                        }
+                        clampIntoBounds(b);
+                        log.log("DRAG", "Drop block id=" + to_string(b.id));
+                    }
+                }
+            }
+            std::stable_sort(blocks.begin(), blocks.end(), [](const Block& a1, const Block& a2) {
+                return a1.rect.y < a2.rect.y;
+            });
+        }
+    }
+
+    void draw(SDL_Renderer* r) const {
+        for (size_t i = 0; i < blocks.size(); i++) {
+            const Block& b = blocks[i];
+            SDL_SetRenderDrawColor(r, b.color.r, b.color.g, b.color.b, b.color.a);
+            SDL_RenderFillRect(r, &b.rect);
+            SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
+            SDL_RenderDrawRect(r, &b.rect);
+        }
+    }
+};
