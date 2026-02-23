@@ -1207,9 +1207,6 @@ static void renderSettings(const AppState& st, SDL_Renderer* r, int w, int h) {
     renderTextCentered(r, st.uiFont, "OK", okBtn, 0, white);
 }
 
-
-
-
 struct AppState;
 struct Block;
 
@@ -1485,3 +1482,1226 @@ static bool loadProjectNamed(const string& saveStem, AppState& st) {
     st.log.log("LOAD", "Loaded: " + path);
     return true;
 }
+
+static void beginSaveDialog(AppState& st) {
+    st.saveDialogOpen = true;
+    st.loadDialogOpen = false;
+    st.saveNameInput = "";
+    SDL_StartTextInput();
+}
+
+static void beginLoadDialog(AppState& st) {
+    st.loadDialogOpen = true;
+    st.saveDialogOpen = false;
+    st.saveList = listSaveStems();
+    st.loadHoverIndex = -1;
+    st.loadScroll = 0;
+    SDL_StopTextInput();
+}
+
+static void beginAskDialog(AppState& st, const string& question, int resumePC) {
+    st.askDialogOpen = true;
+    st.askQuestion = question;
+    st.askInput = "";
+    st.askResumePC = resumePC;
+    SDL_StartTextInput();
+    st.log.info(st.getActive().scriptPC, "ASK", "Open ask dialog", "q=" + question);
+}
+
+static void modalRects(int winW, int winH, SDL_Rect& modal, SDL_Rect& listArea) {
+    modal = SDL_Rect{winW/2 - 260, winH/2 - 180, 520, 360};
+    listArea = SDL_Rect{modal.x + 30, modal.y + 60, modal.w - 60, modal.h - 90};
+}
+
+static void updateLoadHover(AppState& st, int winW, int winH) {
+    if (!st.loadDialogOpen) return;
+
+    SDL_Rect modal{}, listArea{};
+    modalRects(winW, winH, modal, listArea);
+
+    st.loadHoverIndex = -1;
+    if (!pointInRect(st.in.mx, st.in.my, listArea)) return;
+
+    const int rowH = 28;
+    int local = (st.in.my - listArea.y) / rowH;
+    int idx = st.loadScroll + local;
+    if (idx >= 0 && idx < (int)st.saveList.size()) st.loadHoverIndex = idx;
+}
+
+static bool handleDialogsEvent(AppState& st, const SDL_Event& e, int winW, int winH) {
+    // --- Ask Dialog (highest priority)
+
+    // --- Rename Dialog
+    if (st.renameDialogOpen) {
+        if (e.type == SDL_KEYDOWN && !e.key.repeat) {
+            if (e.key.keysym.sym == SDLK_ESCAPE) {
+                st.renameDialogOpen = false;
+                SDL_StopTextInput();
+                return true;
+            }
+            if (e.key.keysym.sym == SDLK_BACKSPACE) {
+                if (!st.renameInput.empty()) st.renameInput.pop_back();
+                return true;
+            }
+            if (e.key.keysym.sym == SDLK_RETURN) {
+                if (!st.renameInput.empty()) st.getActive().name = st.renameInput;
+                st.renameDialogOpen = false;
+                SDL_StopTextInput();
+                return true;
+            }
+        }
+        if (e.type == SDL_TEXTINPUT) {
+            st.renameInput += e.text.text;
+            return true;
+        }
+        if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+            SDL_Rect modal = {winW/2 - 220, winH/2 - 90, 440, 180};
+            SDL_Rect okBtn  = {modal.x + 260, modal.y + 120, 140, 40};
+            SDL_Rect canBtn = {modal.x +  40, modal.y + 120, 140, 40};
+
+            if (pointInRect(e.button.x, e.button.y, okBtn)) {
+                if (!st.renameInput.empty()) st.getActive().name = st.renameInput;
+                st.renameDialogOpen = false;
+                SDL_StopTextInput();
+                return true;
+            }
+            if (pointInRect(e.button.x, e.button.y, canBtn)) {
+                st.renameDialogOpen = false;
+                SDL_StopTextInput();
+                return true;
+            }
+            return true;
+        }
+        return true;
+    }
+    if (st.askDialogOpen) {
+        if (e.type == SDL_KEYDOWN && !e.key.repeat) {
+            if (e.key.keysym.sym == SDLK_ESCAPE) {
+                st.askDialogOpen = false;
+                SDL_StopTextInput();
+                st.lastAnswer = "";
+                st.getActive().scriptPC = st.askResumePC;
+                st.askResumePC = -1;
+                st.log.warn(st.getActive().scriptPC, "ASK", "Ask cancelled", "");
+                return true;
+            }
+            if (e.key.keysym.sym == SDLK_BACKSPACE) {
+                if (!st.askInput.empty()) st.askInput.pop_back();
+                return true;
+            }
+            if (e.key.keysym.sym == SDLK_RETURN) {
+                st.lastAnswer = st.askInput;
+                st.askDialogOpen = false;
+                SDL_StopTextInput();
+                st.getActive().scriptPC = st.askResumePC;
+                st.askResumePC = -1;
+                st.log.info(st.getActive().scriptPC, "ASK", "Answer received", "ans=" + st.lastAnswer);
+                return true;
+            }
+        }
+        if (e.type == SDL_TEXTINPUT) {
+            st.askInput += e.text.text;
+            return true;
+        }
+        if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+            const int mx = e.button.x, my = e.button.y;
+
+            SDL_Rect modal = {winW/2 - 260, winH/2 - 120, 520, 240};
+            SDL_Rect okBtn  = {modal.x + modal.w - 180, modal.y + modal.h - 60, 140, 40};
+            SDL_Rect canBtn = {modal.x +  40,         modal.y + modal.h - 60, 140, 40};
+
+            if (pointInRect(mx, my, okBtn)) {
+                st.lastAnswer = st.askInput;
+                st.askDialogOpen = false;
+                SDL_StopTextInput();
+                st.getActive().scriptPC = st.askResumePC;
+                st.askResumePC = -1;
+                st.log.info(st.getActive().scriptPC, "ASK", "Answer received (click)", "ans=" + st.lastAnswer);
+                return true;
+            }
+            if (pointInRect(mx, my, canBtn)) {
+                st.askDialogOpen = false;
+                SDL_StopTextInput();
+                st.lastAnswer = "";
+                st.getActive().scriptPC = st.askResumePC;
+                st.askResumePC = -1;
+                st.log.warn(st.getActive().scriptPC, "ASK", "Ask cancelled (click)", "");
+                return true;
+            }
+            return true;
+        }
+
+        return true;
+    }
+
+    // --- Save Dialog
+    if (st.saveDialogOpen) {
+        if (e.type == SDL_KEYDOWN && !e.key.repeat) {
+            if (e.key.keysym.sym == SDLK_ESCAPE) {
+                st.saveDialogOpen = false;
+                SDL_StopTextInput();
+                return true;
+            }
+            if (e.key.keysym.sym == SDLK_BACKSPACE) {
+                if (!st.saveNameInput.empty()) st.saveNameInput.pop_back();
+                return true;
+            }
+            if (e.key.keysym.sym == SDLK_RETURN) {
+                string stem = sanitizeStem(st.saveNameInput);
+                bool ok = saveProjectNamed(stem, st);
+                st.saveDialogOpen = false;
+                SDL_StopTextInput();
+                if (ok) infoBox("Saved", "Project saved successfully.");
+                else    infoBox("Save failed", "Could not save the project.");
+                return true;
+            }
+        }
+        if (e.type == SDL_TEXTINPUT) {
+            st.saveNameInput += e.text.text;
+            return true;
+        }
+        if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+            const int mx = e.button.x, my = e.button.y;
+
+            SDL_Rect modal = {winW/2 - 220, winH/2 - 90, 440, 180};
+            SDL_Rect okBtn  = {modal.x + 260, modal.y + 120, 140, 40};
+            SDL_Rect canBtn = {modal.x +  40, modal.y + 120, 140, 40};
+
+            if (pointInRect(mx, my, okBtn)) {
+                string stem = sanitizeStem(st.saveNameInput);
+                bool ok = saveProjectNamed(stem, st);
+                st.saveDialogOpen = false;
+                SDL_StopTextInput();
+                if (ok) infoBox("Saved", "Project saved successfully.");
+                else    infoBox("Save failed", "Could not save the project.");
+                return true;
+            }
+            if (pointInRect(mx, my, canBtn)) {
+                st.saveDialogOpen = false;
+                SDL_StopTextInput();
+                return true;
+            }
+            return true;
+        }
+
+        return true;
+    }
+
+    if (st.loadDialogOpen) {
+        if (e.type == SDL_KEYDOWN && !e.key.repeat) {
+            if (e.key.keysym.sym == SDLK_ESCAPE) {
+                st.loadDialogOpen = false;
+                return true;
+            }
+        }
+
+        if (e.type == SDL_MOUSEWHEEL) {
+            const int rowStep = (e.wheel.y > 0) ? -1 : (e.wheel.y < 0 ? +1 : 0);
+            if (rowStep != 0) {
+                SDL_Rect modal{}, listArea{};
+                modalRects(winW, winH, modal, listArea);
+
+                int rowH = 28;
+                int visible = listArea.h / rowH;
+                int maxScroll = max(0, (int)st.saveList.size() - visible);
+
+                st.loadScroll = clampT(st.loadScroll + rowStep, 0, maxScroll);
+            }
+            return true;
+        }
+
+        if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+            const int mx = e.button.x, my = e.button.y;
+
+            SDL_Rect modal{}, listArea{};
+            modalRects(winW, winH, modal, listArea);
+
+            if (!pointInRect(mx, my, modal)) {
+                st.loadDialogOpen = false;
+                return true;
+            }
+
+            if (pointInRect(mx, my, listArea)) {
+                const int rowH = 28;
+                int local = (my - listArea.y) / rowH;
+                int idx = st.loadScroll + local;
+
+                if (idx >= 0 && idx < (int)st.saveList.size()) {
+                    bool ok = loadProjectNamed(st.saveList[idx], st);
+                    st.loadDialogOpen = false;
+                    if (ok) infoBox("Loaded", "Project loaded successfully.");
+                    else    infoBox("Load failed", "Could not load the project.");
+                    return true;
+                }
+            }
+            return true;
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+static void renderDialogs(const AppState& st, SDL_Renderer* r, int winW, int winH) {
+    if (!st.saveDialogOpen && !st.loadDialogOpen && !st.askDialogOpen && !st.renameDialogOpen) return;
+
+    SDL_SetRenderDrawColor(r, 0, 0, 0, 160);
+    SDL_Rect full = {0, 0, winW, winH};
+    SDL_RenderFillRect(r, &full);
+
+    SDL_Color white = {240, 240, 240, 255};
+
+    if (st.askDialogOpen) {
+        SDL_Rect modal = {winW/2 - 260, winH/2 - 120, 520, 240};
+        SDL_SetRenderDrawColor(r, 40, 40, 46, 255);
+        SDL_RenderFillRect(r, &modal);
+        SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
+        SDL_RenderDrawRect(r, &modal);
+
+        renderText(r, st.uiFont, "Ask", modal.x + 20, modal.y + 14, white);
+        renderText(r, st.uiFont, st.askQuestion, modal.x + 20, modal.y + 40, white);
+
+        SDL_Rect field = {modal.x + 20, modal.y + 80, modal.w - 40, 40};
+        SDL_SetRenderDrawColor(r, 25, 25, 28, 255);
+        SDL_RenderFillRect(r, &field);
+        SDL_SetRenderDrawColor(r, 120, 120, 120, 255);
+        SDL_RenderDrawRect(r, &field);
+
+        string shown = st.askInput.empty() ? "type answer..." : st.askInput;
+        renderText(r, st.uiFont, shown, field.x + 10, field.y + 8, white);
+
+        SDL_Rect okBtn  = {modal.x + modal.w - 180, modal.y + modal.h - 60, 140, 40};
+        SDL_Rect canBtn = {modal.x +  40,         modal.y + modal.h - 60, 140, 40};
+
+        SDL_SetRenderDrawColor(r, 60, 140, 70, 255);
+        SDL_RenderFillRect(r, &okBtn);
+        SDL_SetRenderDrawColor(r, 140, 60, 60, 255);
+        SDL_RenderFillRect(r, &canBtn);
+
+        SDL_SetRenderDrawColor(r, 20, 20, 20, 255);
+        SDL_RenderDrawRect(r, &okBtn);
+        SDL_RenderDrawRect(r, &canBtn);
+
+        renderTextCentered(r, st.uiFont, "OK", okBtn, -6, white);
+        renderTextCentered(r, st.uiFont, "Enter", okBtn, +10, white);
+
+        renderTextCentered(r, st.uiFont, "Cancel", canBtn, -6, white);
+        renderTextCentered(r, st.uiFont, "Esc", canBtn, +10, white);
+    }
+    if (st.renameDialogOpen) {
+        SDL_Rect modal = {winW/2 - 220, winH/2 - 90, 440, 180};
+        SDL_SetRenderDrawColor(r, 40, 40, 46, 255);
+        SDL_RenderFillRect(r, &modal);
+        SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
+        SDL_RenderDrawRect(r, &modal);
+
+        renderText(r, st.uiFont, "Rename Sprite", modal.x + 20, modal.y + 14, white);
+
+        SDL_Rect field = {modal.x + 20, modal.y + 55, modal.w - 40, 40};
+        SDL_SetRenderDrawColor(r, 25, 25, 28, 255);
+        SDL_RenderFillRect(r, &field);
+        SDL_SetRenderDrawColor(r, 120, 120, 120, 255);
+        SDL_RenderDrawRect(r, &field);
+
+        string shown = st.renameInput.empty() ? "type new name..." : st.renameInput;
+        renderText(r, st.uiFont, shown, field.x + 10, field.y + 8, white);
+
+        SDL_Rect okBtn  = {modal.x + 260, modal.y + 120, 140, 40};
+        SDL_Rect canBtn = {modal.x +  40, modal.y + 120, 140, 40};
+
+        SDL_SetRenderDrawColor(r, 60, 140, 70, 255);
+        SDL_RenderFillRect(r, &okBtn);
+        SDL_SetRenderDrawColor(r, 140, 60, 60, 255);
+        SDL_RenderFillRect(r, &canBtn);
+
+        SDL_SetRenderDrawColor(r, 20, 20, 20, 255);
+        SDL_RenderDrawRect(r, &okBtn);
+        SDL_RenderDrawRect(r, &canBtn);
+
+        renderTextCentered(r, st.uiFont, "OK", okBtn, -6, white);
+        renderTextCentered(r, st.uiFont, "Enter", okBtn, +10, white);
+        renderTextCentered(r, st.uiFont, "Cancel", canBtn, -6, white);
+        renderTextCentered(r, st.uiFont, "Esc", canBtn, +10, white);
+    }
+
+    if (st.saveDialogOpen) {
+        SDL_Rect modal = {winW/2 - 220, winH/2 - 90, 440, 180};
+        SDL_SetRenderDrawColor(r, 40, 40, 46, 255);
+        SDL_RenderFillRect(r, &modal);
+        SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
+        SDL_RenderDrawRect(r, &modal);
+
+        renderText(r, st.uiFont, "Save Project", modal.x + 20, modal.y + 14, white);
+
+        SDL_Rect field = {modal.x + 20, modal.y + 55, modal.w - 40, 40};
+        SDL_SetRenderDrawColor(r, 25, 25, 28, 255);
+        SDL_RenderFillRect(r, &field);
+        SDL_SetRenderDrawColor(r, 120, 120, 120, 255);
+        SDL_RenderDrawRect(r, &field);
+
+        string shown = st.saveNameInput.empty() ? "type a name..." : st.saveNameInput;
+        renderText(r, st.uiFont, shown, field.x + 10, field.y + 8, white);
+
+        SDL_Rect okBtn  = {modal.x + 260, modal.y + 120, 140, 40};
+        SDL_Rect canBtn = {modal.x +  40, modal.y + 120, 140, 40};
+
+        SDL_SetRenderDrawColor(r, 60, 140, 70, 255);
+        SDL_RenderFillRect(r, &okBtn);
+        SDL_SetRenderDrawColor(r, 140, 60, 60, 255);
+        SDL_RenderFillRect(r, &canBtn);
+
+        SDL_SetRenderDrawColor(r, 20, 20, 20, 255);
+        SDL_RenderDrawRect(r, &okBtn);
+        SDL_RenderDrawRect(r, &canBtn);
+
+        renderTextCentered(r, st.uiFont, "OK", okBtn, -6, white);
+        renderTextCentered(r, st.uiFont, "Enter", okBtn, +10, white);
+
+        renderTextCentered(r, st.uiFont, "Cancel", canBtn, -6, white);
+        renderTextCentered(r, st.uiFont, "Esc", canBtn, +10, white);
+    }
+
+    if (st.loadDialogOpen) {
+        SDL_Rect modal{}, listArea{};
+        modalRects(winW, winH, modal, listArea);
+
+        SDL_SetRenderDrawColor(r, 40, 40, 46, 255);
+        SDL_RenderFillRect(r, &modal);
+        SDL_SetRenderDrawColor(r, 200, 200, 200, 255);
+        SDL_RenderDrawRect(r, &modal);
+
+        renderText(r, st.uiFont, "Load Project", modal.x + 20, modal.y + 14, white);
+        renderText(r, st.uiFont, "Click a save to load. (Esc to close)", modal.x + 20, modal.y + 34, white);
+
+        SDL_SetRenderDrawColor(r, 25, 25, 28, 255);
+        SDL_RenderFillRect(r, &listArea);
+        SDL_SetRenderDrawColor(r, 120, 120, 120, 255);
+        SDL_RenderDrawRect(r, &listArea);
+
+        const int rowH = 28;
+        int visible = listArea.h / rowH;
+        int start = st.loadScroll;
+        int end = min((int)st.saveList.size(), start + visible);
+
+        for (int i = start; i < end; i++) {
+            int y = listArea.y + (i - start) * rowH;
+            SDL_Rect row = {listArea.x, y, listArea.w, rowH};
+
+            bool hover = (i == st.loadHoverIndex);
+
+            if (hover) SDL_SetRenderDrawColor(r, 60, 60, 70, 255);
+            else       SDL_SetRenderDrawColor(r, ((i % 2) ? 34 : 30), ((i % 2) ? 34 : 30), ((i % 2) ? 38 : 34), 255);
+
+            SDL_RenderFillRect(r, &row);
+
+            renderText(r, st.uiFont, st.saveList[i], row.x + 10, row.y + 4, white);
+        }
+
+        if (st.saveList.empty()) {
+            renderText(r, st.uiFont, "No saves found in SMemory.", listArea.x + 10, listArea.y + 10, white);
+        }
+    }
+}
+static SDL_Color hsvToRgb(double h, double s, double v) {
+    s = clampT(s, 0.0, 100.0) / 100.0;
+    v = clampT(v, 0.0, 100.0) / 100.0;
+    h = fmod(h, 360.0);
+    if (h < 0) h += 360.0;
+
+    double c = v * s;
+    double x = c * (1.0 - fabs(fmod(h / 60.0, 2.0) - 1.0));
+    double m = v - c;
+
+    double r=0,g=0,b=0;
+    if      (h < 60)  { r=c; g=x; b=0; }
+    else if (h < 120) { r=x; g=c; b=0; }
+    else if (h < 180) { r=0; g=c; b=x; }
+    else if (h < 240) { r=0; g=x; b=c; }
+    else if (h < 300) { r=x; g=0; b=c; }
+    else              { r=c; g=0; b=x; }
+
+    Uint8 R = (Uint8)clampT((int)round((r + m) * 255.0), 0, 255);
+    Uint8 G = (Uint8)clampT((int)round((g + m) * 255.0), 0, 255);
+    Uint8 B = (Uint8)clampT((int)round((b + m) * 255.0), 0, 255);
+    return SDL_Color{R,G,B,255};
+}
+
+static void rgbToHsv(const SDL_Color& c, double& outH, double& outS, double& outV) {
+    double r = c.r / 255.0;
+    double g = c.g / 255.0;
+    double b = c.b / 255.0;
+
+    double mx = max(r, max(g,b));
+    double mn = min(r, min(g,b));
+    double d = mx - mn;
+
+    double h = 0.0;
+    if (d == 0.0) h = 0.0;
+    else if (mx == r) h = 60.0 * fmod(((g - b) / d), 6.0);
+    else if (mx == g) h = 60.0 * (((b - r) / d) + 2.0);
+    else              h = 60.0 * (((r - g) / d) + 4.0);
+
+    if (h < 0) h += 360.0;
+
+    double s = (mx == 0.0) ? 0.0 : (d / mx);
+    double v = mx;
+
+    outH = h;
+    outS = s * 100.0;
+    outV = v * 100.0;
+}
+
+static bool isPenCmd(const string& cmd) {
+    return cmd.rfind("PEN_", 0) == 0;
+}
+
+static void penSyncRGB(AppState& st) {
+    st.penRGB = hsvToRgb(st.penHue, st.penSat, st.penBri);
+}
+
+static string penNextAttr(const string& cur) {
+    if (cur == "COLOR") return "SAT";
+    if (cur == "SAT")   return "BRI";
+    return "COLOR";
+}
+
+static void penClearAll(AppState& st) {
+    st.penSegs.clear();
+    st.penStamps.clear();
+}
+
+static void penAddSegment(AppState& st, double x1, double y1, double x2, double y2) {
+    PenSegment seg;
+    seg.x1 = x1; seg.y1 = y1; seg.x2 = x2; seg.y2 = y2;
+    seg.c = st.penRGB;
+    seg.size = st.penSize;
+    st.penSegs.push_back(seg);
+}
+
+static void penAddStamp(AppState& st) {
+    PenStamp s;
+    s.x = st.getActive().x;
+    s.y = st.getActive().y;
+    s.costumeIndex = st.getActive().costumeIndex;
+    s.dirDeg = st.getActive().dirDeg;
+    s.sizePct = st.getActive().sizePct;
+    st.penStamps.push_back(s);
+}
+
+
+static void drawThickLine(SDL_Renderer* r, double x1, double y1, double x2, double y2, SDL_Color c, int size) {
+    size = clampT(size, 1, 30);
+    double dx = x2 - x1;
+    double dy = y2 - y1;
+    double steps = max(fabs(dx), fabs(dy));
+    if (steps < 1.0) steps = 1.0;
+
+    SDL_SetRenderDrawColor(r, c.r, c.g, c.b, c.a);
+
+    for (int i = 0; i <= (int)steps; i++) {
+        double t = (double)i / steps;
+        int px = (int)round(x1 + dx * t);
+        int py = (int)round(y1 + dy * t);
+        SDL_Rect dot{px - size/2, py - size/2, size, size};
+        SDL_RenderFillRect(r, &dot);
+    }
+}
+static void renderPenLayer(const AppState& st, SDL_Renderer* r) {
+
+    for (const auto& seg : st.penSegs) {
+        drawThickLine(r, seg.x1, seg.y1, seg.x2, seg.y2, seg.c, seg.size);
+    }
+
+    for (const auto& sp : st.penStamps) {
+
+        SDL_Texture* useTex = nullptr;
+
+        if (!st.costumes.empty()) {
+            int ci = sp.costumeIndex;
+            if (ci < 0) ci = 0;
+            ci %= (int)st.costumes.size();
+            if (st.costumes[ci].tex) useTex = st.costumes[ci].tex;
+        }
+        if (!useTex && st.actorIcon.tex) useTex = st.actorIcon.tex;
+
+        int sizePx = (int)clampT((int)round(80.0 * (sp.sizePct / 100.0)), 10, 300);
+        SDL_Rect dst{(int)round(sp.x) - sizePx/2, (int)round(sp.y) - sizePx/2, sizePx, sizePx};
+
+        if (useTex) {
+
+            double angle = sp.dirDeg - 90.0;
+            SDL_RenderCopyEx(r, useTex, nullptr, &dst, angle, nullptr, SDL_FLIP_NONE);
+            SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
+            SDL_RenderDrawRect(r, &dst);
+        } else {
+            SDL_SetRenderDrawColor(r, 240, 240, 240, 255);
+            SDL_RenderFillRect(r, &dst);
+            SDL_SetRenderDrawColor(r, 10, 10, 10, 255);
+            SDL_RenderDrawRect(r, &dst);
+        }
+    }
+}
+
+static void openExtensionLibrary(AppState& st) {
+    st.extensionLibraryOpen = true;
+    st.helpMenuOpen = false;
+    st.showLogsPanel = false;
+    st.penColorPickerOpen = false;
+    st.funcIOMenuOpen = false;
+    st.funcIOMenuBlockIndex = -1;
+    st.log.info(-1, "EXT", "Open library", "");
+}
+
+static SDL_Rect extensionLibraryRect(int w, int h) {
+    return SDL_Rect{w/2 - 320, h/2 - 220, 640, 440};
+}
+
+static SDL_Rect extensionItemRect(const SDL_Rect& box, int i) {
+    return SDL_Rect{box.x + 30, box.y + 90 + i*70, box.w - 60, 56};
+}
+
+static bool handleExtensionLibraryEvent(AppState& st, const SDL_Event& e, int w, int h) {
+    if (!st.extensionLibraryOpen) return false;
+
+    if (e.type == SDL_KEYDOWN && !e.key.repeat) {
+        if (e.key.keysym.sym == SDLK_ESCAPE) {
+            st.extensionLibraryOpen = false;
+            st.log.info(-1, "EXT", "Close library (Esc)", "");
+            return true;
+        }
+    }
+
+    if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+        int mx = e.button.x, my = e.button.y;
+        SDL_Rect box = extensionLibraryRect(w,h);
+
+        if (!pointInRect(mx, my, box)) {
+            st.extensionLibraryOpen = false;
+            st.log.info(-1, "EXT", "Close library (outside click)", "");
+            return true;
+        }
+
+        SDL_Rect penItem = extensionItemRect(box, 0);
+        if (pointInRect(mx, my, penItem)) {
+            st.penExtensionEnabled = true;
+            st.extensionLibraryOpen = false;
+            st.paletteDirty = true;
+            st.log.info(-1, "EXT", "Enable Pen", "installed=1");
+            return true;
+        }
+
+        return true;
+    }
+
+    return true;
+}
+
+static void renderExtensionLibrary(const AppState& st, SDL_Renderer* r, int w, int h) {
+    if (!st.extensionLibraryOpen) return;
+
+    SDL_SetRenderDrawColor(r, 0,0,0,170);
+    SDL_Rect full{0,0,w,h};
+    SDL_RenderFillRect(r, &full);
+
+    SDL_Rect box = extensionLibraryRect(w,h);
+    SDL_SetRenderDrawColor(r, 40,40,46,255);
+    SDL_RenderFillRect(r, &box);
+    SDL_SetRenderDrawColor(r, 200,200,200,255);
+    SDL_RenderDrawRect(r, &box);
+
+    SDL_Color white{240,240,240,255};
+    renderText(r, st.uiFont, "Extension Library (Esc to close)", box.x + 20, box.y + 18, white);
+    renderText(r, st.uiFont, "Click an extension to enable it:", box.x + 20, box.y + 44, white);
+
+    SDL_Rect penItem = extensionItemRect(box, 0);
+    SDL_SetRenderDrawColor(r, 30,30,34,255);
+    SDL_RenderFillRect(r, &penItem);
+    SDL_SetRenderDrawColor(r, 15,15,15,255);
+    SDL_RenderDrawRect(r, &penItem);
+    string penLabel = "Pen";
+    string penState = st.penExtensionEnabled ? "Installed" : "Click to enable";
+    renderText(r, st.uiFont, penLabel, penItem.x + 16, penItem.y + 10, white);
+    renderText(r, st.uiFont, penState, penItem.x + 16, penItem.y + 30, white);
+
+    SDL_Rect sw{penItem.x + penItem.w - 44, penItem.y + 12, 28, 28};
+    SDL_SetRenderDrawColor(r, 40,180,90,255);
+    SDL_RenderFillRect(r, &sw);
+    SDL_SetRenderDrawColor(r, 10,10,10,255);
+    SDL_RenderDrawRect(r, &sw);
+}
+
+// ---- Pen color picker (minimal preset palette)
+static SDL_Rect colorPickerRect(int w, int h) {
+    return SDL_Rect{w/2 - 250, h/2 - 180, 500, 360};
+}
+
+static bool handlePenColorPickerEvent(AppState& st, const SDL_Event& e, int w, int h) {
+    if (!st.penColorPickerOpen) return false;
+
+    if (e.type == SDL_KEYDOWN && !e.key.repeat) {
+        if (e.key.keysym.sym == SDLK_ESCAPE) {
+            st.penColorPickerOpen = false;
+            st.penColorPickerBlockIndex = -1;
+            st.log.info(-1, "PEN", "Close color picker (Esc)", "");
+            return true;
+        }
+    }
+
+    if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+        int mx = e.button.x, my = e.button.y;
+        SDL_Rect box = colorPickerRect(w,h);
+
+        if (!pointInRect(mx, my, box)) {
+            st.penColorPickerOpen = false;
+            st.penColorPickerBlockIndex = -1;
+            st.log.info(-1, "PEN", "Close color picker (outside click)", "");
+            return true;
+        }
+
+        SDL_Color presets[12] = {
+                {255,0,0,255},{255,128,0,255},{255,255,0,255},{128,255,0,255},
+                {0,255,0,255},{0,255,128,255},{0,255,255,255},{0,128,255,255},
+                {0,0,255,255},{128,0,255,255},{255,0,255,255},{255,255,255,255}
+        };
+
+        int gridX = box.x + 40;
+        int gridY = box.y + 90;
+        int cell = 60;
+        int cols = 4;
+
+        for (int i = 0; i < 12; i++) {
+            int cx = gridX + (i % cols) * cell;
+            int cy = gridY + (i / cols) * cell;
+            SDL_Rect rc{cx, cy, 44, 44};
+            if (pointInRect(mx,my,rc)) {
+                SDL_Color chosen = presets[i];
+
+                rgbToHsv(chosen, st.penHue, st.penSat, st.penBri);
+                penSyncRGB(st);
+
+                if (st.penColorPickerBlockIndex >= 0 &&
+                    st.penColorPickerBlockIndex < (int)st.getActive().ws.blocks.size()) {
+                    Block& b = st.getActive().ws.blocks[st.penColorPickerBlockIndex];
+                    b.pickColor = chosen;
+                }
+
+                st.penColorPickerOpen = false;
+                st.penColorPickerBlockIndex = -1;
+                st.log.info(-1, "PEN", "Pick color",
+                            "rgb=(" + to_string((int)chosen.r) + "," +
+                            to_string((int)chosen.g) + "," +
+                            to_string((int)chosen.b) + ")");
+                return true;
+            }
+        }
+
+        return true;
+    }
+
+    return true;
+}
+
+static void renderPenColorPicker(const AppState& st, SDL_Renderer* r, int w, int h) {
+    if (!st.penColorPickerOpen) return;
+
+    SDL_SetRenderDrawColor(r, 0,0,0,170);
+    SDL_Rect full{0,0,w,h};
+    SDL_RenderFillRect(r, &full);
+
+    SDL_Rect box = colorPickerRect(w,h);
+    SDL_SetRenderDrawColor(r, 40,40,46,255);
+    SDL_RenderFillRect(r, &box);
+    SDL_SetRenderDrawColor(r, 200,200,200,255);
+    SDL_RenderDrawRect(r, &box);
+
+    SDL_Color white{240,240,240,255};
+    renderText(r, st.uiFont, "Pick Pen Color (Esc to close)", box.x + 20, box.y + 18, white);
+    renderText(r, st.uiFont, "Click a color:", box.x + 20, box.y + 44, white);
+
+    SDL_Color presets[12] = {
+            {255,0,0,255},{255,128,0,255},{255,255,0,255},{128,255,0,255},
+            {0,255,0,255},{0,255,128,255},{0,255,255,255},{0,128,255,255},
+            {0,0,255,255},{128,0,255,255},{255,0,255,255},{255,255,255,255}
+    };
+
+    int gridX = box.x + 40;
+    int gridY = box.y + 90;
+    int cell = 60;
+    int cols = 4;
+
+    for (int i = 0; i < 12; i++) {
+        int cx = gridX + (i % cols) * cell;
+        int cy = gridY + (i / cols) * cell;
+        SDL_Rect rc{cx, cy, 44, 44};
+
+        SDL_SetRenderDrawColor(r, presets[i].r, presets[i].g, presets[i].b, 255);
+        SDL_RenderFillRect(r, &rc);
+        SDL_SetRenderDrawColor(r, 10,10,10,255);
+        SDL_RenderDrawRect(r, &rc);
+    }
+
+    SDL_Rect prev{box.x + box.w - 86, box.y + 18, 56, 56};
+    SDL_SetRenderDrawColor(r, st.penRGB.r, st.penRGB.g, st.penRGB.b, 255);
+    SDL_RenderFillRect(r, &prev);
+    SDL_SetRenderDrawColor(r, 10,10,10,255);
+    SDL_RenderDrawRect(r, &prev);
+}
+
+// =========================
+// Section 5: Function I/O Menu (Modal)
+// =========================
+static SDL_Rect funcIOMenuRect(int w, int h) {
+    return SDL_Rect{w/2 - 260, h/2 - 150, 520, 300};
+}
+
+static const vector<string>& funcList() {
+    static vector<string> v = {"sqrt","abs","sin","cos","tan","round","floor","ceil"};
+    return v;
+}
+static const vector<string>& funcInputList() {
+    // minimal sources
+    static vector<string> v = {"last","v","score","msg","mouseX","mouseY","timer","answer","actorX","actorY","dir"};
+    return v;
+}
+static const vector<string>& funcOutputList() {
+    static vector<string> v = {"last","v","score","msg"};
+    return v;
+}
+
+static int indexOfStr(const vector<string>& v, const string& s) {
+    for (int i = 0; i < (int)v.size(); i++) if (v[i] == s) return i;
+    return -1;
+}
+
+static string cycleStrInList(const vector<string>& v, const string& cur) {
+    if (v.empty()) return cur;
+    int idx = indexOfStr(v, cur);
+    if (idx < 0) return v[0];
+    return v[(idx + 1) % (int)v.size()];
+}
+
+static string prettyIO(const string& token) {
+    if (token == "last")   return "lastValue";
+    if (token == "mouseX") return "mouseX";
+    if (token == "mouseY") return "mouseY";
+    if (token == "timer")  return "timer(sec)";
+    if (token == "answer") return "answer";
+    if (token == "actorX") return "actorX";
+    if (token == "actorY") return "actorY";
+    if (token == "dir")    return "direction";
+    return string("var: ") + token;
+}
+
+static void openFuncIOMenu(AppState& st, int blockIndex) {
+    if (blockIndex < 0 || blockIndex >= (int)st.getActive().ws.blocks.size()) return;
+    if (st.getActive().ws.blocks[blockIndex].cmd != "FUNC_APPLY") return;
+
+    st.funcIOMenuOpen = true;
+    st.funcIOMenuBlockIndex = blockIndex;
+
+    // close other overlays
+    st.helpMenuOpen = false;
+    st.showLogsPanel = false;
+    st.extensionLibraryOpen = false;
+    st.penColorPickerOpen = false;
+
+    st.log.info(blockIndex, "FUNC", "Open I/O menu", "");
+}
+
+static void closeFuncIOMenu(AppState& st, const string& why) {
+    if (!st.funcIOMenuOpen) return;
+    st.funcIOMenuOpen = false;
+    st.funcIOMenuBlockIndex = -1;
+    st.log.info(-1, "FUNC", "Close I/O menu", why);
+}
+
+static bool handleFuncIOMenuEvent(AppState& st, const SDL_Event& e, int w, int h) {
+    if (!st.funcIOMenuOpen) return false;
+
+    if (e.type == SDL_KEYDOWN && !e.key.repeat) {
+        if (e.key.keysym.sym == SDLK_ESCAPE) {
+            closeFuncIOMenu(st, "Esc");
+            return true;
+        }
+    }
+
+    if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+        int mx = e.button.x, my = e.button.y;
+        SDL_Rect box = funcIOMenuRect(w,h);
+
+        if (!pointInRect(mx, my, box)) {
+            closeFuncIOMenu(st, "outside click");
+            return true;
+        }
+
+        int bi = st.funcIOMenuBlockIndex;
+        if (bi < 0 || bi >= (int)st.getActive().ws.blocks.size()) {
+            closeFuncIOMenu(st, "invalid index");
+            return true;
+        }
+        Block& b = st.getActive().ws.blocks[bi];
+
+        SDL_Rect rowFn  = {box.x + 30, box.y + 80,  box.w - 60, 38};
+        SDL_Rect rowIn  = {box.x + 30, box.y + 126, box.w - 60, 38};
+        SDL_Rect rowOut = {box.x + 30, box.y + 172, box.w - 60, 38};
+
+        SDL_Rect okBtn  = {box.x + box.w - 180, box.y + box.h - 60, 140, 40};
+        SDL_Rect canBtn = {box.x +  40,         box.y + box.h - 60, 140, 40};
+
+        if (pointInRect(mx,my,rowFn)) {
+            b.s1 = cycleStrInList(funcList(), b.s1.empty() ? "sqrt" : b.s1);
+            st.log.info(bi, "FUNC_APPLY", "Cycle function", "fn=" + b.s1);
+            return true;
+        }
+        if (pointInRect(mx,my,rowIn)) {
+            b.inSel = cycleStrInList(funcInputList(), b.inSel.empty() ? "last" : b.inSel);
+            st.log.info(bi, "FUNC_APPLY", "Cycle input", "in=" + b.inSel);
+            return true;
+        }
+        if (pointInRect(mx,my,rowOut)) {
+            b.outSel = cycleStrInList(funcOutputList(), b.outSel.empty() ? "last" : b.outSel);
+            st.log.info(bi, "FUNC_APPLY", "Cycle output", "out=" + b.outSel);
+            return true;
+        }
+
+        if (pointInRect(mx,my,okBtn)) {
+            closeFuncIOMenu(st, "OK");
+            return true;
+        }
+        if (pointInRect(mx,my,canBtn)) {
+            closeFuncIOMenu(st, "Cancel");
+            return true;
+        }
+
+        return true;
+    }
+
+    return true;
+}
+
+static void renderFuncIOMenu(const AppState& st, SDL_Renderer* r, int w, int h) {
+    if (!st.funcIOMenuOpen) return;
+
+    SDL_SetRenderDrawColor(r, 0,0,0,170);
+    SDL_Rect full{0,0,w,h};
+    SDL_RenderFillRect(r, &full);
+
+    SDL_Rect box = funcIOMenuRect(w,h);
+    SDL_SetRenderDrawColor(r, 40,40,46,255);
+    SDL_RenderFillRect(r, &box);
+    SDL_SetRenderDrawColor(r, 200,200,200,255);
+    SDL_RenderDrawRect(r, &box);
+
+    SDL_Color white{240,240,240,255};
+    renderText(r, st.uiFont, "Function I/O Menu (Esc to close)", box.x + 20, box.y + 18, white);
+    renderText(r, st.uiFont, "Click each row to cycle options:", box.x + 20, box.y + 44, SDL_Color{200,200,200,255});
+
+    int bi = st.funcIOMenuBlockIndex;
+    string fn = "sqrt", inSel = "last", outSel = "last";
+    if (bi >= 0 && bi < (int)st.getActive().ws.blocks.size()) {
+        const Block& b = st.getActive().ws.blocks[bi];
+        fn = b.s1.empty() ? "sqrt" : b.s1;
+        inSel = b.inSel.empty() ? "last" : b.inSel;
+        outSel = b.outSel.empty() ? "last" : b.outSel;
+    }
+
+    SDL_Rect rowFn  = {box.x + 30, box.y + 80,  box.w - 60, 38};
+    SDL_Rect rowIn  = {box.x + 30, box.y + 126, box.w - 60, 38};
+    SDL_Rect rowOut = {box.x + 30, box.y + 172, box.w - 60, 38};
+
+    auto drawRow = [&](const SDL_Rect& rc, const string& title, const string& val) {
+        SDL_SetRenderDrawColor(r, 25,25,28,255);
+        SDL_RenderFillRect(r, &rc);
+        SDL_SetRenderDrawColor(r, 120,120,120,255);
+        SDL_RenderDrawRect(r, &rc);
+        renderText(r, st.uiFont, title + ": " + val, rc.x + 12, rc.y + 9, white);
+    };
+
+    drawRow(rowFn,  "Function", fn);
+    drawRow(rowIn,  "Input",    prettyIO(inSel));
+    drawRow(rowOut, "Output",   prettyIO(outSel));
+
+    SDL_Rect okBtn  = {box.x + box.w - 180, box.y + box.h - 60, 140, 40};
+    SDL_Rect canBtn = {box.x +  40,         box.y + box.h - 60, 140, 40};
+
+    SDL_SetRenderDrawColor(r, 60,140,70,255);
+    SDL_RenderFillRect(r, &okBtn);
+    SDL_SetRenderDrawColor(r, 140,60,60,255);
+    SDL_RenderFillRect(r, &canBtn);
+
+    SDL_SetRenderDrawColor(r, 20,20,20,255);
+    SDL_RenderDrawRect(r, &okBtn);
+    SDL_RenderDrawRect(r, &canBtn);
+
+    renderTextCentered(r, st.uiFont, "OK", okBtn, -6, white);
+    renderTextCentered(r, st.uiFont, "Enter", okBtn, +10, white);
+
+    renderTextCentered(r, st.uiFont, "Cancel", canBtn, -6, white);
+    renderTextCentered(r, st.uiFont, "Esc", canBtn, +10, white);
+}
+
+
+static Button makePaletteBtn(int x, int y, int w, const string& label, const string& sub, function<void()> cb) {
+    Button b;
+    b.rect = SDL_Rect{x, y, w, 34};
+    b.text = label;
+    b.sub = sub;
+    b.onPress = cb;
+    return b;
+}
+
+
+static bool isControlCmd(const string& c) {
+    return (c == "WAIT" || c == "REPEAT" || c == "END_REPEAT" ||
+            c == "FOREVER" || c == "END_FOREVER" ||
+            c == "IF" || c == "IFELSE" || c == "ELSE" || c == "END_IF" ||
+            c == "WAIT_UNTIL" || c == "REPEAT_UNTIL" || c == "STOP_ALL");
+}
+
+static bool isEventCmd(const string& c) {
+    return (c == "EVENT_FLAG" || c == "EVENT_KEY" || c == "EVENT_CLICK" ||
+            c == "BROADCAST" || c == "WHEN_RECEIVE");
+}
+
+static bool isLooksCmd(const string& c) {
+    return (c == "SAY" || c == "SAY_T" || c == "THINK" || c == "THINK_T" ||
+            c == "SHOW" || c == "HIDE" ||
+            c == "SIZE_SET" || c == "SIZE_CHANGE" ||
+            c == "FX_COLOR_SET" || c == "FX_COLOR_CHANGE" || c == "FX_CLEAR" ||
+            c == "COSTUME_SET" || c == "COSTUME_NEXT" ||
+            c == "BACKDROP_SET" || c == "BACKDROP_NEXT");
+}
+
+static bool isMotionCmd(const string& c) {
+    return (c == "MOVE" || c == "MOVE_STEPS" || c == "TURN_R" || c == "TURN_L" ||
+            c == "GOTO_XY" || c == "CHANGE_X" || c == "CHANGE_Y" ||
+            c == "SET_DIR" || c == "GOTO_RANDOM" || c == "GOTO_MOUSE" ||
+            c == "BOUNCE_EDGE");
+}
+
+static bool isSoundCmd(const string& c) {
+    return (c == "SOUND_PLAY" || c == "SOUND_PLAY_UNTIL" || c == "SOUND_STOP_ALL" ||
+            c == "SOUND_SET_VOL" || c == "SOUND_CHANGE_VOL");
+}
+
+static bool isSensingCmd(const string& c) {
+    return (c == "TOUCH_EDGE" || c == "TOUCH_MOUSE" || c == "DIST_MOUSE" ||
+            c == "KEY_PRESSED" || c == "MOUSE_DOWN" || c == "MOUSE_X" || c == "MOUSE_Y" ||
+            c == "ASK" || c == "ANSWER" ||
+            c == "TIMER" || c == "RESET_TIMER");
+}
+
+static bool isOperatorCmd(const string& c) {
+    return (c == "OP_ADD" || c == "OP_SUB" || c == "OP_MUL" || c == "DIV" ||
+            c == "OP_EQ" || c == "OP_LT" || c == "OP_GT" ||
+            c == "OP_AND" || c == "OP_OR" || c == "OP_NOT" ||
+            c == "OP_STRLEN" || c == "OP_LETTER" || c == "OP_JOIN");
+}
+
+static bool isVarCmd(const string& c) {
+    return (c == "VAR_SET_NUM" || c == "VAR_SET_STR" || c == "VAR_CHANGE" ||
+            c == "VAR_SHOW" || c == "VAR_HIDE" || c == "VAR_GET");
+}
+
+static bool isFuncCmd(const string& c) {
+    return (c == "FUNC_APPLY");
+}
+
+static bool isListCmd(const string& c) {
+    return (c == "LIST_ADD" || c == "LIST_DELETE" || c == "LIST_CLEAR" ||
+            c == "LIST_LENGTH" || c == "LIST_ITEM" || c == "LIST_CONTAINS" ||
+            c == "LIST_SHOW" || c == "LIST_HIDE");
+}
+
+static bool isCloneCmd(const string& c) {
+    return (c == "CLONE_CREATE" || c == "CLONE_DELETE_LAST" || c == "CLONE_CLEAR" || c == "CLONE_COUNT");
+}
+
+static void setBlockVisual(Block& b) {
+    if (isMotionCmd(b.cmd)) b.color = SDL_Color{60, 150, 220, 255};
+    else if (isLooksCmd(b.cmd)) b.color = SDL_Color{120, 90, 200, 255};
+    else if (isSoundCmd(b.cmd)) b.color = SDL_Color{190, 70, 170, 255};
+    else if (isEventCmd(b.cmd)) b.color = SDL_Color{220, 190, 60, 255};
+    else if (isControlCmd(b.cmd)) b.color = SDL_Color{220, 160, 60, 255};
+    else if (isSensingCmd(b.cmd)) b.color = SDL_Color{60, 200, 200, 255};
+    else if (isOperatorCmd(b.cmd)) b.color = SDL_Color{70, 160, 90, 255};
+    else if (isVarCmd(b.cmd)) b.color = SDL_Color{200, 140, 70, 255};
+    else if (isFuncCmd(b.cmd)) b.color = SDL_Color{80, 140, 160, 255}; // Section 5
+    else if (isListCmd(b.cmd)) b.color = SDL_Color{210, 110, 80, 255};   // Lists
+    else if (isCloneCmd(b.cmd)) b.color = SDL_Color{140, 140, 220, 255}; // Clones
+    else if (isPenCmd(b.cmd)) b.color = SDL_Color{40, 180, 90, 255};
+    else if (b.cmd == "SQRT") b.color = SDL_Color{150, 90, 200, 255};
+    else if (b.cmd == "LOOP") b.color = SDL_Color{220, 160, 60, 255};
+    else if (b.cmd == "DEFINE_FN" || b.cmd == "END_FN" || b.cmd == "CALL_FN" || b.cmd == "GET_PARAM") b.color = SDL_Color{255, 105, 180, 255}; // Pink My Blocks
+    else b.color = SDL_Color{80, 80, 90, 255};
+}
+
+static void addTypedBlock(AppState& st, const string& cmd, double a, double bb, const string& s1 = "", const string& s2 = "", int i1 = 0) {
+
+    int spawnX = st.in.mx - 120;
+    int spawnY = st.in.my - 26;
+    st.getActive().ws.addBlock(spawnX, spawnY);
+
+    if (!st.getActive().ws.blocks.empty()) {
+        Block& b = st.getActive().ws.blocks.back();
+        b.cmd = cmd;
+        b.a = a;
+        b.b = bb;
+        b.s1 = s1;
+        b.s2 = s2;
+        b.i1 = i1;
+        setBlockVisual(b);
+
+
+        b.dragging = true;
+        b.offX = st.in.mx - b.rect.x;
+        b.offY = st.in.my - b.rect.y;
+
+        st.log.info((int)st.getActive().ws.blocks.size() - 1, cmd, "Add & Drag block", "");
+    }
+}
+
+
+static void paletteAddCat(AppState& st, int y, const string& label) {
+    st.paletteCats.push_back({y, label});
+}
+
+static void rebuildPalette(AppState& st, int winW, int winH) {
+    (void)winW; (void)winH;
+    st.palette.clear();
+    st.paletteCats.clear();
+
+    int x = 10;
+    int w = LEFT_PANEL_W - 20;
+
+    int contentY = TOP_BAR_H + 64;
+    auto placeBtn = [&](const string& label, const string& sub, function<void()> cb) {
+        int drawY = contentY - st.paletteScroll;
+        st.palette.push_back(makePaletteBtn(x, drawY, w, label, sub, cb));
+        contentY += 42;
+    };
+
+    auto cat = [&](const string& label) {
+        paletteAddCat(st, contentY, label);
+        contentY += 28;
+    };
+
+    cat("Events");
+    placeBtn("when flag clicked", "", [&]{ addTypedBlock(st, "EVENT_FLAG", 0, 0); });
+    cat("Motion");
+    placeBtn("move 10 steps", "", [&]{ addTypedBlock(st, "MOVE_STEPS", 10.0, 0.0); });
+    placeBtn("turn right 15", "", [&]{ addTypedBlock(st, "TURN_R", 15.0, 0.0); });
+    placeBtn("turn left 15", "", [&]{ addTypedBlock(st, "TURN_L", 15.0, 0.0); });
+    placeBtn("go to x:100 y:100", "", [&]{ addTypedBlock(st, "GOTO_XY", 100.0, 100.0); });
+    placeBtn("change x by 10", "", [&]{ addTypedBlock(st, "CHANGE_X", 10.0, 0.0); });
+    placeBtn("change y by 10", "", [&]{ addTypedBlock(st, "CHANGE_Y", 10.0, 0.0); });
+    placeBtn("point dir 90", "", [&]{ addTypedBlock(st, "SET_DIR", 90.0, 0.0); });
+    placeBtn("go to random", "", [&]{ addTypedBlock(st, "GOTO_RANDOM", 0.0, 0.0); });
+    placeBtn("go to mouse", "", [&]{ addTypedBlock(st, "GOTO_MOUSE", 0.0, 0.0); });
+    placeBtn("if on edge, bounce", "", [&]{ addTypedBlock(st, "BOUNCE_EDGE", 0.0, 0.0); });
+
+    cat("Looks");
+    placeBtn("go to front layer", "", [&]{ addTypedBlock(st, "LAYER_FRONT", 0.0, 0.0); });
+    placeBtn("go to back layer", "", [&]{ addTypedBlock(st, "LAYER_BACK", 0.0, 0.0); });
+    placeBtn("go forward 1 layers", "", [&]{ addTypedBlock(st, "LAYER_FWD", 1.0, 0.0); });
+    placeBtn("go backward 1 layers", "", [&]{ addTypedBlock(st, "LAYER_BWD", 1.0, 0.0); });
+    placeBtn("say \"Hello\"", "", [&]{ addTypedBlock(st, "SAY", 0.0, 0.0, "Hello"); });
+    placeBtn("say \"Hi\" for 2s", "", [&]{ addTypedBlock(st, "SAY_T", 2.0, 0.0, "Hi"); });
+    placeBtn("think \"...\"", "", [&]{ addTypedBlock(st, "THINK", 0.0, 0.0, "..."); });
+    placeBtn("show", "", [&]{ addTypedBlock(st, "SHOW", 0.0, 0.0); });
+    placeBtn("hide", "", [&]{ addTypedBlock(st, "HIDE", 0.0, 0.0); });
+    placeBtn("set size to 100%", "", [&]{ addTypedBlock(st, "SIZE_SET", 100.0, 0.0); });
+    placeBtn("change size by 10", "", [&]{ addTypedBlock(st, "SIZE_CHANGE", 10.0, 0.0); });
+    placeBtn("set color effect 30", "", [&]{ addTypedBlock(st, "FX_COLOR_SET", 30.0, 0.0); });
+    placeBtn("change color effect 10", "", [&]{ addTypedBlock(st, "FX_COLOR_CHANGE", 10.0, 0.0); });
+    placeBtn("clear effects", "", [&]{ addTypedBlock(st, "FX_CLEAR", 0.0, 0.0); });
+
+    cat("Sound (minimal)");
+    placeBtn("play sound (pop)", "", [&]{ addTypedBlock(st, "SOUND_PLAY", 0.0, 0.0, "pop"); });
+    placeBtn("play sound until done", "", [&]{ addTypedBlock(st, "SOUND_PLAY_UNTIL", 0.0, 0.0, "pop"); });
+    placeBtn("stop all sounds", "", [&]{ addTypedBlock(st, "SOUND_STOP_ALL", 0.0, 0.0); });
+    placeBtn("set volume 80", "", [&]{ addTypedBlock(st, "SOUND_SET_VOL", 80.0, 0.0); });
+    placeBtn("change volume -10", "", [&]{ addTypedBlock(st, "SOUND_CHANGE_VOL", -10.0, 0.0); });
+
+    cat("Control");
+    placeBtn("wait 0.5s", "", [&]{ addTypedBlock(st, "WAIT", 0.5, 0.0); });
+    placeBtn("repeat 5", "", [&]{ addTypedBlock(st, "REPEAT", 5.0, 0.0); });
+    placeBtn("end repeat", "", [&]{ addTypedBlock(st, "END_REPEAT", 0.0, 0.0); });
+    placeBtn("forever", "", [&]{ addTypedBlock(st, "FOREVER", 0.0, 0.0); });
+    placeBtn("end forever", "", [&]{ addTypedBlock(st, "END_FOREVER", 0.0, 0.0); });
+    placeBtn("if (uses last op)", "", [&]{ addTypedBlock(st, "IF", 0.0, 0.0); });
+    placeBtn("if/else (uses last op)", "", [&]{ addTypedBlock(st, "IFELSE", 0.0, 0.0); });
+    placeBtn("else", "", [&]{ addTypedBlock(st, "ELSE", 0.0, 0.0); });
+    placeBtn("end if", "", [&]{ addTypedBlock(st, "END_IF", 0.0, 0.0); });
+    placeBtn("wait until (last op)", "", [&]{ addTypedBlock(st, "WAIT_UNTIL", 0.0, 0.0); });
+    placeBtn("repeat until (last op)", "", [&]{ addTypedBlock(st, "REPEAT_UNTIL", 0.0, 0.0); });
+    placeBtn("stop all (script)", "", [&]{ addTypedBlock(st, "STOP_ALL", 0.0, 0.0); });
+
+    cat("Sensing");
+    placeBtn("touching [Sprite 2]?", "Shift+Click edit", [&]{ addTypedBlock(st, "TOUCH_SPRITE", 0.0, 0.0, "Sprite 2"); });
+    placeBtn("touching edge?", "", [&]{ addTypedBlock(st, "TOUCH_EDGE", 0.0, 0.0); });
+    placeBtn("touching mouse?", "", [&]{ addTypedBlock(st, "TOUCH_MOUSE", 0.0, 0.0); });
+    placeBtn("distance to mouse", "", [&]{ addTypedBlock(st, "DIST_MOUSE", 0.0, 0.0); });
+    placeBtn("key (Space) pressed?", "", [&]{ addTypedBlock(st, "KEY_PRESSED", 0.0, 0.0, "", "", (int)SDL_SCANCODE_SPACE); });
+    placeBtn("mouse down?", "", [&]{ addTypedBlock(st, "MOUSE_DOWN", 0.0, 0.0); });
+    placeBtn("mouse x", "", [&]{ addTypedBlock(st, "MOUSE_X", 0.0, 0.0); });
+    placeBtn("mouse y", "", [&]{ addTypedBlock(st, "MOUSE_Y", 0.0, 0.0); });
+    placeBtn("ask \"Name?\"", "", [&]{ addTypedBlock(st, "ASK", 0.0, 0.0, "Name?"); });
+    placeBtn("answer", "", [&]{ addTypedBlock(st, "ANSWER", 0.0, 0.0); });
+    placeBtn("timer", "", [&]{ addTypedBlock(st, "TIMER", 0.0, 0.0); });
+    placeBtn("reset timer", "", [&]{ addTypedBlock(st, "RESET_TIMER", 0.0, 0.0); });
+
+    cat("Operators");
+    placeBtn("add (3+4)", "", [&]{ addTypedBlock(st, "OP_ADD", 3.0, 4.0); });
+    placeBtn("sub (10-2)", "", [&]{ addTypedBlock(st, "OP_SUB", 10.0, 2.0); });
+    placeBtn("mul (6*7)", "", [&]{ addTypedBlock(st, "OP_MUL", 6.0, 7.0); });
+    placeBtn("div (10/2)", "", [&]{ addTypedBlock(st, "DIV", 10.0, 2.0); });
+    placeBtn("eq (5==5)", "", [&]{ addTypedBlock(st, "OP_EQ", 5.0, 5.0); });
+    placeBtn("lt (3<9)", "", [&]{ addTypedBlock(st, "OP_LT", 3.0, 9.0); });
+    placeBtn("gt (9>3)", "", [&]{ addTypedBlock(st, "OP_GT", 9.0, 3.0); });
+    placeBtn("and (1 and 0)", "", [&]{ addTypedBlock(st, "OP_AND", 1.0, 0.0); });
+    placeBtn("or (0 or 1)", "", [&]{ addTypedBlock(st, "OP_OR", 0.0, 1.0); });
+    placeBtn("not (0)", "", [&]{ addTypedBlock(st, "OP_NOT", 0.0, 0.0); });
+    placeBtn("len(\"abc\")", "", [&]{ addTypedBlock(st, "OP_STRLEN", 0.0, 0.0, "abc"); });
+    placeBtn("letter 2 of \"abc\"", "", [&]{ addTypedBlock(st, "OP_LETTER", 2.0, 0.0, "abc"); });
+    placeBtn("join \"a\" \"b\"", "", [&]{ addTypedBlock(st, "OP_JOIN", 0.0, 0.0, "a", "b"); });
+
+    // ===== Section 5: Functions =====
+    cat("Functions");
+    placeBtn("apply function (sqrt)", "Shift+Click edit I/O", [&]{
+        addTypedBlock(st, "FUNC_APPLY", 0.0, 0.0, "sqrt");
+        if (!st.getActive().ws.blocks.empty()) {
+            Block& b = st.getActive().ws.blocks.back();
+            b.inSel = "last";
+            b.outSel = "last";
+            setBlockVisual(b);
+        }
+    });
+
+    cat("Variables");
+    placeBtn("set v = 10", "Shift+Click cycle name", [&]{ addTypedBlock(st, "VAR_SET_NUM", 10.0, 0.0, "v"); });
+    placeBtn("set msg = \"hi\"", "Shift+Click cycle name", [&]{ addTypedBlock(st, "VAR_SET_STR", 0.0, 0.0, "msg", "hi"); });
+    placeBtn("change v by 1", "Shift+Click cycle name", [&]{ addTypedBlock(st, "VAR_CHANGE", 1.0, 0.0, "v"); });
+    placeBtn("show v", "", [&]{ addTypedBlock(st, "VAR_SHOW", 0.0, 0.0, "v"); });
+    placeBtn("hide v", "", [&]{ addTypedBlock(st, "VAR_HIDE", 0.0, 0.0, "v"); });
+    placeBtn("get v (to last)", "Shift+Click cycle name", [&]{ addTypedBlock(st, "VAR_GET", 0.0, 0.0, "v"); });
+
+    cat("Lists");
+    placeBtn("add \"hi\" to list", "Shift+Click cycle name", [&]{ addTypedBlock(st, "LIST_ADD", 0.0, 0.0, "list", "hi"); });
+    placeBtn("add 1 to list", "Shift+Click cycle name", [&]{ addTypedBlock(st, "LIST_ADD", 1.0, 0.0, "list", ""); });
+    placeBtn("delete 1 of list", "Shift+Click cycle name", [&]{ addTypedBlock(st, "LIST_DELETE", 1.0, 0.0, "list"); });
+    placeBtn("clear list", "Shift+Click cycle name", [&]{ addTypedBlock(st, "LIST_CLEAR", 0.0, 0.0, "list"); });
+    placeBtn("length of list (to last)", "Shift+Click cycle name", [&]{ addTypedBlock(st, "LIST_LENGTH", 0.0, 0.0, "list"); });
+    placeBtn("item 1 of list (to last)", "Shift+Click cycle name", [&]{ addTypedBlock(st, "LIST_ITEM", 1.0, 0.0, "list"); });
+    placeBtn("list contains \"hi\"? (to last)", "Shift+Click cycle name", [&]{ addTypedBlock(st, "LIST_CONTAINS", 0.0, 0.0, "list", "hi"); });
+    placeBtn("show list", "Shift+Click cycle name", [&]{ addTypedBlock(st, "LIST_SHOW", 0.0, 0.0, "list"); });
+    placeBtn("hide list", "Shift+Click cycle name", [&]{ addTypedBlock(st, "LIST_HIDE", 0.0, 0.0, "list"); });
+
+    cat("Clones");
+    placeBtn("create clone", "", [&]{ addTypedBlock(st, "CLONE_CREATE", 0.0, 0.0); });
+    placeBtn("delete last clone", "", [&]{ addTypedBlock(st, "CLONE_DELETE_LAST", 0.0, 0.0); });
+    placeBtn("clear clones", "", [&]{ addTypedBlock(st, "CLONE_CLEAR", 0.0, 0.0); });
+    placeBtn("clone count (to last)", "", [&]{ addTypedBlock(st, "CLONE_COUNT", 0.0, 0.0); });
+
+
