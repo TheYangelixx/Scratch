@@ -3763,3 +3763,113 @@ static StepResult executeOneBlock(AppState& st, Sprite& sp) {
         sp.scriptPC++;
         return StepResult::Advanced;
     }
+
+    st.log.warn(idx, cmd, "Unknown cmd skipped", "");
+    sp.scriptPC++;
+    return StepResult::Advanced;
+}
+
+static void runScriptTick(AppState& st) {
+    if (st.isPaused) return;
+    uint32_t now = SDL_GetTicks();
+    if (st.runSpeedMs > 0 && now < st.nextStepAtMs) return;
+
+    bool anyRan = false;
+    for (auto& sp : st.sprites) {
+        if (!sp.scriptRunning) continue;
+        executeOneBlock(st, sp);
+        anyRan = true;
+    }
+
+    if (anyRan && st.runSpeedMs > 0) st.nextStepAtMs = SDL_GetTicks() + st.runSpeedMs;
+}
+static void setupUI(AppState& st) {
+    st.buttons.clear();
+
+    auto mkBtn = [&](int x, int w, const string& label, const string& sub, function<void()> cb) {
+        Button b;
+        b.rect = SDL_Rect{x, 8, w, TOP_BAR_H - 16};
+        b.text = label;
+        b.sub = sub;
+        b.onClick = cb;
+        return b;
+    };
+
+    int x = 10;
+
+    st.buttons.push_back(mkBtn(x, 90, "New", "Ctrl+N", [&] {
+        st.getActive().ws.reset();
+        st.penDown = false;
+        penClearAll(st);
+        st.log.log("NEW", "Reset workspace");
+    }));
+    x += 100;
+
+    st.buttons.push_back(mkBtn(x, 90, "Save", "Ctrl+S", [&] {
+        beginSaveDialog(st);
+        st.log.log("UI", "Open Save dialog");
+    }));
+    x += 100;
+
+    st.buttons.push_back(mkBtn(x, 90, "Load", "Ctrl+O", [&] {
+        beginLoadDialog(st);
+        st.log.log("UI", "Open Load dialog");
+    }));
+    x += 100;
+
+    st.buttons.push_back(mkBtn(x, 110, "Add Block", "B", [&] {
+        st.getActive().ws.addBlock(st.getActive().ws.bounds.x + 60, st.getActive().ws.bounds.y + 60);
+        if (!st.getActive().ws.blocks.empty()) {
+            Block& b = st.getActive().ws.blocks.back();
+            b.cmd = "MOVE_STEPS"; b.a = 10.0;
+            setBlockVisual(b);
+        }
+        st.log.log("ADD", "Added block");
+    }));
+    x += 120;
+
+    st.buttons.push_back(mkBtn(x, 120, "Extensions", "E", [&] {
+        openExtensionLibrary(st);
+    }));
+    x += 130;
+
+    st.buttons.push_back(mkBtn(x, 90, "Help", "H", [&] {
+        st.helpMenuOpen = !st.helpMenuOpen;
+        st.log.info(-1, "HELP", st.helpMenuOpen ? "Open menu" : "Close menu", "");
+    }));
+    st.helpButtonRect = st.buttons.back().rect;
+    x += 100;
+
+    st.buttons.push_back(mkBtn(x, 110, "Settings", "P", [&] {
+        openSettings(st);
+    }));
+    x += 120;
+
+    st.buttons.push_back(mkBtn(x, 70, "Run", "F5", [&] {
+        st.isPaused = false;
+        startScript(st);
+    }));
+    x += 80;
+
+    st.buttons.push_back(mkBtn(x, 75, "Pause", "F7", [&] {
+        st.isPaused = true;
+        st.log.log("RUN", "Paused");
+    }));
+    x += 85;
+
+    st.buttons.push_back(mkBtn(x, 85, "Resume", "F8", [&] {
+        st.isPaused = false;
+        st.log.log("RUN", "Resumed");
+    }));
+    x += 95;
+
+    st.buttons.push_back(mkBtn(x, 70, "Stop", "F6", [&] {
+        st.isPaused = false;
+        for (auto& s : st.sprites) stopScript(st, s, "User stop (F6)");
+    }));
+    x += 80;
+
+    st.buttons.push_back(mkBtn(x, 70, "Quit", "Esc", [&] {
+        st.quit = true;
+    }));
+}
