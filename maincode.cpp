@@ -2763,5 +2763,44 @@ static SDL_Rect helpMenuItemRect(const SDL_Rect& menu, int i) {
     SDL_Rect r = {menu.x + 5, menu.y + 5 + i * 32, menu.w - 10, 28};
     return r;
 }
+static bool updateHelpMenu(AppState& st) {
+    if (!st.helpMenuOpen) return false;
+
+    SDL_Rect menu = helpMenuRect(st);
+
+    if (st.in.mousePressed) {
+        if (!pointInRect(st.in.mx, st.in.my, menu)) {
+            st.helpMenuOpen = false;
+            st.log.info(-1, "HELP", "Close menu", "");
+            return true;
+        }
+
+        SDL_Rect i0 = helpMenuItemRect(menu, 0);
+        SDL_Rect i1 = helpMenuItemRect(menu, 1);
+        SDL_Rect i2 = helpMenuItemRect(menu, 2);
+
+        if (pointInRect(st.in.mx, st.in.my, i0)) {
+            st.showLogsPanel = !st.showLogsPanel;
+            st.logsScroll = 0;
+            st.helpMenuOpen = false;
+            st.log.info(-1, "HELP", "Show Logs", st.showLogsPanel ? "ON" : "OFF");
+            return true;
+        }
+        if (pointInRect(st.in.mx, st.in.my, i1)) {
+            st.log.clear();
+            st.helpMenuOpen = false;
+            st.log.info(-1, "HELP", "Clear Logs", "done");
+            return true;
+        }
+        if (pointInRect(st.in.mx, st.in.my, i2)) {
+            st.debugStepMode = !st.debugStepMode;
+            st.helpMenuOpen = false;
+            st.log.info(-1, "HELP", "Toggle Step-by-Step", st.debugStepMode ? "ON" : "OFF");
+            return true;
+        }
+    }
+
+    return false;
+}
 
 
